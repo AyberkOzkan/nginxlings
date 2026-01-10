@@ -1,0 +1,17 @@
+# runtime / local state
+.nginxlings_state.json
+
+# build output
+/bin/nginxlings
+
+# exercise runtime artifacts
+**/logs/
+**/.check_body
+**/.check_body*
+**/response.html
+**/nginx_test.log
+**/*.pid
+
+# OS/editor
+.DS_Store
+EOF
