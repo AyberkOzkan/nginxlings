@@ -1,0 +1,12 @@
+{
+  "zones": {
+    "sync_zone": {
+      "state": "in_sync",
+      "last_sync": "2025-12-07T00:00:00Z",
+      "peers": [
+        { "id": 1, "address": "10.0.0.10:9000", "status": "ok" },
+        { "id": 2, "address": "10.0.0.11:9000", "status": "ok" }
+      ]
+    }
+  }
+}
