@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+DOCKER_BIN="${DOCKER_BIN:-docker}"
+
 IMAGE_NAME="${IMAGE_NAME:-nginxlings_ex13_include_modular}"
 CONTAINER_NAME="${CONTAINER_NAME:-nginxlings_ex13_include_modular_run}"
 HOST_PORT="${HOST_PORT:-18130}"
+
+PREFIX="$(pwd)"
+
+TMP_T=""
+CONF_T=""
+BUILT_IMAGE="0"
 
 fail() {
   echo "[FAIL] $*"
@@ -14,10 +22,24 @@ info() {
   echo "$@"
 }
 
-PREFIX="$(pwd)"
+cleanup() {
+  set +e
 
-command -v docker >/dev/null 2>&1 || fail "docker not found in PATH."
-command -v curl  >/dev/null 2>&1 || fail "curl not found in PATH."
+  [ -n "${TMP_T}" ] && rm -f "${TMP_T}" >/dev/null 2>&1 || true
+  [ -n "${CONF_T}" ] && rm -f "${CONF_T}" >/dev/null 2>&1 || true
+
+  "${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+
+  if [ "${BUILT_IMAGE}" = "1" ]; then
+    "${DOCKER_BIN}" image rm -f "${IMAGE_NAME}" >/dev/null 2>&1 || true
+  fi
+
+  "${DOCKER_BIN}" builder prune -f >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+command -v "${DOCKER_BIN}" >/dev/null 2>&1 || fail "docker not found in PATH."
+command -v curl >/dev/null 2>&1 || fail "curl not found in PATH."
 
 # Minimal expected files (student edits these)
 [ -f "${PREFIX}/Dockerfile" ] || fail "Dockerfile not found in ${PREFIX}"
@@ -27,27 +49,25 @@ command -v curl  >/dev/null 2>&1 || fail "curl not found in PATH."
 [ -f "${PREFIX}/server.d/30-modular-extra.conf" ] || fail "server.d/30-modular-extra.conf not found"
 
 info "[1/7] Building Docker image..."
-docker build -t "${IMAGE_NAME}" "${PREFIX}" >/dev/null
+DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build -t "${IMAGE_NAME}" "${PREFIX}" >/dev/null 2>&1 \
+  || fail "docker build failed."
+BUILT_IMAGE="1"
 
 info "[2/7] Testing nginx config inside the image (nginx -t)..."
 TMP_T="$(mktemp)"
-if ! docker run --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
+if ! "${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
   echo "nginx -t output:"
   cat "${TMP_T}" || true
-  rm -f "${TMP_T}"
   fail "nginx -t failed."
 fi
-rm -f "${TMP_T}"
+rm -f "${TMP_T}" >/dev/null 2>&1 || true
+TMP_T=""
 info "[OK] nginx -t succeeded."
 
 info "[3/7] Starting container..."
-docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-docker run -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null
-
-cleanup() {
-  docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
+"${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+"${DOCKER_BIN}" run -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null \
+  || fail "Failed to start container."
 
 sleep 1
 
@@ -78,48 +98,41 @@ info "[OK] GET /modular2 -> include2-ok"
 
 info "[5/7] Extracting effective config (nginx -T)..."
 CONF_T="$(mktemp)"
-if ! docker exec "${CONTAINER_NAME}" sh -lc "nginx -T 2>&1" > "${CONF_T}"; then
+if ! "${DOCKER_BIN}" exec "${CONTAINER_NAME}" sh -lc "nginx -T 2>&1" > "${CONF_T}"; then
   echo "nginx -T output (first 160 lines):"
   sed -n '1,160p' "${CONF_T}" || true
-  rm -f "${CONF_T}"
   fail "Could not run nginx -T inside container."
 fi
 
 info "[6/7] Validating include directives in effective config..."
 
-# http context include (conf.d)
 grep -qE '^[[:space:]]*include[[:space:]]+/etc/nginx/conf\.d/\*\.conf;' "${CONF_T}" || {
   echo "nginx -T (first 160 lines):"
   sed -n '1,160p' "${CONF_T}" || true
-  rm -f "${CONF_T}"
   fail "Missing: include /etc/nginx/conf.d/*.conf; (must be in http{})."
 }
 
-# server context include (server.d)
 grep -qE '^[[:space:]]*include[[:space:]]+/etc/nginx/server\.d/\*\.conf;' "${CONF_T}" || {
   echo "nginx -T (first 200 lines):"
   sed -n '1,200p' "${CONF_T}" || true
-  rm -f "${CONF_T}"
   fail "Missing: include /etc/nginx/server.d/*.conf; (must be in server{})."
 }
 
 info "[OK] include directives found."
 
 info "[7/7] Validating that modular files are actually loaded..."
-# We validate by searching for the location paths in the effective config output.
 grep -qE 'location[[:space:]]+/modular([[:space:]]*|\{)' "${CONF_T}" || {
   echo "nginx -T (search hint): /modular location not found."
-  rm -f "${CONF_T}"
   fail "Location /modular not found in effective config. Is server.d/20-modular.conf included?"
 }
 
 grep -qE 'location[[:space:]]+/modular2([[:space:]]*|\{)' "${CONF_T}" || {
   echo "nginx -T (search hint): /modular2 location not found."
-  rm -f "${CONF_T}"
   fail "Location /modular2 not found in effective config. Is server.d/30-modular-extra.conf included?"
 }
 
-rm -f "${CONF_T}"
+rm -f "${CONF_T}" >/dev/null 2>&1 || true
+CONF_T=""
 info "[OK] modular locations found in effective config."
 
 echo
