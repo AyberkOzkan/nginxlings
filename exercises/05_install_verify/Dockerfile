@@ -1,5 +1,5 @@
 # Exercise 05 - Install & Verify from Official Repo
-# Config language policy: English.
+
 
 FROM debian:stable-slim
 
