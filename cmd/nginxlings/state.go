@@ -24,15 +24,7 @@ func defaultState() *AppState {
 	}
 }
 
-func stateFile(baseDir string) string {
-	// Proje kökünde gizli bir JSON dosyası:
-	//   /home/.../nginxlings/.nginxlings_state.json
-	return filepath.Join(baseDir, ".nginxlings_state.json")
-}
-
-func LoadState(baseDir string) (*AppState, error) {
-	path := stateFile(baseDir)
-
+func LoadState(path string) (*AppState, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -54,7 +46,7 @@ func LoadState(baseDir string) (*AppState, error) {
 	return st, nil
 }
 
-func (s *AppState) Save(baseDir string) error {
+func (s *AppState) Save(path string) error {
 	if s == nil {
 		return nil
 	}
@@ -67,7 +59,9 @@ func (s *AppState) Save(baseDir string) error {
 		return fmt.Errorf("state marshal hatası: %w", err)
 	}
 
-	path := stateFile(baseDir)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("state dizini oluşturulamadı: %w", err)
+	}
 	if err := os.WriteFile(path, b, 0o644); err != nil {
 		return fmt.Errorf("state yazılamadı: %w", err)
 	}

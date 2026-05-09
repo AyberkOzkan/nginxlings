@@ -46,8 +46,8 @@ type model struct {
 	styles  Styles
 
 	// Kalıcı state için
-	rootDir string
-	state   *AppState
+	paths AppPaths
+	state *AppState
 
 	// Reset onayı için
 	confirmReset bool
@@ -117,22 +117,34 @@ func (m *model) initialStatusText() string {
 /* ---------- Model başlangıcı ---------- */
 
 func initialModel() model {
-	baseDir, err := os.Getwd()
-
-	// i18n yükle
-	i18n, i18nErr := LoadI18n(baseDir)
-
-	// state yükle
-	state, stateErr := LoadState(baseDir)
+	paths, pathsErr := ResolveAppPaths()
 
 	m := model{
-		i18n:      i18n,
 		langIndex: 0,
 		spinner:   newSpinner(),
 		styles:    DefaultStyles(),
-		rootDir:   baseDir,
-		state:     state,
+		paths:     paths,
 	}
+
+	// README viewport
+	vp := viewport.New(0, 0)
+	defaultReadme := "Select an exercise and read the instructions here."
+	vp.SetContent(defaultReadme)
+	m.readme = vp
+
+	if pathsErr != nil {
+		m.status = fmt.Sprintf("Uygulama yolları çözülemedi: %v", pathsErr)
+		return m
+	}
+
+	// i18n yükle
+	i18n, i18nErr := LoadI18n(paths.AssetRoot)
+
+	// state yükle
+	state, stateErr := LoadState(paths.StateFile)
+
+	m.i18n = i18n
+	m.state = state
 
 	m.langIndex = 0
 	if m.i18n != nil {
@@ -144,19 +156,11 @@ func initialModel() model {
 		}
 	}
 
-	// README viewport
-	vp := viewport.New(0, 0)
-	defaultReadme := "Select an exercise and read the instructions here."
 	if i18n != nil {
 		defaultReadme = i18n.T(m.currentLangCode(), "readme_initial", defaultReadme)
 	}
 	vp.SetContent(defaultReadme)
 	m.readme = vp
-
-	if err != nil {
-		m.status = fmt.Sprintf("Çalışma dizini okunamadı: %v", err)
-		return m
-	}
 
 	if i18nErr != nil {
 		m.status = fmt.Sprintf("i18n yüklenemedi: %v", i18nErr)
@@ -165,7 +169,7 @@ func initialModel() model {
 		m.status = fmt.Sprintf("State yüklenemedi: %v", stateErr)
 	}
 
-	exercises, exercisesErr := LoadExercises(baseDir)
+	exercises, exercisesErr := LoadExercises(paths.AssetRoot)
 	if exercisesErr != nil && m.status == "" {
 		m.status = fmt.Sprintf("Egzersizler yüklenemedi: %v", exercisesErr)
 	}

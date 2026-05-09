@@ -88,7 +88,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.state != nil {
 					m.state.Completed = make(map[string]bool)
 					m.state.LastExerciseID = ""
-					if err := m.state.Save(m.rootDir); err != nil {
+					if err := m.state.Save(m.paths.StateFile); err != nil {
 						m.status = fmt.Sprintf("Reset kaydedilemedi: %v", err)
 					} else {
 						m.status = "İlerleme sıfırlandı."
@@ -206,7 +206,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Dil tercihini state'e yaz
 				if m.state != nil {
 					m.state.LangCode = m.currentLangCode()
-					_ = m.state.Save(m.rootDir)
+					_ = m.state.Save(m.paths.StateFile)
 				}
 			}
 
@@ -238,7 +238,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.state.Completed[ex.ID] = success
 				m.state.LastExerciseID = ex.ID
-				if err := m.state.Save(m.rootDir); err != nil {
+				if err := m.state.Save(m.paths.StateFile); err != nil {
 					if out != "" {
 						out = out + fmt.Sprintf("\n[state save error: %v]", err)
 					} else {
