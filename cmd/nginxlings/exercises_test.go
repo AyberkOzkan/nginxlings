@@ -123,6 +123,64 @@ func TestLoadExercisesUsesManifestDefaultName(t *testing.T) {
 	}
 }
 
+func TestLoadExercisesManifestOmittingDirectoryUsesFallbackTitle(t *testing.T) {
+	root := newExerciseRoot(t)
+	createExercise(t, root, "01_static_server")
+	createExercise(t, root, "02_config_layout")
+	writeManifest(t, root, `{
+  "exercises": [
+    {
+      "id": "01_static_server",
+      "default_name": "01 - Custom Title"
+    }
+  ]
+}`)
+
+	exercises, err := LoadExercises(root)
+	if err != nil {
+		t.Fatalf("LoadExercises() error = %v", err)
+	}
+	if got, want := exercises[0].DefaultName, "01 - Custom Title"; got != want {
+		t.Fatalf("first DefaultName = %q, want %q", got, want)
+	}
+	if got, want := exercises[1].DefaultName, "02 - Config Layout"; got != want {
+		t.Fatalf("second DefaultName = %q, want fallback %q", got, want)
+	}
+}
+
+func TestLoadExercisesBrokenManifestReturnsClearError(t *testing.T) {
+	root := newExerciseRoot(t)
+	createExercise(t, root, "01_static_server")
+	writeManifest(t, root, `{bad json`)
+
+	_, err := LoadExercises(root)
+	if err == nil || !strings.Contains(err.Error(), "exercise manifest cannot be parsed") {
+		t.Fatalf("LoadExercises() error = %v, want manifest parse error", err)
+	}
+}
+
+func TestLoadExercisesManifestReferencesMissingDirectory(t *testing.T) {
+	root := newExerciseRoot(t)
+	createExercise(t, root, "01_static_server")
+	writeManifest(t, root, `{
+  "exercises": [
+    {
+      "id": "01_static_server",
+      "default_name": "01 - Custom Title"
+    },
+    {
+      "id": "02_missing",
+      "default_name": "02 - Missing"
+    }
+  ]
+}`)
+
+	_, err := LoadExercises(root)
+	if err == nil || !strings.Contains(err.Error(), `references missing directory "02_missing"`) {
+		t.Fatalf("LoadExercises() error = %v, want missing manifest directory error", err)
+	}
+}
+
 func TestLoadExercisesFallsBackToTitleFromDirectoryName(t *testing.T) {
 	root := newExerciseRoot(t)
 	createExercise(t, root, "01_static_server")

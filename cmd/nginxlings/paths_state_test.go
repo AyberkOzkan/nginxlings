@@ -144,6 +144,27 @@ func TestLoadStateCorruptJSONReturnsDefaultAndError(t *testing.T) {
 	}
 }
 
+func TestLoadStatePartialJSONInitializesCompletedMap(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	if err := os.WriteFile(path, []byte(`{"last_exercise_id":"02_config_layout","lang_code":"tr"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	state, err := LoadState(path)
+	if err != nil {
+		t.Fatalf("LoadState() error = %v", err)
+	}
+	if state.Completed == nil {
+		t.Fatalf("Completed = nil, want initialized map")
+	}
+	if state.LastExerciseID != "02_config_layout" {
+		t.Fatalf("LastExerciseID = %q, want 02_config_layout", state.LastExerciseID)
+	}
+	if state.LangCode != "tr" {
+		t.Fatalf("LangCode = %q, want tr", state.LangCode)
+	}
+}
+
 func TestResolveAppPathsFindsAssetRootFromRepoWorkDir(t *testing.T) {
 	root := newAppAssetRoot(t)
 	workDir := filepath.Join(root, "cmd", "nginxlings")
