@@ -13,15 +13,7 @@ import (
 
 func runCheck(index int, ex Exercise) tea.Cmd {
 	return func() tea.Msg {
-		cmd := exec.Command("./check.sh")
-		cmd.Dir = ex.Path
-
-		var buf bytes.Buffer
-		cmd.Stdout = &buf
-		cmd.Stderr = &buf
-
-		err := cmd.Run()
-		out := buf.String()
+		out, err := runExerciseCheck(ex)
 
 		return checkResultMsg{
 			output: out,
@@ -29,6 +21,18 @@ func runCheck(index int, ex Exercise) tea.Cmd {
 			index:  index,
 		}
 	}
+}
+
+func runExerciseCheck(ex Exercise) (string, error) {
+	cmd := exec.Command("./check.sh")
+	cmd.Dir = ex.Path
+
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+
+	err := cmd.Run()
+	return buf.String(), err
 }
 
 /* ---------- Bubble Tea Update ---------- */

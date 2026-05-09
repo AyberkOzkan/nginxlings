@@ -36,6 +36,15 @@ func ResolveAppPaths() (AppPaths, error) {
 	return resolveAppPaths(workDir, executable, os.Getenv)
 }
 
+func ResolveAppPathsWithOptions(assetRoot, stateFile string) (AppPaths, error) {
+	workDir, err := os.Getwd()
+	if err != nil {
+		return AppPaths{}, fmt.Errorf("working directory cannot be read: %w", err)
+	}
+	executable, _ := os.Executable()
+	return resolveAppPaths(workDir, executable, envOverlay(assetRoot, stateFile))
+}
+
 func resolveAppPaths(workDir, executable string, getenv func(string) string) (AppPaths, error) {
 	assetRoot, err := resolveAssetRoot(workDir, executable, getenv)
 	if err != nil {

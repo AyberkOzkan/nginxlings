@@ -118,7 +118,28 @@ func (m *model) initialStatusText() string {
 
 func initialModel() model {
 	paths, pathsErr := ResolveAppPaths()
+	if pathsErr != nil {
+		return initialModelWithPathError(paths, pathsErr)
+	}
+	return initialModelWithOptions(paths, "")
+}
 
+func initialModelWithPathError(paths AppPaths, pathsErr error) model {
+	m := model{
+		langIndex: 0,
+		spinner:   newSpinner(),
+		styles:    DefaultStyles(),
+		paths:     paths,
+	}
+
+	vp := viewport.New(0, 0)
+	vp.SetContent("Select an exercise and read the instructions here.")
+	m.readme = vp
+	m.status = fmt.Sprintf("Uygulama yolları çözülemedi: %v", pathsErr)
+	return m
+}
+
+func initialModelWithOptions(paths AppPaths, initialLang string) model {
 	m := model{
 		langIndex: 0,
 		spinner:   newSpinner(),
@@ -131,11 +152,6 @@ func initialModel() model {
 	defaultReadme := "Select an exercise and read the instructions here."
 	vp.SetContent(defaultReadme)
 	m.readme = vp
-
-	if pathsErr != nil {
-		m.status = fmt.Sprintf("Uygulama yolları çözülemedi: %v", pathsErr)
-		return m
-	}
 
 	// i18n yükle
 	i18n, i18nErr := LoadI18n(paths.AssetRoot)
@@ -155,7 +171,6 @@ func initialModel() model {
 			}
 		}
 	}
-
 	if i18n != nil {
 		defaultReadme = i18n.T(m.currentLangCode(), "readme_initial", defaultReadme)
 	}
@@ -199,6 +214,14 @@ func initialModel() model {
 	if m.i18n != nil && m.state != nil && m.state.LangCode != "" {
 		for i, meta := range m.i18n.Langs() {
 			if meta.Code == m.state.LangCode {
+				m.langIndex = i
+				break
+			}
+		}
+	}
+	if m.i18n != nil && initialLang != "" {
+		for i, meta := range m.i18n.Langs() {
+			if meta.Code == initialLang {
 				m.langIndex = i
 				break
 			}
