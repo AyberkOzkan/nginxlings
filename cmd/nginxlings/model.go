@@ -165,7 +165,10 @@ func initialModel() model {
 		m.status = fmt.Sprintf("State yüklenemedi: %v", stateErr)
 	}
 
-	exercises := LoadExercises(baseDir)
+	exercises, exercisesErr := LoadExercises(baseDir)
+	if exercisesErr != nil && m.status == "" {
+		m.status = fmt.Sprintf("Egzersizler yüklenemedi: %v", exercisesErr)
+	}
 
 	// State'ten tamamlananları işaretle
 	if m.state != nil && m.state.Completed != nil {

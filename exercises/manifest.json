@@ -1,0 +1,76 @@
+{
+  "exercises": [
+    {
+      "id": "01_static_server",
+      "default_name": "01 - Basit Statik Nginx Sunucusu"
+    },
+    {
+      "id": "02_config_layout",
+      "default_name": "02 - Config Layout ve Default Paths"
+    },
+    {
+      "id": "03_context_hierarchy",
+      "default_name": "03 - Context Hiyerarşisi (main/http/server/location)"
+    },
+    {
+      "id": "04_worker_user",
+      "default_name": "04 - Worker User ve İzinler"
+    },
+    {
+      "id": "05_install_verify",
+      "default_name": "05 - Kurulum ve Doğrulama (nginx -t / -T)"
+    },
+    {
+      "id": "06_reverse_proxy",
+      "default_name": "06 - HTTP Reverse Proxy Temelleri"
+    },
+    {
+      "id": "07_http_load_balancer",
+      "default_name": "07 - HTTP Load Balancer (Layer 7)"
+    },
+    {
+      "id": "08_stream_load_balancer",
+      "default_name": "08 - TCP/UDP Load Balancer (stream, Layer 4)"
+    },
+    {
+      "id": "09_shared_zones_basics",
+      "default_name": "09 - Shared Memory Zones Temelleri"
+    },
+    {
+      "id": "10_upstream_status_zone",
+      "default_name": "10 - Upstream Status için zone up_mem"
+    },
+    {
+      "id": "11_zone_sync_api",
+      "default_name": "11 - Zone Sync ve API ile Durum Sorgulama"
+    },
+    {
+      "id": "12_logs_and_variables",
+      "default_name": "12 - Loglar ve Değişkenler"
+    },
+    {
+      "id": "13_include_modular_config",
+      "default_name": "13 - include Directive ve Modüler Config"
+    },
+    {
+      "id": "14_multi_domain_static",
+      "default_name": "14 - Birden Fazla Domain ile Statik Site"
+    },
+    {
+      "id": "15_https_tls",
+      "default_name": "15 - HTTPS (TLS) Quick Lab"
+    },
+    {
+      "id": "16_shared_zone_sizing",
+      "default_name": "16 - Shared Memory Zone Boyutlandırma"
+    },
+    {
+      "id": "17_verify_nginx_user",
+      "default_name": "17 - NGINX Kullanıcısını Doğrulama"
+    },
+    {
+      "id": "18_osi_layers_usecases",
+      "default_name": "18 - OSI Layer 4/7 & Use-Case Mapping"
+    }
+  ]
+}
