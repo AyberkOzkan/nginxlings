@@ -1,12 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
+	"strings"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	"os/exec"
-	"strings"
 )
 
 /* ---------- check.sh  ---------- */
@@ -21,18 +20,6 @@ func runCheck(index int, ex Exercise) tea.Cmd {
 			index:  index,
 		}
 	}
-}
-
-func runExerciseCheck(ex Exercise) (string, error) {
-	cmd := exec.Command("./check.sh")
-	cmd.Dir = ex.Path
-
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
-
-	err := cmd.Run()
-	return buf.String(), err
 }
 
 /* ---------- Bubble Tea Update ---------- */
@@ -150,6 +137,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// CHECK çalıştır
 		case "c", "enter":
+			if m.loading {
+				m.status = "Check zaten çalışıyor; mevcut sonuç bekleniyor."
+				return m, nil
+			}
 			if len(m.exercises) == 0 {
 				if m.i18n != nil {
 					m.status = m.i18n.T(
@@ -228,6 +219,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Tüm çıktıyı trim’le
 		out := strings.TrimSpace(msg.output)
+		if msg.err != nil && out == "" {
+			out = "[FAIL] " + msg.err.Error()
+		}
 
 		// Egzersiz state’ini güncelle
 		if msg.index >= 0 && msg.index < len(m.exercises) {
@@ -254,14 +248,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// ✅ / ❌ her iki durumda da: check.sh çıktısını sağ panelde göster
 		if out != "" {
+			m.lastCheckOutput = out
 			m.readme.SetContent(out)
-		} else {
-			// Özellikle FAIL durumunda hiç çıktı yoksa kullanıcı boş ekran görmesin
-			if msg.err != nil {
-				m.readme.SetContent("[no output from check.sh]")
-			}
-			// PASS + empty out durumunda README’yi olduğu gibi bırakmak da mantıklı,
-			// o yüzden burada ekstra bir şey yapmıyoruz.
 		}
 
 		// Status satırı için kısa özet

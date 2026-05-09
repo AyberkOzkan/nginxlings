@@ -36,8 +36,10 @@ type model struct {
 
 	readme viewport.Model
 
-	status  string
-	loading bool
+	status              string
+	loading             bool
+	instructionsContent string
+	lastCheckOutput     string
 
 	i18n      *I18n
 	langIndex int
@@ -268,6 +270,7 @@ func (m *model) loadReadmeForCurrent() {
 		path := filepath.Join(ex.Path, name)
 		if data, err := os.ReadFile(path); err == nil {
 			rendered := m.renderMarkdown(string(data))
+			m.instructionsContent = rendered
 			m.readme.SetContent(rendered)
 			return
 		}
