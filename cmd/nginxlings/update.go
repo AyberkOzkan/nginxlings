@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 /* ---------- check.sh  ---------- */
@@ -22,6 +24,25 @@ func runCheck(index int, ex Exercise) tea.Cmd {
 	}
 }
 
+func marqueeTick() tea.Cmd {
+	return tea.Tick(350*time.Millisecond, func(time.Time) tea.Msg {
+		return marqueeTickMsg{}
+	})
+}
+
+func (m model) selectedNameOverflows() bool {
+	if len(m.exercises) == 0 || m.cursor < 0 || m.cursor >= len(m.exercises) {
+		return false
+	}
+	layout := m.layout()
+	nameWidth := maxInt(1, layout.listInnerWidth-8)
+	name := m.exercises[m.cursor].DefaultName
+	if m.i18n != nil {
+		name = m.i18n.ExerciseName(m.currentLangCode(), m.exercises[m.cursor].ID, name)
+	}
+	return lipgloss.Width(name) > nameWidth
+}
+
 /* ---------- Bubble Tea Update ---------- */
 
 func (m model) Init() tea.Cmd {
@@ -36,33 +57,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.ready = true
 
-		var listWidth, rightWidth int
-
-		if m.width < 80 {
-			// Küçük terminal: iki panel de tam genişlikte
-			listWidth = m.width - 4
-			rightWidth = m.width - 4
-		} else {
-			// Normal/geniş terminal: solda ~%30 liste, sağda instructions
-			listWidth = int(float32(m.width) * 0.30)
-			if listWidth < 24 {
-				listWidth = 24
-			}
-			rightWidth = m.width - listWidth - 4
-			if rightWidth < 30 {
-				rightWidth = 30
-			}
-		}
-
-		contentHeight := m.height - 5
-		if contentHeight < 8 {
-			contentHeight = 8
-		}
-
-		m.readme.Width = rightWidth - 4
-		m.readme.Height = contentHeight - 2
+		layout := calculateLayout(m.width, m.height)
+		m.listWidth = layout.listOuterWidth
+		m.rightWidth = layout.rightOuterWidth
+		m.marquee = 0
+		m.readme.Width = layout.rightInnerWidth
+		m.readme.Height = layout.readmeHeight
 
 		m.loadReadmeForCurrent()
+		if m.selectedNameOverflows() {
+			return m, marqueeTick()
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -110,12 +115,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "w":
 			if m.cursor > 0 {
 				m.cursor--
+				m.marquee = 0
 				m.loadReadmeForCurrent()
+				if m.selectedNameOverflows() {
+					return m, marqueeTick()
+				}
 			}
 		case "s":
 			if m.cursor < len(m.exercises)-1 {
 				m.cursor++
+				m.marquee = 0
 				m.loadReadmeForCurrent()
+				if m.selectedNameOverflows() {
+					return m, marqueeTick()
+				}
 			}
 
 		// SAĞ PANEL (instructions) – ok tuşları ve PgUp/PgDn ile scroll
@@ -276,6 +289,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
+
+	case marqueeTickMsg:
+		if !m.selectedNameOverflows() {
+			m.marquee = 0
+			return m, nil
+		}
+		m.marquee++
+		return m, marqueeTick()
 	}
 
 	return m, nil

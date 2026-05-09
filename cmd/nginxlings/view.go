@@ -9,6 +9,136 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type layoutInfo struct {
+	listOuterWidth  int
+	rightOuterWidth int
+	listInnerWidth  int
+	rightInnerWidth int
+	readmeHeight    int
+}
+
+func calculateLayout(width, height int) layoutInfo {
+	if width < 1 {
+		width = 1
+	}
+	if height < 1 {
+		height = 1
+	}
+
+	var listOuter, rightOuter int
+	if width < 80 {
+		listOuter = width
+		rightOuter = width
+	} else {
+		listOuter = width * 50 / 100
+		if listOuter < 48 {
+			listOuter = 48
+		}
+		if listOuter > 60 {
+			listOuter = 60
+		}
+		rightOuter = width - listOuter
+		if rightOuter < 34 {
+			rightOuter = 34
+			listOuter = width - rightOuter
+			if listOuter < 20 {
+				listOuter = 20
+			}
+		}
+	}
+
+	listInner := maxInt(1, listOuter-4)
+	rightInner := maxInt(1, rightOuter-4)
+	contentHeight := maxInt(4, height-5)
+	readmeHeight := maxInt(1, contentHeight-2)
+
+	return layoutInfo{
+		listOuterWidth:  listOuter,
+		rightOuterWidth: rightOuter,
+		listInnerWidth:  listInner,
+		rightInnerWidth: rightInner,
+		readmeHeight:    readmeHeight,
+	}
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func truncateCells(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+	if width <= 3 {
+		return strings.Repeat(".", width)
+	}
+
+	var b strings.Builder
+	for _, r := range s {
+		next := b.String() + string(r)
+		if lipgloss.Width(next)+3 > width {
+			break
+		}
+		b.WriteRune(r)
+	}
+	return b.String() + "..."
+}
+
+func clipCells(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+
+	var b strings.Builder
+	for _, r := range s {
+		next := b.String() + string(r)
+		if lipgloss.Width(next) > width {
+			break
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func marqueeText(s string, width, offset int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+
+	runes := []rune(s + "   ")
+	if len(runes) == 0 {
+		return ""
+	}
+	offset = offset % len(runes)
+	scrolled := string(runes[offset:]) + string(runes[:offset])
+	return clipCells(scrolled, width)
+}
+
+func (m model) layout() layoutInfo {
+	layout := calculateLayout(m.width, m.height)
+	if m.listWidth > 0 {
+		layout.listOuterWidth = m.listWidth
+		layout.listInnerWidth = maxInt(1, m.listWidth-4)
+	}
+	if m.rightWidth > 0 {
+		layout.rightOuterWidth = m.rightWidth
+		layout.rightInnerWidth = maxInt(1, m.rightWidth-4)
+	}
+	return layout
+}
+
 var (
 	mdMu            sync.Mutex
 	mdRenderer      *glamour.TermRenderer
@@ -55,6 +185,7 @@ func (m model) View() string {
 		return "Nginxlings yükleniyor...\n"
 	}
 
+	layout := m.layout()
 	langCode := m.currentLangCode()
 	title := "Nginxlings"
 	exTitle := "Exercises"
@@ -102,6 +233,12 @@ func (m model) View() string {
 			if m.i18n != nil {
 				displayName = m.i18n.ExerciseName(langCode, ex.ID, ex.DefaultName)
 			}
+			nameWidth := maxInt(1, layout.listInnerWidth-8)
+			if i == m.cursor {
+				displayName = marqueeText(displayName, nameWidth, m.marquee)
+			} else {
+				displayName = clipCells(displayName, nameWidth)
+			}
 
 			name := displayName
 			if ex.Completed {
@@ -123,13 +260,13 @@ func (m model) View() string {
 		}
 	}
 
-	listBox := m.styles.Box.Render(listBuilder.String())
+	listBox := m.styles.Box.Width(layout.listInnerWidth).Render(listBuilder.String())
 
 	// Sağ panel
 	var rightBuilder strings.Builder
-	rightBuilder.WriteString(m.styles.Title.Render(instTitle) + "\n\n")
+	rightBuilder.WriteString(m.styles.Title.Width(layout.rightInnerWidth).Render(truncateCells(instTitle, layout.rightInnerWidth)) + "\n\n")
 	rightBuilder.WriteString(m.readme.View())
-	rightBox := m.styles.Box.Render(rightBuilder.String())
+	rightBox := m.styles.Box.Width(layout.rightInnerWidth).Render(rightBuilder.String())
 
 	// Responsive yerleşim
 	var topRow string
@@ -162,9 +299,14 @@ func (m model) View() string {
 		statusText = fmt.Sprintf("%s %s", readyLabel, m.status)
 	}
 
-	statusSegment := m.styles.StatusBar.Render(statusText)
-	langInfo := m.styles.Help.Render(fmt.Sprintf(" %s: %s ", langLabel, m.currentLangLabel()))
-	helpSegment := m.styles.Help.Render(helpText)
+	statusSegment := m.styles.StatusBar.Render(" " + truncateCells(statusText, maxInt(1, m.width-lipgloss.Width(progressSegment)-2)) + " ")
+	langInfoText := fmt.Sprintf("%s: %s", langLabel, m.currentLangLabel())
+	langInfo := m.styles.Help.Render(" " + truncateCells(langInfoText, maxInt(1, m.width-lipgloss.Width(progressSegment)-lipgloss.Width(statusSegment)-2)) + " ")
+	usedWidth := lipgloss.Width(progressSegment) + lipgloss.Width(statusSegment) + lipgloss.Width(langInfo)
+	helpSegment := ""
+	if remaining := m.width - usedWidth; remaining > 4 {
+		helpSegment = m.styles.Help.Render(truncateCells(helpText, remaining))
+	}
 
 	statusLine := lipgloss.JoinHorizontal(
 		lipgloss.Top,
@@ -173,6 +315,10 @@ func (m model) View() string {
 		langInfo,
 		helpSegment,
 	)
+	if lipgloss.Width(statusLine) > m.width {
+		plainStatus := strings.TrimSpace(fmt.Sprintf("%s %s %s %s", progressLabel, statusText, langInfoText, helpText))
+		statusLine = m.styles.Help.Render(truncateCells(plainStatus, maxInt(1, m.width-2)))
+	}
 
 	return m.styles.Title.Render(title) +
 		"\n\n" +

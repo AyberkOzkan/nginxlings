@@ -26,6 +26,8 @@ type checkResultMsg struct {
 	index  int
 }
 
+type marqueeTickMsg struct{}
+
 type model struct {
 	exercises []Exercise
 	cursor    int
@@ -33,6 +35,10 @@ type model struct {
 	width  int
 	height int
 	ready  bool
+
+	listWidth  int
+	rightWidth int
+	marquee    int
 
 	readme viewport.Model
 
