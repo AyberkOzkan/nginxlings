@@ -2,8 +2,10 @@
 set -euo pipefail
 
 DOCKER_BIN="${DOCKER_BIN:-docker}"
+EXERCISE_ID="08_stream_load_balancer"
+DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
 
-IMAGE_NAME_DEFAULT="nginxlings_tcp_lb_08"
+IMAGE_NAME_DEFAULT="nginxlings/${EXERCISE_ID}:check"
 IMAGE_NAME="${IMAGE_NAME:-$IMAGE_NAME_DEFAULT}"
 
 CONTAINER_NAME_DEFAULT="nginxlings_tcp_lb_08_run"
@@ -37,7 +39,6 @@ cleanup() {
     "${DOCKER_BIN}" image rm -f "${IMAGE_NAME}" >/dev/null 2>&1 || true
   fi
 
-  "${DOCKER_BIN}" builder prune -f >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -51,13 +52,13 @@ command -v "${PYTHON_BIN}" >/dev/null 2>&1 || fail "python3 not found (PYTHON_BI
 chmod +x start.sh >/dev/null 2>&1 || true
 
 info "[1/6] Building Docker image (${IMAGE_NAME})..."
-DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build -t "${IMAGE_NAME}" . >/dev/null 2>&1 \
+DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build --label "${DOCKER_LABEL}" -t "${IMAGE_NAME}" . >/dev/null 2>&1 \
   || fail "docker build failed for image ${IMAGE_NAME}."
 BUILT_IMAGE="1"
 
 info "[2/6] Validating nginx.conf inside the image (nginx -t)..."
 TMP_T="$(mktemp)"
-if ! "${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
   echo "nginx -t output:"
   cat "${TMP_T}" || true
   fail "nginx -t failed inside the container."
@@ -68,7 +69,7 @@ info "[OK] nginx -t succeeded."
 
 info "[3/6] Starting container ${CONTAINER_NAME} (host ${HOST_PORT} -> container 9000)..."
 "${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-"${DOCKER_BIN}" run -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:9000" "${IMAGE_NAME}" >/dev/null \
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:9000" "${IMAGE_NAME}" >/dev/null \
   || fail "Failed to start container ${CONTAINER_NAME}."
 
 sleep 2

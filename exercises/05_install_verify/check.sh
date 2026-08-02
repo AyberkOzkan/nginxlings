@@ -2,7 +2,9 @@
 set -euo pipefail
 
 DOCKER_BIN="${DOCKER_BIN:-docker}"
-IMAGE_TAG="${IMAGE_TAG:-nginxlings-05-install-verify}"
+EXERCISE_ID="05_install_verify"
+DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
+IMAGE_TAG="${IMAGE_TAG:-nginxlings/${EXERCISE_ID}:check}"
 
 CID=""
 TMP_BUILD_LOG=""
@@ -31,8 +33,6 @@ cleanup() {
     "${DOCKER_BIN}" image rm -f "${IMAGE_TAG}" >/dev/null 2>&1 || true
   fi
 
-  # prune builder cache (prevents build cache from accumulating)
-  "${DOCKER_BIN}" builder prune -f >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -44,7 +44,7 @@ echo "[OK] docker command found."
 
 echo "[2/4] Building image from Dockerfile..."
 TMP_BUILD_LOG="$(mktemp)"
-if ! "${DOCKER_BIN}" build -t "${IMAGE_TAG}" . >"${TMP_BUILD_LOG}" 2>&1; then
+if ! "${DOCKER_BIN}" build --label "${DOCKER_LABEL}" -t "${IMAGE_TAG}" . >"${TMP_BUILD_LOG}" 2>&1; then
   echo "docker build output (first 80 lines):"
   sed -n '1,80p' "${TMP_BUILD_LOG}" || true
   fail "docker build failed."
@@ -56,7 +56,7 @@ echo "[3/4] Checking nginx -v and nginx -V inside the container..."
 TMP_RUN_LOG="$(mktemp)"
 
 # nginx -v (prints to stderr)
-if ! "${DOCKER_BIN}" run --rm "${IMAGE_TAG}" nginx -v >"${TMP_RUN_LOG}" 2>&1; then
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_TAG}" nginx -v >"${TMP_RUN_LOG}" 2>&1; then
   echo "nginx -v output:"
   cat "${TMP_RUN_LOG}" || true
   fail "nginx -v failed inside the container."
@@ -71,7 +71,7 @@ echo "[OK] nginx -v => ${VERSION_LINE}"
 
 # nginx -V (prints to stderr)
 : >"${TMP_RUN_LOG}"
-if ! "${DOCKER_BIN}" run --rm "${IMAGE_TAG}" nginx -V >"${TMP_RUN_LOG}" 2>&1; then
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_TAG}" nginx -V >"${TMP_RUN_LOG}" 2>&1; then
   echo "nginx -V output:"
   cat "${TMP_RUN_LOG}" || true
   fail "nginx -V failed inside the container."
@@ -90,7 +90,7 @@ if ! command -v curl >/dev/null 2>&1; then
   fail "curl command not found. Please install curl to run this check."
 fi
 
-CID="$("${DOCKER_BIN}" run -d -P "${IMAGE_TAG}" 2>/dev/null || true)"
+CID="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d -P "${IMAGE_TAG}" 2>/dev/null || true)"
 if [ -z "${CID}" ]; then
   fail "docker run -d -P ${IMAGE_TAG} failed. Check the Dockerfile CMD/ENTRYPOINT."
 fi

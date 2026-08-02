@@ -1,4 +1,4 @@
-FROM nginx:stable-alpine
+FROM nginx:1.28.3-alpine
 
 # socat is used to implement simple TCP backends inside the container
 RUN apk add --no-cache socat

@@ -2,8 +2,10 @@
 set -euo pipefail
 
 DOCKER_BIN="${DOCKER_BIN:-docker}"
+EXERCISE_ID="11_zone_sync_api"
+DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
 
-IMAGE_NAME="${IMAGE_NAME:-nginxlings_ex11_zone_sync}"
+IMAGE_NAME="${IMAGE_NAME:-nginxlings/${EXERCISE_ID}:check}"
 CONTAINER_NAME="${CONTAINER_NAME:-nginxlings_ex11_zone_sync_run}"
 HOST_PORT="${HOST_PORT:-18110}"
 
@@ -30,7 +32,6 @@ cleanup() {
     "${DOCKER_BIN}" image rm -f "${IMAGE_NAME}" >/dev/null 2>&1 || true
   fi
 
-  "${DOCKER_BIN}" builder prune -f >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -38,13 +39,13 @@ info "[1/5] Checking required commands..."
 command -v "${DOCKER_BIN}" >/dev/null 2>&1 || fail "docker not found in PATH."
 
 info "[2/5] Building Docker image..."
-DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build -t "${IMAGE_NAME}" . >/dev/null 2>&1 \
+DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build --label "${DOCKER_LABEL}" -t "${IMAGE_NAME}" . >/dev/null 2>&1 \
   || fail "docker build failed."
 BUILT_IMAGE="1"
 
 info "[3/5] Testing nginx config inside the image (nginx -t)..."
 TMP_T="$(mktemp)"
-if ! "${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
   echo "nginx -t output:"
   cat "${TMP_T}" || true
   fail "nginx -t failed."
@@ -55,7 +56,7 @@ info "[OK] nginx -t succeeded."
 
 info "[4/5] Starting container..."
 "${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-"${DOCKER_BIN}" run -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null \
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null \
   || fail "Failed to start container."
 
 sleep 1

@@ -2,8 +2,10 @@
 set -euo pipefail
 
 DOCKER_BIN="${DOCKER_BIN:-docker}"
+EXERCISE_ID="16_shared_zone_sizing"
+DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
 
-IMAGE_NAME="${IMAGE_NAME:-nginxlings_ex16_zone_sizing}"
+IMAGE_NAME="${IMAGE_NAME:-nginxlings/${EXERCISE_ID}:check}"
 CONTAINER_NAME="${CONTAINER_NAME:-nginxlings_ex16_zone_sizing_run}"
 HOST_PORT="${HOST_PORT:-18160}"
 
@@ -34,7 +36,6 @@ cleanup() {
     "${DOCKER_BIN}" image rm -f "${IMAGE_NAME}" >/dev/null 2>&1 || true
   fi
 
-  "${DOCKER_BIN}" builder prune -f >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -72,13 +73,13 @@ wait_http_ready() {
 }
 
 info "[1/7] Building Docker image..."
-DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build -t "${IMAGE_NAME}" "${PREFIX}" >/dev/null 2>&1 \
+DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build --label "${DOCKER_LABEL}" -t "${IMAGE_NAME}" "${PREFIX}" >/dev/null 2>&1 \
   || fail "docker build failed."
 BUILT_IMAGE="1"
 
 info "[2/7] Testing nginx config inside the image (nginx -t)..."
 TMP_T="$(mktemp)"
-if ! "${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
   echo "nginx -t output:"
   cat "${TMP_T}" || true
   fail "nginx -t failed."
@@ -89,7 +90,7 @@ info "[OK] nginx -t succeeded."
 
 info "[3/7] Checking zone size in effective config (nginx -T)..."
 CONF_T="$(mktemp)"
-"${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -T >"${CONF_T}" 2>&1 || true
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${CONF_T}" 2>&1 || true
 
 zone_token="$(grep -Eo 'zone=req_zone:[0-9]+[kKmM]?' "${CONF_T}" | head -n 1 || true)"
 [ -n "${zone_token}" ] || {
@@ -114,7 +115,7 @@ info "[OK] Zone sizing looks good (req_zone:${zone_size})."
 
 info "[4/7] Starting container..."
 "${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-"${DOCKER_BIN}" run -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null \
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null \
   || fail "Failed to start container."
 
 wait_http_ready || {

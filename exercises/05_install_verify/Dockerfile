@@ -1,7 +1,7 @@
 # Exercise 05 - Install & Verify from Official Repo
 
 
-FROM debian:stable-slim
+FROM debian:12.15-slim
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nginx && \

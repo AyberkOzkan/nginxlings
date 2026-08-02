@@ -2,8 +2,10 @@
 set -euo pipefail
 
 DOCKER_BIN="${DOCKER_BIN:-docker}"
+EXERCISE_ID="10_upstream_status_zone"
+DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
 
-IMAGE_NAME_DEFAULT="nginxlings_upstream_zone_10"
+IMAGE_NAME_DEFAULT="nginxlings/${EXERCISE_ID}:check"
 IMAGE_NAME="${IMAGE_NAME:-$IMAGE_NAME_DEFAULT}"
 
 LB_NAME_DEFAULT="nginxlings_upstream_zone_10_lb"
@@ -44,8 +46,6 @@ cleanup() {
     "${DOCKER_BIN}" image rm -f "${IMAGE_NAME}" >/dev/null 2>&1 || true
   fi
 
-  # builder cache
-  "${DOCKER_BIN}" builder prune -f >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -56,13 +56,13 @@ command -v curl >/dev/null 2>&1 || fail "curl command not found."
 [ -f nginx.conf ] || fail "nginx.conf not found."
 
 info "[1/7] Building Docker image (${IMAGE_NAME})..."
-DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build -t "${IMAGE_NAME}" . >/dev/null 2>&1 \
+DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build --label "${DOCKER_LABEL}" -t "${IMAGE_NAME}" . >/dev/null 2>&1 \
   || fail "docker build failed."
 BUILT_IMAGE="1"
 
 info "[2/7] Validating nginx.conf inside the image (nginx -t)..."
 TMP_T="$(mktemp)"
-if ! "${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
   echo "nginx -t output:"
   cat "${TMP_T}" || true
   fail "nginx -t failed inside the container."
@@ -73,7 +73,7 @@ info "[OK] nginx -t succeeded."
 
 info "[3/7] Inspecting effective config (nginx -T) for required directives..."
 TMP_CONF="$(mktemp)"
-"${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -T >"${TMP_CONF}" 2>&1 || true
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${TMP_CONF}" 2>&1 || true
 
 grep -qE "zone[[:space:]]+up_mem[[:space:]]+64k;" "${TMP_CONF}" \
   || { echo "nginx -T output (first 160 lines):"; sed -n '1,160p' "${TMP_CONF}" || true; fail "Missing: zone up_mem 64k;"; }
@@ -87,17 +87,17 @@ info "[OK] Required upstream zone and header directives found."
 
 info "[4/7] Creating Docker network (${NET_NAME})..."
 "${DOCKER_BIN}" network rm "${NET_NAME}" >/dev/null 2>&1 || true
-"${DOCKER_BIN}" network create "${NET_NAME}" >/dev/null
+"${DOCKER_BIN}" network create --label "${DOCKER_LABEL}" "${NET_NAME}" >/dev/null
 
 info "[5/7] Starting two backend containers..."
 
 "${DOCKER_BIN}" rm -f "${B1_NAME}" >/dev/null 2>&1 || true
-"${DOCKER_BIN}" run -d --name "${B1_NAME}" --network "${NET_NAME}" \
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d --name "${B1_NAME}" --network "${NET_NAME}" \
   busybox sh -lc "mkdir -p /www && echo 'backend=8081' > /www/index.html && httpd -f -p 8081 -h /www" \
   >/dev/null
 
 "${DOCKER_BIN}" rm -f "${B2_NAME}" >/dev/null 2>&1 || true
-"${DOCKER_BIN}" run -d --name "${B2_NAME}" --network "${NET_NAME}" \
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d --name "${B2_NAME}" --network "${NET_NAME}" \
   busybox sh -lc "mkdir -p /www && echo 'backend=8082' > /www/index.html && httpd -f -p 8082 -h /www" \
   >/dev/null
 
@@ -105,7 +105,7 @@ sleep 1
 
 info "[6/7] Starting NGINX LB container (host ${HOST_PORT} -> container 8080)..."
 "${DOCKER_BIN}" rm -f "${LB_NAME}" >/dev/null 2>&1 || true
-"${DOCKER_BIN}" run -d --name "${LB_NAME}" --network "${NET_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d --name "${LB_NAME}" --network "${NET_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null
 
 sleep 2
 

@@ -2,8 +2,10 @@
 set -euo pipefail
 
 DOCKER_BIN="${DOCKER_BIN:-docker}"
+EXERCISE_ID="07_http_load_balancer"
+DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
 
-IMAGE_NAME_DEFAULT="nginxlings_http_lb_07"
+IMAGE_NAME_DEFAULT="nginxlings/${EXERCISE_ID}:check"
 IMAGE_NAME="${IMAGE_NAME:-$IMAGE_NAME_DEFAULT}"
 
 CONTAINER_NAME_DEFAULT="nginxlings_http_lb_07_run"
@@ -45,8 +47,6 @@ cleanup() {
     "${DOCKER_BIN}" image rm -f "${IMAGE_NAME}" >/dev/null 2>&1 || true
   fi
 
-  # Prune builder cache to prevent accumulation
-  "${DOCKER_BIN}" builder prune -f >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -63,14 +63,14 @@ info "[OK] Files and commands look fine."
 
 info "[2/6] Building Docker image (${IMAGE_NAME})..."
 # Avoid buildx/BuildKit issues
-DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build -t "${IMAGE_NAME}" "${PREFIX}" >/dev/null 2>&1 \
+DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build --label "${DOCKER_LABEL}" -t "${IMAGE_NAME}" "${PREFIX}" >/dev/null 2>&1 \
   || fail "docker build failed for image ${IMAGE_NAME}."
 BUILT_IMAGE="1"
 info "[OK] Image built successfully."
 
 info "[3/6] Testing nginx configuration inside the image (nginx -t)..."
 TMP_T="$(mktemp)"
-if ! "${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
   echo "nginx -t output:"
   cat "${TMP_T}" || true
   fail "nginx -t failed inside the container."
@@ -84,7 +84,7 @@ info "[4/6] Starting container ${CONTAINER_NAME} (host ${FRONTEND_PORT} -> conta
 # Remove any stale container with same name
 "${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 
-if ! "${DOCKER_BIN}" run -d \
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d \
   --name "${CONTAINER_NAME}" \
   -p "${FRONTEND_PORT}:8080" \
   "${IMAGE_NAME}" >/dev/null; then

@@ -1,4 +1,4 @@
-FROM nginx:alpine
+FROM nginx:1.28.3-alpine
 RUN apk add --no-cache curl
 
 COPY nginx.conf /etc/nginx/nginx.conf

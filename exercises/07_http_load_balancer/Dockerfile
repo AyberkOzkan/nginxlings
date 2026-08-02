@@ -1,4 +1,4 @@
-FROM nginx:alpine
+FROM nginx:1.28.3-alpine
 
 # Install python3 to run simple HTTP backends inside the container
 RUN apk add --no-cache python3

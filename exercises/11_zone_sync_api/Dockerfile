@@ -1,4 +1,4 @@
-FROM nginx:alpine
+FROM nginx:1.28.3-alpine
 
 # Tools for validation inside the container (fast, small)
 RUN apk add --no-cache curl jq

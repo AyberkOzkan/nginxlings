@@ -2,8 +2,10 @@
 set -euo pipefail
 
 DOCKER_BIN="${DOCKER_BIN:-docker}"
+EXERCISE_ID="09_shared_zones_basics"
+DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
 
-IMAGE_NAME_DEFAULT="nginxlings_shm_zone_09"
+IMAGE_NAME_DEFAULT="nginxlings/${EXERCISE_ID}:check"
 IMAGE_NAME="${IMAGE_NAME:-$IMAGE_NAME_DEFAULT}"
 
 CONTAINER_NAME_DEFAULT="nginxlings_shm_zone_09_run"
@@ -39,7 +41,6 @@ cleanup() {
     "${DOCKER_BIN}" image rm -f "${IMAGE_NAME}" >/dev/null 2>&1 || true
   fi
 
-  "${DOCKER_BIN}" builder prune -f >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -53,13 +54,13 @@ command -v curl >/dev/null 2>&1 || fail "curl command not found."
 chmod +x start.sh >/dev/null 2>&1 || true
 
 info "[1/6] Building Docker image (${IMAGE_NAME})..."
-DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build -t "${IMAGE_NAME}" . >/dev/null 2>&1 \
+DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build --label "${DOCKER_LABEL}" -t "${IMAGE_NAME}" . >/dev/null 2>&1 \
   || fail "docker build failed for image ${IMAGE_NAME}."
 BUILT_IMAGE="1"
 
 info "[2/6] Validating nginx.conf inside the image (nginx -t)..."
 TMP_T="$(mktemp)"
-if ! "${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
   echo "nginx -t output:"
   cat "${TMP_T}" || true
   fail "nginx -t failed inside the container."
@@ -70,7 +71,7 @@ info "[OK] nginx -t succeeded."
 
 info "[3/6] Inspecting effective config (nginx -T) for required directives..."
 TMP_CONF="$(mktemp)"
-"${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -T >"${TMP_CONF}" 2>&1 || true
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${TMP_CONF}" 2>&1 || true
 
 if ! grep -qE "limit_req_zone[[:space:]]+\\\$binary_remote_addr[[:space:]]+zone=req_zone:64k[[:space:]]+rate=" "${TMP_CONF}"; then
   echo "nginx -T output (first 160 lines):"
@@ -90,7 +91,7 @@ info "[OK] Required shared memory zone directives found."
 
 info "[4/6] Starting container ${CONTAINER_NAME} (host ${HOST_PORT} -> container 8080)..."
 "${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-"${DOCKER_BIN}" run -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null \
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null \
   || fail "Failed to start container ${CONTAINER_NAME}."
 
 sleep 2
