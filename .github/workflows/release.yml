@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node -e 'if (!/^v[0-9]+[.][0-9]+[.][0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(process.env.RELEASE_TAG)) process.exit(1)'
+
+      - name: Run release checks
+        run: |
+          go test ./...
+          go vet ./...
+          bash -n exercises/*/check.sh
+          node --test packaging/prepare-release.test.mjs
+
+      - name: Publish GitHub release
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: v2.17.1
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare npm and Homebrew artifacts
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          node packaging/prepare-release.mjs \
+            --version "${RELEASE_TAG#v}" \
+            --tag "${RELEASE_TAG}" \
+            --repository "${RELEASE_REPOSITORY}" \
+            --dist dist
+          npm pack ./dist/npm/package --pack-destination ./dist/npm
+          cd dist
+          sha256sum npm/*.tgz homebrew/Formula/nginxlings.rb > package-checksums.txt
+
+      - name: Upload package manager artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            dist/npm/*.tgz \
+            dist/homebrew/Formula/nginxlings.rb \
+            dist/package-checksums.txt \
+            --clobber
+
+      - name: Attest GoReleaser artifacts
+        uses: actions/attest@v4
+        with:
+          subject-checksums: dist/checksums.txt
+
+      - name: Attest package manager artifacts
+        uses: actions/attest@v4
+        with:
+          subject-checksums: dist/package-checksums.txt

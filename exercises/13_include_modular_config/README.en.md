@@ -1,33 +1,74 @@
 # 13 – Include & Modular Config Design
 
 ## Goal
-Practice the real behavior of `include` in NGINX by splitting config into multiple files.
 
-## What you will build
-- `/` returns `base-ok\n` from the main server file.
-- `/modular` returns `include-ok\n` from a separate snippet file.
-- `/modular2` returns `include2-ok\n` from another snippet file.
+In this exercise, you will learn the **actual behavior** of the `include` directive.
 
-## Tasks
-1. In `nginx.conf`, enable:
-   include /etc/nginx/conf.d/*.conf;
-   (must be inside `http {}`)
+Objectives:
+- Keep `nginx.conf` simple by splitting the configuration into separate files
+- See that included file contents are processed **as if they were inserted at the include line**
+- Practice context rules (`http`/`server`/`location`)
 
-2. In `conf.d/10-server.conf`, enable:
-   include /etc/nginx/server.d/*.conf;
-   (must be inside `server {}`)
+---
 
-3. In `server.d/20-modular.conf`, implement:
-   location /modular { return 200 "include-ok\n"; }
+## Topic
 
-4. In `server.d/30-modular-extra.conf`, implement:
-   location /modular2 { return 200 "include2-ok\n"; }
+- The `include` directive
+- Modular configuration design
+- Context behavior: included content is parsed **where the `include` appears**
+
+---
+
+## Task
+
+The exercise uses this structure:
+
+- `nginx.conf` contains an `http { ... }` block
+- `conf.d/*.conf` is included inside `http` to load **server** files
+- `conf.d/10-server.conf` contains a `server { ... }` block
+- `server.d/*.conf` is included inside `server` to load **location** snippets
+
+Complete these steps:
+
+1. In `nginx.conf`, add this include inside `http {}`:
+   - `/etc/nginx/conf.d/*.conf`
+
+2. In `conf.d/10-server.conf`, add this include inside `server {}`:
+   - `/etc/nginx/server.d/*.conf`
+
+3. In `server.d/20-modular.conf`, create the `/modular` endpoint:
+   - `GET /modular` response: `include-ok\n`
+
+4. In `server.d/30-modular-extra.conf`, create the `/modular2` endpoint:
+   - `GET /modular2` response: `include2-ok\n`
+
+---
+
+## Expected results
+
+These endpoints must work:
+
+- `GET /`        → `base-ok\n`
+- `GET /modular` → `include-ok\n`
+- `GET /modular2`→ `include2-ok\n`
+
+---
 
 ## Success criteria
-- Config is valid (`nginx -t` passes)
-- `/` returns `base-ok\n`
-- `/modular` returns `include-ok\n`
-- `/modular2` returns `include2-ok\n`
+
+- The configuration is valid (`nginx -t` succeeds)
+- `/`, `/modular`, and `/modular2` return the expected output
+- `include /etc/nginx/conf.d/*.conf;` is inside `http {}`
+- `include /etc/nginx/server.d/*.conf;` is inside `server {}`
+- `location` blocks are not placed outside the `server` context
+
+---
 
 ## Tip
-If you place `location {}` in the wrong context, NGINX will complain with “directive is not allowed here”.
+
+`include` is not a shortcut; its contents are parsed as if they appeared at that exact point.
+
+Therefore:
+- `location {}` is valid only inside `server {}`
+- `server {}` is valid only inside `http {}`
+- Including a file in the wrong place produces an error such as “directive is not allowed here”

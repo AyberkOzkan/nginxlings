@@ -3,6 +3,7 @@
 
 # build output
 /bin/nginxlings
+/dist/
 
 # exercise runtime artifacts
 **/logs/
@@ -14,4 +15,3 @@
 
 # OS/editor
 .DS_Store
-EOF
