@@ -291,6 +291,48 @@ func TestRepoExercisesStartUnsolved(t *testing.T) {
 				"proxy_pass http://backend;",
 			},
 		},
+		{
+			name: "upstream status zone config",
+			path: filepath.Join(root, "exercises", "10_upstream_status_zone", "nginx.conf"),
+			required: []string{
+				"TODO: enable the required shared memory zone",
+				"TODO: replace this placeholder with both Docker backend servers",
+				"TODO: expose the selected upstream",
+				"TODO: proxy requests to the backend upstream",
+			},
+			forbidden: []string{
+				"zone up_mem 64k;",
+				"server ex10_backend1:8081",
+				"server ex10_backend2:8082",
+				"add_header X-Upstream $upstream_addr",
+				"proxy_pass http://backend;",
+			},
+		},
+		{
+			name:      "NGINX worker user config",
+			path:      filepath.Join(root, "exercises", "17_verify_nginx_user", "nginx.conf"),
+			required:  []string{"TODO: configure NGINX workers to run as the nginx user"},
+			forbidden: []string{"user nginx;"},
+		},
+		{
+			name: "OSI layer proxy config",
+			path: filepath.Join(root, "exercises", "18_osi_layers_usecases", "nginx.conf"),
+			required: []string{
+				"TODO: load the NGINX stream module",
+				"TODO: define an HTTP upstream and proxy this location to it",
+				"TODO: expose the selected L7 upstream",
+				"TODO: add a stream context that proxies port 9000",
+			},
+			forbidden: []string{
+				"load_module /usr/lib/nginx/modules/ngx_stream_module.so;",
+				"upstream http_pool",
+				"proxy_pass http://http_pool;",
+				"add_header X-L7-Upstream",
+				"stream {",
+				"upstream tcp_pool",
+				"proxy_pass tcp_pool;",
+			},
+		},
 	}
 
 	for _, tt := range tests {
