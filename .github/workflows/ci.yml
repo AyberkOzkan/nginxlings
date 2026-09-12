@@ -20,11 +20,6 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Install shellcheck
         run: |
           sudo apt-get update
@@ -40,15 +35,15 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Run vulnerability scan
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
+
       - name: Check shell syntax
         run: bash -n exercises/*/check.sh
 
       - name: Run shellcheck
         run: |
-          find bin exercises -name '*.sh' -print0 | xargs -0 shellcheck --severity=error
-
-      - name: Test release packaging
-        run: node --test packaging/prepare-release.test.mjs
+          find exercises -name '*.sh' -print0 | xargs -0 shellcheck --severity=error
 
       - name: Validate GoReleaser configuration
         uses: goreleaser/goreleaser-action@v7

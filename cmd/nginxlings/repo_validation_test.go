@@ -21,6 +21,68 @@ func TestRepoManifestMatchesExerciseDirectories(t *testing.T) {
 	}
 }
 
+func TestRepoLegacyWrapperIsAbsent(t *testing.T) {
+	root := repoRoot(t)
+	path := filepath.Join(root, "bin", "nginxlings.sh")
+	if _, err := os.Stat(path); err == nil {
+		t.Fatalf("legacy wrapper still exists: %s", path)
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("%s: %v", path, err)
+	}
+}
+
+func TestRepoReleaseTargetsLinuxWithoutNPMOrHomebrew(t *testing.T) {
+	root := repoRoot(t)
+
+	configPath := filepath.Join(root, ".goreleaser.yml")
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("%s: %v", configPath, err)
+	}
+	config := string(configData)
+	if !strings.Contains(config, "      - linux\n") {
+		t.Fatal("GoReleaser config does not include Linux")
+	}
+	for _, unsupported := range []string{"      - darwin\n", "      - windows\n"} {
+		if strings.Contains(config, unsupported) {
+			t.Fatalf("GoReleaser config includes unsupported target %q", strings.TrimSpace(unsupported))
+		}
+	}
+
+	workflowPath := filepath.Join(root, ".github", "workflows", "release.yml")
+	workflowData, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("%s: %v", workflowPath, err)
+	}
+	workflow := strings.ToLower(string(workflowData))
+	for _, forbidden := range []string{"npm", "homebrew", "setup-node"} {
+		if strings.Contains(workflow, forbidden) {
+			t.Fatalf("release workflow unexpectedly references %q", forbidden)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "packaging")); err == nil {
+		t.Fatal("legacy npm/Homebrew packaging directory still exists")
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("inspect packaging directory: %v", err)
+	}
+}
+
+func TestRepoCIRunsPinnedGovulncheck(t *testing.T) {
+	root := repoRoot(t)
+	path := filepath.Join(root, ".github", "workflows", "ci.yml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+
+	workflow := string(data)
+	assertContains(t, path, workflow, "go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...")
+	if strings.Contains(workflow, "govulncheck@latest") {
+		t.Fatal("CI must pin govulncheck instead of using @latest")
+	}
+}
+
 func TestRepoExerciseReadmeLanguageParity(t *testing.T) {
 	root := repoRoot(t)
 	exRoot := filepath.Join(root, "exercises")
