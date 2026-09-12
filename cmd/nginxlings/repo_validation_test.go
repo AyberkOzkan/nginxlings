@@ -247,6 +247,78 @@ func TestRepoDockerfilesUsePinnedBaseImages(t *testing.T) {
 	}
 }
 
+func TestRepoExercisesStartUnsolved(t *testing.T) {
+	root := repoRoot(t)
+
+	tests := []struct {
+		name      string
+		path      string
+		required  []string
+		forbidden []string
+	}{
+		{
+			name: "static server config",
+			path: filepath.Join(root, "exercises", "01_static_server", "nginx.conf"),
+			required: []string{
+				"TODO: point the document root",
+				"root missing;",
+				"index missing.html;",
+			},
+			forbidden: []string{"root .;", "index index.html;"},
+		},
+		{
+			name:      "static server content",
+			path:      filepath.Join(root, "exercises", "01_static_server", "index.html"),
+			required:  []string{"TODO: replace this placeholder"},
+			forbidden: []string{"Merhaba Nginxlings"},
+		},
+		{
+			name:      "install and verify Dockerfile",
+			path:      filepath.Join(root, "exercises", "05_install_verify", "Dockerfile"),
+			required:  []string{"TODO: install NGINX"},
+			forbidden: []string{"apt-get install"},
+		},
+		{
+			name: "HTTP load balancer config",
+			path: filepath.Join(root, "exercises", "07_http_load_balancer", "nginx.conf"),
+			required: []string{
+				"TODO: replace this placeholder with both local backend servers",
+				"TODO: proxy requests to the backend upstream",
+			},
+			forbidden: []string{
+				"server 127.0.0.1:8081;",
+				"server 127.0.0.1:8082;",
+				"proxy_pass http://backend;",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := os.ReadFile(tt.path)
+			if err != nil {
+				t.Fatalf("%s: %v", tt.path, err)
+			}
+			content := string(data)
+			for _, required := range tt.required {
+				assertContains(t, tt.path, content, required)
+			}
+			for _, forbidden := range tt.forbidden {
+				if strings.Contains(content, forbidden) {
+					t.Fatalf("%s unexpectedly contains completed solution %q", tt.path, forbidden)
+				}
+			}
+		})
+	}
+
+	legacyConfig := filepath.Join(root, "exercises", "07_http_load_balancer", "nginx.conf.default")
+	if _, err := os.Stat(legacyConfig); err == nil {
+		t.Fatalf("unused duplicate config still exists: %s", legacyConfig)
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("inspect %s: %v", legacyConfig, err)
+	}
+}
+
 func readRepoTranslationMap(t *testing.T, path string) map[string]string {
 	t.Helper()
 	data, err := os.ReadFile(path)
