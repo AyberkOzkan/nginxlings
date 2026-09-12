@@ -125,6 +125,55 @@ func TestRepoExerciseReadmeHeadingParity(t *testing.T) {
 	}
 }
 
+func TestRepoExercise10DocsMatchDockerTopology(t *testing.T) {
+	root := repoRoot(t)
+	exerciseRoot := filepath.Join(root, "exercises", "10_upstream_status_zone")
+
+	checkPath := filepath.Join(exerciseRoot, checkScriptName)
+	checkData, err := os.ReadFile(checkPath)
+	if err != nil {
+		t.Fatalf("%s: %v", checkPath, err)
+	}
+	checkScript := string(checkData)
+	for _, required := range []string{
+		`B1_NAME_DEFAULT="ex10_backend1"`,
+		`B2_NAME_DEFAULT="ex10_backend2"`,
+		`--network "${NET_NAME}"`,
+	} {
+		assertContains(t, checkPath, checkScript, required)
+	}
+
+	configPath := filepath.Join(exerciseRoot, "nginx.conf")
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("%s: %v", configPath, err)
+	}
+	assertContains(t, configPath, string(configData), "resolver 127.0.0.11")
+	assertContains(t, configPath, string(configData), "TODO: replace this placeholder with both Docker backend servers")
+
+	for _, name := range []string{"README.en.md", "README.tr.md"} {
+		path := filepath.Join(exerciseRoot, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		content := string(data)
+		for _, required := range []string{
+			"ex10_backend1:8081",
+			"ex10_backend2:8082",
+			"127.0.0.11",
+			"resolve",
+		} {
+			assertContains(t, path, content, required)
+		}
+		for _, loopbackBackend := range []string{"127.0.0.1:8081", "127.0.0.1:8082"} {
+			if strings.Contains(content, loopbackBackend) {
+				t.Fatalf("%s documents unreachable backend %q", path, loopbackBackend)
+			}
+		}
+	}
+}
+
 func TestRepoTranslationFilesCoverManifest(t *testing.T) {
 	root := repoRoot(t)
 	manifestIDs := readRepoManifestIDs(t, filepath.Join(root, "exercises"))
