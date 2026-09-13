@@ -115,6 +115,9 @@ The state file stores completed exercises, the last selected exercise, and the s
 
 Each exercise has its own `check.sh`. The TUI runs the selected exercise's script from that exercise directory.
 
+Checks started by Nginxlings have a 10-minute timeout. Quitting the TUI while a
+check is running cancels the script and its child processes before the app exits.
+
 You can also run a check manually:
 
 ```sh

@@ -48,6 +48,9 @@ func (m model) selectedNameOverflows() bool {
 	}
 	layout := m.layout()
 	nameWidth := maxInt(1, layout.listInnerWidth-8)
+	if layout.compact {
+		nameWidth = maxInt(1, m.width-4)
+	}
 	name := m.exercises[m.cursor].DefaultName
 	if m.i18n != nil {
 		name = m.i18n.ExerciseName(m.currentLangCode(), m.exercises[m.cursor].ID, name)

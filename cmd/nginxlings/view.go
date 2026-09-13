@@ -10,11 +10,15 @@ import (
 )
 
 type layoutInfo struct {
-	listOuterWidth  int
-	rightOuterWidth int
-	listInnerWidth  int
-	rightInnerWidth int
-	readmeHeight    int
+	listOuterWidth   int
+	rightOuterWidth  int
+	listInnerWidth   int
+	rightInnerWidth  int
+	listOuterHeight  int
+	rightOuterHeight int
+	listRows         int
+	readmeHeight     int
+	compact          bool
 }
 
 func calculateLayout(width, height int) layoutInfo {
@@ -49,16 +53,55 @@ func calculateLayout(width, height int) layoutInfo {
 
 	listInner := maxInt(1, listOuter-4)
 	rightInner := maxInt(1, rightOuter-4)
-	contentHeight := maxInt(4, height-5)
-	readmeHeight := maxInt(1, contentHeight-2)
+	compact := height < 9 || width < 80 && height < 14
+	panelBudget := maxInt(1, height-4)
+	listOuterHeight := panelBudget
+	rightOuterHeight := panelBudget
+	if width < 80 && !compact {
+		listOuterHeight = maxInt(5, panelBudget*2/5)
+		if listOuterHeight > panelBudget-5 {
+			listOuterHeight = panelBudget - 5
+		}
+		rightOuterHeight = panelBudget - listOuterHeight
+	}
+	listRows := maxInt(1, listOuterHeight-4)
+	readmeHeight := maxInt(1, rightOuterHeight-4)
 
 	return layoutInfo{
-		listOuterWidth:  listOuter,
-		rightOuterWidth: rightOuter,
-		listInnerWidth:  listInner,
-		rightInnerWidth: rightInner,
-		readmeHeight:    readmeHeight,
+		listOuterWidth:   listOuter,
+		rightOuterWidth:  rightOuter,
+		listInnerWidth:   listInner,
+		rightInnerWidth:  rightInner,
+		listOuterHeight:  listOuterHeight,
+		rightOuterHeight: rightOuterHeight,
+		listRows:         listRows,
+		readmeHeight:     readmeHeight,
+		compact:          compact,
 	}
+}
+
+func visibleExerciseRange(total, cursor, limit int) (int, int) {
+	if total <= 0 || limit <= 0 {
+		return 0, 0
+	}
+	if limit >= total {
+		return 0, total
+	}
+	if cursor < 0 {
+		cursor = 0
+	}
+	if cursor >= total {
+		cursor = total - 1
+	}
+
+	start := cursor - limit/2
+	if start < 0 {
+		start = 0
+	}
+	if start+limit > total {
+		start = total - limit
+	}
+	return start, start + limit
 }
 
 func maxInt(a, b int) int {
@@ -207,6 +250,43 @@ func (m model) View() string {
 		_ = workingLabel
 	}
 
+	if layout.compact {
+		lines := make([]string, 0, 3)
+		if m.height >= 3 {
+			lines = append(lines, m.styles.Title.Render(truncateCells(title, m.width)))
+		}
+		if m.height >= 2 {
+			selected := clipCells(exTitle, m.width)
+			selectedStyle := m.styles.SelectedItem
+			if len(m.exercises) > 0 && m.cursor >= 0 && m.cursor < len(m.exercises) {
+				ex := m.exercises[m.cursor]
+				name := ex.DefaultName
+				if m.i18n != nil {
+					name = m.i18n.ExerciseName(langCode, ex.ID, ex.DefaultName)
+				}
+				icon := "x"
+				if ex.Completed {
+					icon = "✓"
+					selectedStyle = m.styles.SelectedCompletedItem
+				}
+				prefix := fmt.Sprintf("➤ %s ", icon)
+				selected = prefix + marqueeText(name, maxInt(1, m.width-lipgloss.Width(prefix)), m.marquee)
+			}
+			lines = append(lines, selectedStyle.Render(selected))
+		}
+
+		statusText := m.status
+		if m.loading {
+			statusText = fmt.Sprintf("%s %s %s", m.spinner.View(), workingLabel, m.status)
+		} else {
+			statusText = fmt.Sprintf("%s %s", readyLabel, m.status)
+		}
+		completed, total := m.progressCounts()
+		compactStatus := fmt.Sprintf("%d/%d %s %s: %s", completed, total, statusText, langLabel, m.currentLangLabel())
+		lines = append(lines, m.styles.Help.Padding(0).Render(truncateCells(compactStatus, m.width)))
+		return strings.Join(lines, "\n") + "\n"
+	}
+
 	// Sol panel
 	var listBuilder strings.Builder
 	listBuilder.WriteString(m.styles.ListTitle.Render(exTitle) + "\n\n")
@@ -218,7 +298,9 @@ func (m model) View() string {
 			listBuilder.WriteString("  (Hiç egzersiz yok)\n")
 		}
 	} else {
-		for i, ex := range m.exercises {
+		start, end := visibleExerciseRange(len(m.exercises), m.cursor, layout.listRows)
+		for i := start; i < end; i++ {
+			ex := m.exercises[i]
 			arrow := " "
 			if i == m.cursor {
 				arrow = "➤"
@@ -260,13 +342,13 @@ func (m model) View() string {
 		}
 	}
 
-	listBox := m.styles.Box.Width(layout.listInnerWidth).Render(listBuilder.String())
+	listBox := m.styles.Box.Width(layout.listInnerWidth).Height(maxInt(1, layout.listOuterHeight-2)).Render(strings.TrimRight(listBuilder.String(), "\n"))
 
 	// Sağ panel
 	var rightBuilder strings.Builder
 	rightBuilder.WriteString(m.styles.Title.Width(layout.rightInnerWidth).Render(truncateCells(instTitle, layout.rightInnerWidth)) + "\n\n")
 	rightBuilder.WriteString(m.readme.View())
-	rightBox := m.styles.Box.Width(layout.rightInnerWidth).Render(rightBuilder.String())
+	rightBox := m.styles.Box.Width(layout.rightInnerWidth).Height(maxInt(1, layout.rightOuterHeight-2)).Render(strings.TrimRight(rightBuilder.String(), "\n"))
 
 	// Responsive yerleşim
 	var topRow string

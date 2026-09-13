@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -27,6 +28,12 @@ func TestCalculateLayoutSmallHeight(t *testing.T) {
 	layout := calculateLayout(100, 3)
 
 	if layout.readmeHeight < 1 {
+		if layout.listOuterHeight < 1 || layout.rightOuterHeight < 1 || layout.listRows < 1 {
+			t.Fatalf("vertical dimensions must be positive: %+v", layout)
+		}
+		if !layout.compact {
+			t.Fatalf("compact = false, want true for a three-line terminal")
+		}
 		t.Fatalf("readmeHeight = %d, want >= 1", layout.readmeHeight)
 	}
 }
@@ -161,6 +168,93 @@ func TestViewStatusHelpDoesNotExceedNarrowLayout(t *testing.T) {
 
 	view := m.View()
 	assertRenderedLinesWithin(t, view, 42)
+}
+
+func TestCompactSelectedExerciseUsesMarqueeWithoutEllipsis(t *testing.T) {
+	m := layoutTestModel(24, 6)
+	m.exercises = []Exercise{{
+		ID:          "01_long",
+		DefaultName: "01 - This Selected Exercise Name Must Scroll",
+	}}
+
+	before := strings.Split(strings.TrimRight(m.View(), "\n"), "\n")
+	updated, _ := m.Update(marqueeTickMsg{})
+	afterView := updated.(model).View()
+	after := strings.Split(strings.TrimRight(afterView, "\n"), "\n")
+	if len(before) < 2 || len(after) < 2 {
+		t.Fatalf("compact render does not contain selected row\nbefore: %q\nafter: %q", before, after)
+	}
+	if strings.Contains(before[1], "...") || strings.Contains(after[1], "...") {
+		t.Fatalf("compact selected row must not use ellipsis\nbefore: %q\nafter: %q", before[1], after[1])
+	}
+	if before[1] == after[1] {
+		t.Fatalf("compact selected row did not move after marquee tick: %q", before[1])
+	}
+	assertRenderedLinesWithin(t, afterView, 24)
+}
+
+func TestVisibleExerciseRangeKeepsSelectionInBoundedWindow(t *testing.T) {
+	tests := []struct {
+		name      string
+		cursor    int
+		wantStart int
+		wantEnd   int
+	}{
+		{name: "start", cursor: 0, wantStart: 0, wantEnd: 4},
+		{name: "middle", cursor: 10, wantStart: 8, wantEnd: 12},
+		{name: "end", cursor: 17, wantStart: 14, wantEnd: 18},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			start, end := visibleExerciseRange(18, tt.cursor, 4)
+			if start != tt.wantStart || end != tt.wantEnd {
+				t.Fatalf("visibleExerciseRange() = (%d, %d), want (%d, %d)", start, end, tt.wantStart, tt.wantEnd)
+			}
+			if tt.cursor < start || tt.cursor >= end {
+				t.Fatalf("selection %d is outside visible range [%d, %d)", tt.cursor, start, end)
+			}
+		})
+	}
+}
+
+func TestViewFitsTerminalHeightAndKeepsStatusVisible(t *testing.T) {
+	tests := []struct {
+		name   string
+		width  int
+		height int
+	}{
+		{name: "wide", width: 120, height: 30},
+		{name: "standard 80x24", width: 80, height: 24},
+		{name: "narrow stacked", width: 60, height: 24},
+		{name: "very short compact", width: 42, height: 6},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := layoutTestModel(tt.width, tt.height)
+			m.cursor = 10
+			m.exercises = make([]Exercise, 18)
+			for i := range m.exercises {
+				m.exercises[i] = Exercise{
+					ID:          fmt.Sprintf("%02d_exercise", i+1),
+					DefaultName: fmt.Sprintf("%02d - Exercise", i+1),
+				}
+			}
+
+			rendered := m.View()
+			assertRenderedLinesWithin(t, rendered, tt.width)
+			if got := lipgloss.Height(strings.TrimRight(rendered, "\n")); got > tt.height {
+				t.Fatalf("rendered height = %d, want <= %d\n%s", got, tt.height, rendered)
+			}
+			if !strings.Contains(rendered, "Ready") {
+				t.Fatalf("status is not visible in %dx%d render:\n%s", tt.width, tt.height, rendered)
+			}
+			if !strings.Contains(rendered, "11 - Exercise") {
+				t.Fatalf("selected exercise is not visible in %dx%d render:\n%s", tt.width, tt.height, rendered)
+			}
+		})
+	}
 }
 
 func layoutTestModel(width, height int) model {
