@@ -136,6 +136,32 @@ func TestRunCLICheckFailureReturnsNonZero(t *testing.T) {
 	}
 }
 
+func TestRunCLICheckTimeoutReturnsNonZero(t *testing.T) {
+	root := newCLIAppRoot(t)
+	createExercise(t, root, "01_static_server")
+	var stdout, stderr bytes.Buffer
+
+	code := runCLI(
+		[]string{"--root", root, "--state", filepath.Join(t.TempDir(), "state.json"), "--check", "01_static_server"},
+		&stdout,
+		&stderr,
+		func(Exercise) (string, error) {
+			return "partial output\n", errors.New("check.sh timed out")
+		},
+		nil,
+	)
+
+	if code == 0 {
+		t.Fatal("exit code = 0, want non-zero for timeout")
+	}
+	if !strings.Contains(stdout.String(), "partial output") {
+		t.Fatalf("stdout = %q, want partial runner output", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "check.sh timed out") {
+		t.Fatalf("stderr = %q, want timeout error", stderr.String())
+	}
+}
+
 func TestRunCLILangFlagStartsTUIWithLang(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	var got cliOptions

@@ -2,29 +2,124 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"syscall"
+	"time"
 )
 
 const checkScriptName = "check.sh"
+const defaultCheckTimeout = 10 * time.Minute
+const checkTerminationGrace = 2 * time.Second
 
 func runExerciseCheck(ex Exercise) (string, error) {
+	signalCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+
+	ctx, cancel := context.WithTimeout(signalCtx, defaultCheckTimeout)
+	defer cancel()
+	return runExerciseCheckContext(ctx, ex)
+}
+
+func runExerciseCheckContext(ctx context.Context, ex Exercise) (string, error) {
 	if err := validateCheckScript(ex, runtime.GOOS); err != nil {
 		return "", err
+	}
+	if err := ctx.Err(); err != nil {
+		return "", checkContextError(err)
 	}
 
 	cmd := exec.Command("./" + checkScriptName)
 	cmd.Dir = ex.Path
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
 
-	err := cmd.Run()
-	return buf.String(), err
+	if err := cmd.Start(); err != nil {
+		return buf.String(), fmt.Errorf("start %s for exercise %s: %w", checkScriptName, ex.ID, err)
+	}
+
+	wait := make(chan error, 1)
+	go func() {
+		wait <- cmd.Wait()
+	}()
+
+	select {
+	case err := <-wait:
+		return buf.String(), err
+	case <-ctx.Done():
+		return stopCheckProcessGroup(ctx.Err(), cmd.Process, wait, &buf)
+	}
+}
+
+func stopCheckProcessGroup(contextErr error, process *os.Process, wait <-chan error, buf *bytes.Buffer) (string, error) {
+	terminateErr := signalCheckProcessGroup(process.Pid, syscall.SIGTERM)
+	timer := time.NewTimer(checkTerminationGrace)
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer timer.Stop()
+	defer ticker.Stop()
+
+	leaderDone := false
+	for processGroupExists(process.Pid) {
+		select {
+		case <-wait:
+			leaderDone = true
+		case <-ticker.C:
+		case <-timer.C:
+			killErr := signalCheckProcessGroup(process.Pid, syscall.SIGKILL)
+			if terminateErr == nil {
+				terminateErr = killErr
+			}
+			if !leaderDone {
+				<-wait
+			}
+			goto stopped
+		}
+	}
+	if !leaderDone {
+		<-wait
+	}
+
+stopped:
+	err := checkContextError(contextErr)
+	if terminateErr != nil {
+		err = fmt.Errorf("%w (failed to terminate process group: %v)", err, terminateErr)
+	}
+	output := buf.String()
+	if output != "" && !strings.HasSuffix(output, "\n") {
+		output += "\n"
+	}
+	output += "[FAIL] " + err.Error() + "\n"
+	return output, err
+}
+
+func processGroupExists(pid int) bool {
+	err := syscall.Kill(-pid, 0)
+	return err == nil || errors.Is(err, syscall.EPERM)
+}
+
+func signalCheckProcessGroup(pid int, signal syscall.Signal) error {
+	err := syscall.Kill(-pid, signal)
+	if errors.Is(err, syscall.ESRCH) {
+		return nil
+	}
+	return err
+}
+
+func checkContextError(err error) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("%s timed out: %w", checkScriptName, context.DeadlineExceeded)
+	}
+	return fmt.Errorf("%s canceled: %w", checkScriptName, context.Canceled)
 }
 
 func validateCheckScript(ex Exercise, goos string) error {

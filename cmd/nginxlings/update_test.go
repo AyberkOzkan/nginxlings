@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -28,6 +30,84 @@ func TestUpdateDoesNotStartSecondCheckWhileLoading(t *testing.T) {
 	}
 	if !strings.Contains(got.status, "zaten çalışıyor") {
 		t.Fatalf("status = %q, want already running message", got.status)
+	}
+}
+
+func TestUpdateStartsAndClearsCancelableCheck(t *testing.T) {
+	dir := t.TempDir()
+	writeCheckScript(t, dir, "#!/bin/sh\necho [PASS] done\n")
+	m := model{
+		exercises: []Exercise{{ID: "01_static_server", DefaultName: "01 - Static", Path: dir}},
+		readme:    viewport.New(80, 20),
+	}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	running := updated.(model)
+	if cmd == nil {
+		t.Fatal("check command is nil")
+	}
+	if !running.loading || running.checkCancel == nil || running.checkDone == nil {
+		t.Fatal("active check lifecycle was not initialized")
+	}
+
+	result := cmd()
+	updated, _ = running.Update(result)
+	finished := updated.(model)
+	if finished.loading || finished.checkCancel != nil || finished.checkDone != nil {
+		t.Fatal("active check lifecycle was not cleared after completion")
+	}
+}
+
+func TestUpdateQuitCancelsActiveCheckBeforeExit(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	m := model{
+		loading:     true,
+		checkCancel: cancel,
+		checkDone:   done,
+	}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	got := updated.(model)
+	if cmd == nil {
+		t.Fatal("quit command is nil while a check is active")
+	}
+	if got.checkCancel != nil || got.checkDone != nil {
+		t.Fatal("active check handles were not cleared")
+	}
+
+	canceled := make(chan struct{})
+	releaseDone := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		close(canceled)
+		<-releaseDone
+		close(done)
+	}()
+
+	msgCh := make(chan tea.Msg, 1)
+	go func() {
+		msgCh <- cmd()
+	}()
+	select {
+	case <-canceled:
+	case <-time.After(time.Second):
+		t.Fatal("quit command did not cancel the active check")
+	}
+	select {
+	case <-msgCh:
+		t.Fatal("quit command returned before the active check finished")
+	default:
+	}
+
+	close(releaseDone)
+	select {
+	case msg := <-msgCh:
+		if _, ok := msg.(tea.QuitMsg); !ok {
+			t.Fatalf("quit command message = %T, want tea.QuitMsg", msg)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("quit command did not return after the active check finished")
 	}
 }
 

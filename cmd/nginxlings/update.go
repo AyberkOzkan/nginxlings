@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -12,15 +13,26 @@ import (
 
 /* ---------- check.sh  ---------- */
 
-func runCheck(index int, ex Exercise) tea.Cmd {
+func runCheck(ctx context.Context, index int, ex Exercise, done chan<- struct{}) tea.Cmd {
 	return func() tea.Msg {
-		out, err := runExerciseCheck(ex)
+		defer close(done)
+		out, err := runExerciseCheckContext(ctx, ex)
 
 		return checkResultMsg{
 			output: out,
 			err:    err,
 			index:  index,
 		}
+	}
+}
+
+func cancelCheckAndQuit(cancel context.CancelFunc, done <-chan struct{}) tea.Cmd {
+	return func() tea.Msg {
+		cancel()
+		if done != nil {
+			<-done
+		}
+		return tea.Quit()
 	}
 }
 
@@ -109,6 +121,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Global çıkış
 		case "ctrl+c", "q":
+			if m.loading && m.checkCancel != nil {
+				cancel := m.checkCancel
+				done := m.checkDone
+				m.checkCancel = nil
+				m.checkDone = nil
+				return m, cancelCheckAndQuit(cancel, done)
+			}
 			return m, tea.Quit
 
 		// SOL PANEL (egzersiz listesi) – W/S ile hareket
@@ -170,6 +189,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			idx := m.cursor
 			ex := m.exercises[idx]
 			m.loading = true
+			ctx, cancel := context.WithTimeout(context.Background(), defaultCheckTimeout)
+			done := make(chan struct{})
+			m.checkCancel = cancel
+			m.checkDone = done
 
 			workingLabel := "[RUNNING]"
 			if m.i18n != nil {
@@ -186,7 +209,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			m.status = fmt.Sprintf("%s \"%s\"...", workingLabel, name)
-			return m, runCheck(idx, ex)
+			return m, runCheck(ctx, idx, ex, done)
 
 		// Hint
 		case "h":
@@ -229,6 +252,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case checkResultMsg:
 		m.loading = false
+		if m.checkCancel != nil {
+			m.checkCancel()
+		}
+		m.checkCancel = nil
+		m.checkDone = nil
 
 		// Tüm çıktıyı trim’le
 		out := strings.TrimSpace(msg.output)

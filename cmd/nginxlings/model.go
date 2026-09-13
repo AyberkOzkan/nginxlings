@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -44,6 +45,8 @@ type model struct {
 
 	status              string
 	loading             bool
+	checkCancel         context.CancelFunc
+	checkDone           <-chan struct{}
 	instructionsContent string
 	lastCheckOutput     string
 
