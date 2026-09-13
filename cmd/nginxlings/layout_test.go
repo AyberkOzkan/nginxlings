@@ -116,6 +116,7 @@ func TestMarqueeOffsetResetsWhenSelectionChanges(t *testing.T) {
 	}
 	m.cursor = 0
 	m.marquee = 7
+	m.marqueeGeneration = 3
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	got := updated.(model)
@@ -125,6 +126,9 @@ func TestMarqueeOffsetResetsWhenSelectionChanges(t *testing.T) {
 	}
 	if got.marquee != 0 {
 		t.Fatalf("marquee = %d, want reset to 0", got.marquee)
+	}
+	if got.marqueeGeneration != 4 {
+		t.Fatalf("marqueeGeneration = %d, want 4", got.marqueeGeneration)
 	}
 }
 
@@ -191,6 +195,93 @@ func TestCompactSelectedExerciseUsesMarqueeWithoutEllipsis(t *testing.T) {
 		t.Fatalf("compact selected row did not move after marquee tick: %q", before[1])
 	}
 	assertRenderedLinesWithin(t, afterView, 24)
+}
+
+func TestMarqueeLanguageSwitchResetsAndReevaluatesOverflow(t *testing.T) {
+	i18n := &I18n{
+		langs: []LangMeta{
+			{Code: "en", Label: "English"},
+			{Code: "tr", Label: "Türkçe"},
+		},
+		uiStrings: map[string]map[string]string{
+			"en": {"status_lang_switched": "Language switched."},
+			"tr": {"status_lang_switched": "Dil değiştirildi."},
+		},
+		exerciseNames: map[string]map[string]string{
+			"en": {"01_example": "Short title"},
+			"tr": {"01_example": "Bu egzersiz başlığı seçili liste satırına kesinlikle sığmayacak kadar uzundur"},
+		},
+	}
+	m := layoutTestModel(50, 16)
+	m.i18n = i18n
+	m.exercises = []Exercise{{ID: "01_example", DefaultName: "Fallback"}}
+	m.marquee = 7
+	m.marqueeGeneration = 4
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	longTitle := updated.(model)
+	if longTitle.currentLangCode() != "tr" {
+		t.Fatalf("language = %q, want tr", longTitle.currentLangCode())
+	}
+	if longTitle.marquee != 0 {
+		t.Fatalf("marquee = %d, want reset to 0", longTitle.marquee)
+	}
+	if longTitle.marqueeGeneration != 5 {
+		t.Fatalf("marqueeGeneration = %d, want 5", longTitle.marqueeGeneration)
+	}
+	if cmd == nil {
+		t.Fatal("long translated title did not schedule marquee")
+	}
+
+	longTitle.marquee = 9
+	updated, cmd = longTitle.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	shortTitle := updated.(model)
+	if shortTitle.currentLangCode() != "en" {
+		t.Fatalf("language = %q, want en", shortTitle.currentLangCode())
+	}
+	if shortTitle.marquee != 0 {
+		t.Fatalf("marquee = %d, want reset to 0", shortTitle.marquee)
+	}
+	if shortTitle.marqueeGeneration != 6 {
+		t.Fatalf("marqueeGeneration = %d, want 6", shortTitle.marqueeGeneration)
+	}
+	if cmd != nil {
+		t.Fatal("short translated title scheduled an unnecessary marquee")
+	}
+}
+
+func TestMarqueeIgnoresStaleTick(t *testing.T) {
+	m := layoutTestModel(50, 16)
+	m.exercises = []Exercise{{
+		ID:          "01_long",
+		DefaultName: "01 - This Exercise Name Is Long Enough To Scroll",
+	}}
+	m.marquee = 5
+	m.marqueeGeneration = 8
+
+	updated, cmd := m.Update(marqueeTickMsg{generation: 7})
+	got := updated.(model)
+	if got.marquee != 5 {
+		t.Fatalf("marquee = %d, want stale tick to leave offset at 5", got.marquee)
+	}
+	if got.marqueeGeneration != 8 {
+		t.Fatalf("marqueeGeneration = %d, want 8", got.marqueeGeneration)
+	}
+	if cmd != nil {
+		t.Fatal("stale tick scheduled another marquee tick")
+	}
+}
+
+func TestMarqueeTickDelayPausesAtReadableBoundaries(t *testing.T) {
+	if got := marqueeTickDelay(0, 12); got != marqueePauseInterval {
+		t.Fatalf("initial delay = %s, want %s", got, marqueePauseInterval)
+	}
+	if got := marqueeTickDelay(1, 12); got != marqueeTickInterval {
+		t.Fatalf("scroll delay = %s, want %s", got, marqueeTickInterval)
+	}
+	if got := marqueeTickDelay(12, 12); got != marqueePauseInterval {
+		t.Fatalf("full-cycle delay = %s, want %s", got, marqueePauseInterval)
+	}
 }
 
 func TestVisibleExerciseRangeKeepsSelectionInBoundedWindow(t *testing.T) {

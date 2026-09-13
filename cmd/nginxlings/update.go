@@ -36,10 +36,34 @@ func cancelCheckAndQuit(cancel context.CancelFunc, done <-chan struct{}) tea.Cmd
 	}
 }
 
-func marqueeTick() tea.Cmd {
-	return tea.Tick(350*time.Millisecond, func(time.Time) tea.Msg {
-		return marqueeTickMsg{}
+const (
+	marqueeTickInterval  = 350 * time.Millisecond
+	marqueePauseInterval = 1050 * time.Millisecond
+)
+
+func marqueeTick(generation uint64, delay time.Duration) tea.Cmd {
+	return tea.Tick(delay, func(time.Time) tea.Msg {
+		return marqueeTickMsg{generation: generation}
 	})
+}
+
+func marqueeTickDelay(offset, cycleLength int) time.Duration {
+	if offset == 0 || cycleLength > 0 && offset%cycleLength == 0 {
+		return marqueePauseInterval
+	}
+	return marqueeTickInterval
+}
+
+func (m model) selectedExerciseName() string {
+	if len(m.exercises) == 0 || m.cursor < 0 || m.cursor >= len(m.exercises) {
+		return ""
+	}
+
+	ex := m.exercises[m.cursor]
+	if m.i18n != nil {
+		return m.i18n.ExerciseName(m.currentLangCode(), ex.ID, ex.DefaultName)
+	}
+	return ex.DefaultName
 }
 
 func (m model) selectedNameOverflows() bool {
@@ -51,11 +75,24 @@ func (m model) selectedNameOverflows() bool {
 	if layout.compact {
 		nameWidth = maxInt(1, m.width-4)
 	}
-	name := m.exercises[m.cursor].DefaultName
-	if m.i18n != nil {
-		name = m.i18n.ExerciseName(m.currentLangCode(), m.exercises[m.cursor].ID, name)
+	return lipgloss.Width(m.selectedExerciseName()) > nameWidth
+}
+
+func (m model) selectedMarqueeCycleLength() int {
+	name := m.selectedExerciseName()
+	if name == "" {
+		return 0
 	}
-	return lipgloss.Width(name) > nameWidth
+	return len([]rune(name + "   "))
+}
+
+func (m *model) resetMarquee() tea.Cmd {
+	m.marquee = 0
+	m.marqueeGeneration++
+	if !m.selectedNameOverflows() {
+		return nil
+	}
+	return marqueeTick(m.marqueeGeneration, marqueeTickDelay(0, m.selectedMarqueeCycleLength()))
 }
 
 /* ---------- Bubble Tea Update ---------- */
@@ -75,15 +112,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		layout := calculateLayout(m.width, m.height)
 		m.listWidth = layout.listOuterWidth
 		m.rightWidth = layout.rightOuterWidth
-		m.marquee = 0
 		m.readme.Width = layout.rightInnerWidth
 		m.readme.Height = layout.readmeHeight
 
 		m.loadReadmeForCurrent()
-		if m.selectedNameOverflows() {
-			return m, marqueeTick()
-		}
-		return m, nil
+		return m, m.resetMarquee()
 
 	case tea.KeyMsg:
 		key := msg.String()
@@ -137,20 +170,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "w":
 			if m.cursor > 0 {
 				m.cursor--
-				m.marquee = 0
 				m.loadReadmeForCurrent()
-				if m.selectedNameOverflows() {
-					return m, marqueeTick()
-				}
+				return m, m.resetMarquee()
 			}
 		case "s":
 			if m.cursor < len(m.exercises)-1 {
 				m.cursor++
-				m.marquee = 0
 				m.loadReadmeForCurrent()
-				if m.selectedNameOverflows() {
-					return m, marqueeTick()
-				}
+				return m, m.resetMarquee()
 			}
 
 		// SAĞ PANEL (instructions) – ok tuşları ve PgUp/PgDn ile scroll
@@ -197,21 +224,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.checkCancel = cancel
 			m.checkDone = done
 
-			workingLabel := "[RUNNING]"
-			if m.i18n != nil {
-				workingLabel = m.i18n.T(
-					m.currentLangCode(),
-					"working_label",
-					workingLabel,
-				)
-			}
-
 			name := ex.DefaultName
 			if m.i18n != nil {
 				name = m.i18n.ExerciseName(m.currentLangCode(), ex.ID, ex.DefaultName)
 			}
 
-			m.status = fmt.Sprintf("%s \"%s\"...", workingLabel, name)
+			m.status = fmt.Sprintf("\"%s\"...", name)
 			return m, runCheck(ctx, idx, ex, done)
 
 		// Hint
@@ -242,6 +260,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state.LangCode = m.currentLangCode()
 					_ = m.state.Save(m.paths.StateFile)
 				}
+				return m, m.resetMarquee()
 			}
 
 		// Progress reset
@@ -322,12 +341,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case marqueeTickMsg:
+		if msg.generation != m.marqueeGeneration {
+			return m, nil
+		}
 		if !m.selectedNameOverflows() {
 			m.marquee = 0
+			m.marqueeGeneration++
 			return m, nil
 		}
 		m.marquee++
-		return m, marqueeTick()
+		return m, marqueeTick(
+			m.marqueeGeneration,
+			marqueeTickDelay(m.marquee, m.selectedMarqueeCycleLength()),
+		)
 	}
 
 	return m, nil

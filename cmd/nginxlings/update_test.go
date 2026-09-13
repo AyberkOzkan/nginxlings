@@ -289,6 +289,61 @@ func TestUpdateResetProgressClearsState(t *testing.T) {
 	}
 }
 
+func TestUpdateRunningStatusRendersOneTranslatedLabel(t *testing.T) {
+	tests := []struct {
+		name      string
+		langIndex int
+		width     int
+		height    int
+		label     string
+	}{
+		{name: "English", langIndex: 0, width: 80, height: 24, label: "[RUNNING]"},
+		{name: "Turkish narrow", langIndex: 1, width: 42, height: 12, label: "[ÇALIŞIYOR]"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			i18n := &I18n{
+				langs: []LangMeta{
+					{Code: "en", Label: "English"},
+					{Code: "tr", Label: "Türkçe"},
+				},
+				uiStrings: map[string]map[string]string{
+					"en": {"working_label": "[RUNNING]"},
+					"tr": {"working_label": "[ÇALIŞIYOR]"},
+				},
+				exerciseNames: map[string]map[string]string{
+					"en": {"01_static": "Static Server"},
+					"tr": {"01_static": "Statik Sunucu"},
+				},
+			}
+			m := layoutTestModel(tt.width, tt.height)
+			m.i18n = i18n
+			m.langIndex = tt.langIndex
+			m.exercises = []Exercise{{ID: "01_static", DefaultName: "Static Server"}}
+
+			updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+			running := updated.(model)
+			if cmd == nil {
+				t.Fatal("check command is nil")
+			}
+			if running.checkCancel == nil {
+				t.Fatal("check cancel function is nil")
+			}
+			running.checkCancel()
+			if strings.Contains(running.status, tt.label) {
+				t.Fatalf("semantic status %q contains rendered label %q", running.status, tt.label)
+			}
+
+			view := running.View()
+			if got := strings.Count(view, tt.label); got != 1 {
+				t.Fatalf("running label count = %d, want 1\nview:\n%s", got, view)
+			}
+			assertRenderedLinesWithin(t, view, tt.width)
+		})
+	}
+}
+
 func newUpdateModelFromRoot(t *testing.T, root, lang string) model {
 	t.Helper()
 
