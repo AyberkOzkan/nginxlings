@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -348,6 +349,95 @@ func TestUpdateSelectionLoadsSelectedExerciseInstructions(t *testing.T) {
 	if !strings.Contains(got.readme.View(), "Second Exercise") {
 		t.Fatalf("readme = %q, want selected exercise instructions", got.readme.View())
 	}
+
+	saved, err := LoadState(got.paths.StateFile)
+	if err != nil {
+		t.Fatalf("LoadState() error = %v", err)
+	}
+	if saved.LastExerciseID != "02_config_layout" {
+		t.Fatalf("LastExerciseID = %q, want 02_config_layout", saved.LastExerciseID)
+	}
+	restarted := initialModelWithOptions(got.paths, "en")
+	if restarted.cursor != 1 {
+		t.Fatalf("restarted cursor = %d, want 1", restarted.cursor)
+	}
+}
+
+func TestUpdateSelectionSaveFailureIsVisible(t *testing.T) {
+	root := newCLIAppRoot(t)
+	createExercise(t, root, "01_static_server")
+	createExercise(t, root, "02_config_layout")
+	m := newUpdateModelFromRoot(t, root, "en")
+	m.state = defaultState()
+	m.paths.StateFile = filepath.Join(t.TempDir(), "state-target")
+	if err := os.Mkdir(m.paths.StateFile, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")})
+	got := updated.(model)
+	if got.cursor != 1 {
+		t.Fatalf("cursor = %d, want 1 despite save failure", got.cursor)
+	}
+	if !strings.Contains(got.status, "State kaydedilemedi") {
+		t.Fatalf("status = %q, want visible state save error", got.status)
+	}
+}
+
+func TestPersistSelectedExerciseSkipsUnchangedSelection(t *testing.T) {
+	stateTarget := filepath.Join(t.TempDir(), "state-target")
+	if err := os.Mkdir(stateTarget, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	m := model{
+		exercises: []Exercise{{ID: "01_static_server"}},
+		state: &AppState{
+			Completed:      make(map[string]bool),
+			LastExerciseID: "01_static_server",
+		},
+		paths:  AppPaths{StateFile: stateTarget},
+		status: "unchanged",
+	}
+
+	m.persistSelectedExercise()
+	if m.status != "unchanged" {
+		t.Fatalf("status = %q, unchanged selection attempted a state write", m.status)
+	}
+}
+
+func TestUpdateCheckResultDoesNotOverwriteNewerSelection(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	state := &AppState{
+		Completed:      make(map[string]bool),
+		LastExerciseID: "02_config_layout",
+		LangCode:       "en",
+	}
+	m := model{
+		exercises: []Exercise{
+			{ID: "01_static_server", DefaultName: "Static Server"},
+			{ID: "02_config_layout", DefaultName: "Config Layout"},
+		},
+		cursor: 1,
+		readme: viewport.New(80, 20),
+		state:  state,
+		paths:  AppPaths{StateFile: statePath},
+	}
+
+	updated, _ := m.Update(checkResultMsg{output: "[PASS] first exercise", index: 0})
+	got := updated.(model)
+	if got.cursor != 1 {
+		t.Fatalf("cursor = %d, want current selection 1", got.cursor)
+	}
+	saved, err := LoadState(statePath)
+	if err != nil {
+		t.Fatalf("LoadState() error = %v", err)
+	}
+	if saved.LastExerciseID != "02_config_layout" {
+		t.Fatalf("LastExerciseID = %q, want newer selection 02_config_layout", saved.LastExerciseID)
+	}
+	if !saved.Completed["01_static_server"] {
+		t.Fatal("checked exercise completion was not saved")
+	}
 }
 
 func TestUpdateLanguageSwitchReloadsInstructions(t *testing.T) {
@@ -384,6 +474,25 @@ func TestUpdateLanguageSwitchReloadsInstructions(t *testing.T) {
 	}
 	if !strings.Contains(got.readme.View(), "Turkce Talimatlar") {
 		t.Fatalf("readme = %q, want translated instructions", got.readme.View())
+	}
+}
+
+func TestUpdateLanguageSaveFailureIsVisible(t *testing.T) {
+	root := newCLIAppRoot(t)
+	createExercise(t, root, "01_static_server")
+	m := newUpdateModelFromRoot(t, root, "en")
+	m.paths.StateFile = filepath.Join(t.TempDir(), "state-target")
+	if err := os.Mkdir(m.paths.StateFile, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	got := updated.(model)
+	if got.currentLangCode() != "tr" {
+		t.Fatalf("language = %q, want tr despite save failure", got.currentLangCode())
+	}
+	if !strings.Contains(got.status, "State kaydedilemedi") {
+		t.Fatalf("status = %q, want visible state save error", got.status)
 	}
 }
 

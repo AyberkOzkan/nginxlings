@@ -95,6 +95,20 @@ func (m *model) resetMarquee() tea.Cmd {
 	return marqueeTick(m.marqueeGeneration, marqueeTickDelay(0, m.selectedMarqueeCycleLength()))
 }
 
+func (m *model) persistSelectedExercise() {
+	if m.state == nil || m.cursor < 0 || m.cursor >= len(m.exercises) {
+		return
+	}
+	id := m.exercises[m.cursor].ID
+	if m.state.LastExerciseID == id {
+		return
+	}
+	m.state.LastExerciseID = id
+	if err := m.state.Save(m.paths.StateFile); err != nil {
+		m.status = fmt.Sprintf("State kaydedilemedi: %v", err)
+	}
+}
+
 /* ---------- Bubble Tea Update ---------- */
 
 func (m model) Init() tea.Cmd {
@@ -177,12 +191,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor > 0 {
 				m.cursor--
 				m.loadReadmeForCurrent()
+				m.persistSelectedExercise()
 				return m, m.resetMarquee()
 			}
 		case "s":
 			if m.cursor < len(m.exercises)-1 {
 				m.cursor++
 				m.loadReadmeForCurrent()
+				m.persistSelectedExercise()
 				return m, m.resetMarquee()
 			}
 
@@ -288,7 +304,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Dil tercihini state'e yaz
 				if m.state != nil {
 					m.state.LangCode = m.currentLangCode()
-					_ = m.state.Save(m.paths.StateFile)
+					if err := m.state.Save(m.paths.StateFile); err != nil {
+						m.status = fmt.Sprintf("State kaydedilemedi: %v", err)
+					}
 				}
 				return m, m.resetMarquee()
 			}
@@ -328,7 +346,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state.Completed = make(map[string]bool)
 				}
 				m.state.Completed[ex.ID] = success
-				m.state.LastExerciseID = ex.ID
 				if err := m.state.Save(m.paths.StateFile); err != nil {
 					if out != "" {
 						out = out + fmt.Sprintf("\n[state save error: %v]", err)

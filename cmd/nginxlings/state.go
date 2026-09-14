@@ -47,6 +47,10 @@ func LoadState(path string) (*AppState, error) {
 }
 
 func (s *AppState) Save(path string) error {
+	return s.save(path, os.Rename)
+}
+
+func (s *AppState) save(path string, renameFile func(string, string) error) error {
 	if s == nil {
 		return nil
 	}
@@ -59,11 +63,49 @@ func (s *AppState) Save(path string) error {
 		return fmt.Errorf("state marshal hatası: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("state dizini oluşturulamadı: %w", err)
 	}
-	if err := os.WriteFile(path, b, 0o644); err != nil {
+
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
 		return fmt.Errorf("state yazılamadı: %w", err)
+	}
+	tmpPath := tmp.Name()
+	closed := false
+	defer func() {
+		if !closed {
+			_ = tmp.Close()
+		}
+		_ = os.Remove(tmpPath)
+	}()
+
+	if err := tmp.Chmod(0o644); err != nil {
+		return fmt.Errorf("state geçici dosya modu ayarlanamadı: %w", err)
+	}
+	if _, err := tmp.Write(b); err != nil {
+		return fmt.Errorf("state geçici dosyaya yazılamadı: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		return fmt.Errorf("state geçici dosyası eşitlenemedi: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("state geçici dosyası kapatılamadı: %w", err)
+	}
+	closed = true
+
+	if err := renameFile(tmpPath, path); err != nil {
+		return fmt.Errorf("state atomik olarak değiştirilemedi: %w", err)
+	}
+
+	dirHandle, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("state dizini açılamadı: %w", err)
+	}
+	defer dirHandle.Close()
+	if err := dirHandle.Sync(); err != nil {
+		return fmt.Errorf("state dizini eşitlenemedi: %w", err)
 	}
 	return nil
 }

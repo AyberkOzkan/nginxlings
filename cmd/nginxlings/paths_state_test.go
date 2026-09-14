@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -114,6 +115,21 @@ func TestSaveAndLoadState(t *testing.T) {
 		t.Fatalf("Save() error = %v", err)
 	}
 
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o644 {
+		t.Fatalf("state mode = %o, want 644", got)
+	}
+	tempFiles, err := filepath.Glob(filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*"))
+	if err != nil {
+		t.Fatalf("Glob() error = %v", err)
+	}
+	if len(tempFiles) != 0 {
+		t.Fatalf("temporary state files remain after save: %v", tempFiles)
+	}
+
 	loaded, err := LoadState(path)
 	if err != nil {
 		t.Fatalf("LoadState() error = %v", err)
@@ -126,6 +142,51 @@ func TestSaveAndLoadState(t *testing.T) {
 	}
 	if loaded.LangCode != state.LangCode {
 		t.Fatalf("LangCode = %q, want %q", loaded.LangCode, state.LangCode)
+	}
+}
+
+func TestSaveStateRenameFailurePreservesLastValidFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	original := &AppState{
+		Completed:      map[string]bool{"01_static_server": true},
+		LastExerciseID: "01_static_server",
+		LangCode:       "en",
+	}
+	if err := original.Save(path); err != nil {
+		t.Fatalf("initial Save() error = %v", err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	replacement := &AppState{
+		Completed:      map[string]bool{"02_config_layout": true},
+		LastExerciseID: "02_config_layout",
+		LangCode:       "tr",
+	}
+	renameErr := errors.New("forced rename failure")
+	err = replacement.save(path, func(string, string) error {
+		return renameErr
+	})
+	if !errors.Is(err, renameErr) {
+		t.Fatalf("save() error = %v, want forced rename failure", err)
+	}
+
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("state changed after failed replacement\nbefore: %s\nafter: %s", before, after)
+	}
+	tempFiles, err := filepath.Glob(filepath.Join(dir, ".state.json.tmp-*"))
+	if err != nil {
+		t.Fatalf("Glob() error = %v", err)
+	}
+	if len(tempFiles) != 0 {
+		t.Fatalf("temporary state files remain after failed save: %v", tempFiles)
 	}
 }
 
