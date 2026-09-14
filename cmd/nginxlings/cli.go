@@ -126,13 +126,7 @@ Environment:
 }
 
 func runList(opts cliOptions, stdout, stderr io.Writer) int {
-	paths, err := ResolveAppPathsWithOptions(opts.root, opts.state)
-	if err != nil {
-		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return 1
-	}
-
-	exercises, err := LoadExercises(paths.AssetRoot)
+	exercises, err := loadCLIExercises(opts.root)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
@@ -145,13 +139,7 @@ func runList(opts cliOptions, stdout, stderr io.Writer) int {
 }
 
 func runCheckCommand(opts cliOptions, stdout, stderr io.Writer, runner checkRunner) int {
-	paths, err := ResolveAppPathsWithOptions(opts.root, opts.state)
-	if err != nil {
-		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return 1
-	}
-
-	exercises, err := LoadExercises(paths.AssetRoot)
+	exercises, err := loadCLIExercises(opts.root)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
@@ -175,6 +163,14 @@ func runCheckCommand(opts cliOptions, stdout, stderr io.Writer, runner checkRunn
 		return 1
 	}
 	return 0
+}
+
+func loadCLIExercises(root string) ([]Exercise, error) {
+	assetRoot, err := ResolveAssetRootWithOptions(root)
+	if err != nil {
+		return nil, err
+	}
+	return LoadExercises(assetRoot)
 }
 
 func envOverlay(root, state string) func(string) string {

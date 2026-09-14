@@ -58,6 +58,51 @@ func TestRunCLIList(t *testing.T) {
 	}
 }
 
+func TestRunCLIListDoesNotRequireStateLocation(t *testing.T) {
+	clearStateLocationEnv(t)
+	root := newCLIAppRoot(t)
+	createExercise(t, root, "01_static_server")
+	var stdout, stderr bytes.Buffer
+
+	code := runCLI([]string{"--root", root, "--list"}, &stdout, &stderr, nil, nil)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 without HOME/state; stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "01_static_server") {
+		t.Fatalf("stdout = %q, want discovered exercise", stdout.String())
+	}
+}
+
+func TestRunCLICheckDoesNotRequireStateLocation(t *testing.T) {
+	clearStateLocationEnv(t)
+	root := newCLIAppRoot(t)
+	createExercise(t, root, "01_static_server")
+	var stdout, stderr bytes.Buffer
+	runnerCalled := false
+
+	code := runCLI(
+		[]string{"--root", root, "--check", "01_static_server"},
+		&stdout,
+		&stderr,
+		func(ex Exercise) (string, error) {
+			runnerCalled = true
+			return "[PASS] stateless\n", nil
+		},
+		nil,
+	)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 without HOME/state; stderr=%q", code, stderr.String())
+	}
+	if !runnerCalled {
+		t.Fatal("check runner was not called")
+	}
+	if !strings.Contains(stdout.String(), "[PASS] stateless") {
+		t.Fatalf("stdout = %q, want runner output", stdout.String())
+	}
+}
+
 func TestRunCLICheckValidExercise(t *testing.T) {
 	root := newCLIAppRoot(t)
 	createExercise(t, root, "01_static_server")
@@ -247,6 +292,19 @@ func TestInitialModelWithOptionsUsesLangFlag(t *testing.T) {
 
 	if got := m.currentLangCode(); got != "tr" {
 		t.Fatalf("currentLangCode() = %q, want tr", got)
+	}
+}
+
+func clearStateLocationEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		envStateFile,
+		envStateRoot,
+		envXDGStateHome,
+		envHome,
+		envUserProfile,
+	} {
+		t.Setenv(key, "")
 	}
 }
 

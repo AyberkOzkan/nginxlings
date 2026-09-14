@@ -64,6 +64,8 @@ Run one exercise check without starting the TUI:
 go run ./cmd/nginxlings --check 01_static_server
 ```
 
+`--list` and `--check` only resolve application assets; they do not require or create a user state file.
+
 Set the initial TUI language:
 
 ```sh
