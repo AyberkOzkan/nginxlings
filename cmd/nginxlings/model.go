@@ -52,6 +52,7 @@ type model struct {
 	checkDone           <-chan struct{}
 	instructionsContent string
 	lastCheckOutput     string
+	showingCheckOutput  bool
 
 	i18n      *I18n
 	langIndex int
@@ -253,14 +254,15 @@ func initialModelWithOptions(paths AppPaths, initialLang string) model {
 /* ---------- README yükleme (dil koduna göre) ---------- */
 
 func (m *model) loadReadmeForCurrent() {
+	m.showingCheckOutput = false
 	if len(m.exercises) == 0 {
+		content := "Hiç egzersiz yok."
 		if m.i18n != nil {
-			m.readme.SetContent(
-				m.i18n.T(m.currentLangCode(), "status_no_exercises", "Hiç egzersiz yok."),
-			)
-		} else {
-			m.readme.SetContent("Hiç egzersiz yok.")
+			content = m.i18n.T(m.currentLangCode(), "status_no_exercises", content)
 		}
+		m.instructionsContent = content
+		m.readme.SetContent(content)
+		m.readme.GotoTop()
 		return
 	}
 
@@ -284,9 +286,13 @@ func (m *model) loadReadmeForCurrent() {
 			rendered := m.renderMarkdown(string(data))
 			m.instructionsContent = rendered
 			m.readme.SetContent(rendered)
+			m.readme.GotoTop()
 			return
 		}
 	}
 
-	m.readme.SetContent(fmt.Sprintf("README bulunamadı (%s).", strings.Join(candidates, ", ")))
+	content := fmt.Sprintf("README bulunamadı (%s).", strings.Join(candidates, ", "))
+	m.instructionsContent = content
+	m.readme.SetContent(content)
+	m.readme.GotoTop()
 }

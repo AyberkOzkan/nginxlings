@@ -2,14 +2,18 @@
   "title": "Nginxlings – Nginx Egzersizleri",
   "exercises_title": "Egzersizler",
   "instructions_title": "Talimatlar",
+  "check_output_title": "Son Kontrol Çıktısı",
   "status_initial": "W/S ile egzersiz seç, c ile kontrol et, h ile ipucu al, l ile dili değiştir, q ile çık. Talimatları kaydırmak için ↑/↓ ve PgUp/PgDn kullan.",
   "readme_initial": "Soldan bir egzersiz seç ve talimatları burada oku.",
   "hint_default": "İpucu: README’yi dikkatli oku; nginx.conf içindeki TODO’ları düzelt.",
   "status_no_exercises": "Hiç egzersiz yok.",
   "status_lang_switched": "Dil değiştirildi.",
+  "status_showing_instructions": "Egzersiz talimatları gösteriliyor.",
+  "status_showing_check_output": "Son kontrol çıktısı gösteriliyor.",
+  "status_no_check_output": "Henüz kontrol çıktısı yok.",
   "ready_label": "[HAZIR]",
   "working_label": "[ÇALIŞIYOR]",
-  "help": "(W/S) seç  (↑/↓) kaydır  (PgUp/PgDn) hızlı kaydır  (←/→) yatay  (c/Enter) kontrol  (h) ipucu  (l) dil  (r) sıfırla  (q) çık",
+  "help": "(W/S) seç  (↑/↓) kaydır  (PgUp/PgDn) hızlı kaydır  (←/→) yatay  (c/Enter) kontrol  (Tab) görünüm  (h) ipucu  (l) dil  (r) sıfırla  (q) çık",
   "lang_label": "Dil"
 }
 

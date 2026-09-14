@@ -105,6 +105,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case tea.WindowSizeMsg:
+		showingCheckOutput := m.showingCheckOutput
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
@@ -116,6 +117,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.readme.Height = layout.readmeHeight
 
 		m.loadReadmeForCurrent()
+		if showingCheckOutput && m.lastCheckOutput != "" {
+			m.showingCheckOutput = true
+			m.readme.SetContent(m.lastCheckOutput)
+			m.readme.GotoTop()
+		}
 		return m, m.resetMarquee()
 
 	case tea.KeyMsg:
@@ -196,6 +202,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.readme.ScrollRight(4)
 		case "left":
 			m.readme.ScrollLeft(4)
+
+		case "tab":
+			if m.showingCheckOutput {
+				m.showingCheckOutput = false
+				m.readme.SetContent(m.instructionsContent)
+				m.readme.GotoTop()
+				m.status = "Showing exercise instructions."
+				if m.i18n != nil {
+					m.status = m.i18n.T(m.currentLangCode(), "status_showing_instructions", m.status)
+				}
+			} else if m.lastCheckOutput != "" {
+				m.showingCheckOutput = true
+				m.readme.SetContent(m.lastCheckOutput)
+				m.readme.GotoTop()
+				m.status = "Showing last check output."
+				if m.i18n != nil {
+					m.status = m.i18n.T(m.currentLangCode(), "status_showing_check_output", m.status)
+				}
+			} else {
+				m.status = "No check output yet."
+				if m.i18n != nil {
+					m.status = m.i18n.T(m.currentLangCode(), "status_no_check_output", m.status)
+				}
+			}
 
 		// CHECK çalıştır
 		case "c", "enter":
@@ -312,7 +342,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// ✅ / ❌ her iki durumda da: check.sh çıktısını sağ panelde göster
 		if out != "" {
 			m.lastCheckOutput = out
+			m.showingCheckOutput = true
 			m.readme.SetContent(out)
+			m.readme.GotoTop()
 		}
 
 		// Status satırı için kısa özet

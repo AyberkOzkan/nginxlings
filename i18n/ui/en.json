@@ -2,14 +2,18 @@
   "title": "Nginxlings – Nginx Exercises",
   "exercises_title": "Exercises",
   "instructions_title": "Instructions",
+  "check_output_title": "Last Check Output",
   "status_initial": "Use W/S to select an exercise, c to check, h for a hint, l to change language, q to quit. Use ↑/↓ and PgUp/PgDn to scroll the instructions.",
   "readme_initial": "Select an exercise on the left and read the instructions here.",
   "hint_default": "Hint: Read the README carefully and fix the TODOs in nginx.conf.",
   "status_no_exercises": "No exercises found.",
   "status_lang_switched": "Language switched.",
+  "status_showing_instructions": "Showing exercise instructions.",
+  "status_showing_check_output": "Showing last check output.",
+  "status_no_check_output": "No check output yet.",
   "ready_label": "[READY]",
   "working_label": "[RUNNING]",
-  "help": "(W/S) select  (↑/↓) scroll  (PgUp/PgDn) fast scroll  (←/→) horiz  (c/Enter) check  (h) hint  (l) lang  (r) reset  (q) quit",
+  "help": "(W/S) select  (↑/↓) scroll  (PgUp/PgDn) fast scroll  (←/→) horiz  (c/Enter) check  (Tab) view  (h) hint  (l) lang  (r) reset  (q) quit",
   "lang_label": "Lang"
 }
 

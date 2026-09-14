@@ -193,6 +193,129 @@ func TestUpdateCheckResultEmptyFailureShowsRunnerError(t *testing.T) {
 	}
 }
 
+func TestUpdateTogglesSuccessfulAndFailedCheckOutput(t *testing.T) {
+	tests := []struct {
+		name   string
+		output string
+		err    error
+	}{
+		{name: "successful check", output: "[PASS] complete"},
+		{name: "failed check", output: "[FAIL] incomplete", err: errors.New("exit status 1")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := model{
+				exercises:           []Exercise{{ID: "01_static", DefaultName: "Static Server"}},
+				readme:              viewport.New(80, 20),
+				instructionsContent: "Exercise instructions",
+			}
+			m.readme.SetContent(m.instructionsContent)
+
+			updated, _ := m.Update(checkResultMsg{output: tt.output, err: tt.err, index: 0})
+			result := updated.(model)
+			if !result.showingCheckOutput {
+				t.Fatal("check result did not activate output view")
+			}
+			if !strings.Contains(result.readme.View(), tt.output) {
+				t.Fatalf("readme = %q, want check output %q", result.readme.View(), tt.output)
+			}
+
+			updated, cmd := result.Update(tea.KeyMsg{Type: tea.KeyTab})
+			instructions := updated.(model)
+			if cmd != nil {
+				t.Fatalf("toggle command = %v, want nil", cmd)
+			}
+			if instructions.showingCheckOutput {
+				t.Fatal("Tab did not activate instructions view")
+			}
+			if !strings.Contains(instructions.readme.View(), "Exercise instructions") {
+				t.Fatalf("readme = %q, want instructions", instructions.readme.View())
+			}
+
+			updated, _ = instructions.Update(tea.KeyMsg{Type: tea.KeyTab})
+			output := updated.(model)
+			if !output.showingCheckOutput {
+				t.Fatal("second Tab did not reactivate check output view")
+			}
+			if !strings.Contains(output.readme.View(), tt.output) {
+				t.Fatalf("readme = %q, want restored check output %q", output.readme.View(), tt.output)
+			}
+		})
+	}
+}
+
+func TestUpdateOutputToggleUsesTranslatedLabelsAndHandlesMissingOutput(t *testing.T) {
+	i18n := &I18n{
+		langs: []LangMeta{{Code: "tr", Label: "Türkçe"}},
+		uiStrings: map[string]map[string]string{
+			"tr": {
+				"instructions_title":          "Talimatlar",
+				"check_output_title":          "Son Kontrol Çıktısı",
+				"status_showing_instructions": "Egzersiz talimatları gösteriliyor.",
+				"status_showing_check_output": "Son kontrol çıktısı gösteriliyor.",
+				"status_no_check_output":      "Henüz kontrol çıktısı yok.",
+			},
+		},
+	}
+	m := layoutTestModel(100, 24)
+	m.i18n = i18n
+	m.exercises = []Exercise{{ID: "01_static", DefaultName: "Static Server"}}
+	m.instructionsContent = "Talimat içeriği"
+	m.readme.SetContent(m.instructionsContent)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	withoutOutput := updated.(model)
+	if withoutOutput.showingCheckOutput {
+		t.Fatal("empty output activated check output view")
+	}
+	if withoutOutput.status != "Henüz kontrol çıktısı yok." {
+		t.Fatalf("status = %q, want translated empty-output status", withoutOutput.status)
+	}
+
+	withoutOutput.lastCheckOutput = "[PASS] tamamlandı"
+	updated, _ = withoutOutput.Update(tea.KeyMsg{Type: tea.KeyTab})
+	output := updated.(model)
+	if output.status != "Son kontrol çıktısı gösteriliyor." {
+		t.Fatalf("status = %q, want translated output status", output.status)
+	}
+	if view := output.View(); !strings.Contains(view, "Son Kontrol Çıktısı") {
+		t.Fatalf("view does not contain translated output title:\n%s", view)
+	}
+
+	updated, _ = output.Update(tea.KeyMsg{Type: tea.KeyTab})
+	instructions := updated.(model)
+	if instructions.status != "Egzersiz talimatları gösteriliyor." {
+		t.Fatalf("status = %q, want translated instructions status", instructions.status)
+	}
+	if view := instructions.View(); !strings.Contains(view, "Talimatlar") {
+		t.Fatalf("view does not contain translated instructions title:\n%s", view)
+	}
+}
+
+func TestWindowResizePreservesActiveCheckOutputView(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "README.md"), "# Instructions\n")
+	m := layoutTestModel(100, 24)
+	m.exercises = []Exercise{{ID: "01_static", DefaultName: "Static Server", Path: dir}}
+	m.instructionsContent = "Instructions"
+	m.lastCheckOutput = "[PASS] complete"
+	m.showingCheckOutput = true
+	m.readme.SetContent(m.lastCheckOutput)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 90, Height: 20})
+	got := updated.(model)
+	if !got.showingCheckOutput {
+		t.Fatal("window resize switched away from active check output")
+	}
+	if !strings.Contains(got.readme.View(), "[PASS] complete") {
+		t.Fatalf("readme = %q, want preserved check output", got.readme.View())
+	}
+	if !strings.Contains(got.instructionsContent, "Instructions") {
+		t.Fatalf("instructionsContent = %q, want re-rendered instructions", got.instructionsContent)
+	}
+}
+
 func TestUpdateSelectionLoadsSelectedExerciseInstructions(t *testing.T) {
 	root := newCLIAppRoot(t)
 	createExercise(t, root, "01_static_server")
@@ -204,6 +327,11 @@ func TestUpdateSelectionLoadsSelectedExerciseInstructions(t *testing.T) {
 	m.ready = true
 	m.width = 100
 	m.height = 24
+	m.readme.Width = 48
+	m.readme.Height = 16
+	m.lastCheckOutput = "[PASS] previous"
+	m.showingCheckOutput = true
+	m.readme.SetContent(m.lastCheckOutput)
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	got := updated.(model)
@@ -213,6 +341,12 @@ func TestUpdateSelectionLoadsSelectedExerciseInstructions(t *testing.T) {
 	}
 	if !strings.Contains(got.instructionsContent, "Second Exercise") {
 		t.Fatalf("instructionsContent = %q, want second exercise README", got.instructionsContent)
+	}
+	if got.showingCheckOutput {
+		t.Fatal("selection change did not return to instructions view")
+	}
+	if !strings.Contains(got.readme.View(), "Second Exercise") {
+		t.Fatalf("readme = %q, want selected exercise instructions", got.readme.View())
 	}
 }
 
@@ -226,6 +360,11 @@ func TestUpdateLanguageSwitchReloadsInstructions(t *testing.T) {
 	m.ready = true
 	m.width = 100
 	m.height = 24
+	m.readme.Width = 48
+	m.readme.Height = 16
+	m.lastCheckOutput = "[PASS] previous"
+	m.showingCheckOutput = true
+	m.readme.SetContent(m.lastCheckOutput)
 
 	if got := m.currentLangCode(); got != "en" {
 		t.Fatalf("initial lang = %q, want en", got)
@@ -239,6 +378,12 @@ func TestUpdateLanguageSwitchReloadsInstructions(t *testing.T) {
 	}
 	if !strings.Contains(got.instructionsContent, "Turkce Talimatlar") {
 		t.Fatalf("instructionsContent = %q, want Turkish README", got.instructionsContent)
+	}
+	if got.showingCheckOutput {
+		t.Fatal("language switch did not return to instructions view")
+	}
+	if !strings.Contains(got.readme.View(), "Turkce Talimatlar") {
+		t.Fatalf("readme = %q, want translated instructions", got.readme.View())
 	}
 }
 

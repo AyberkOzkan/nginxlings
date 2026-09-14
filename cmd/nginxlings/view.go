@@ -233,9 +233,10 @@ func (m model) View() string {
 	title := "Nginxlings"
 	exTitle := "Exercises"
 	instTitle := "Instructions"
+	checkOutputTitle := "Last Check Output"
 	readyLabel := "[READY]"
 	workingLabel := "[RUNNING]" // sadece çeviri için
-	helpText := "(W/S) select exercise  (↑/↓, PgUp/PgDn) scroll instructions  (←/→) horiz scroll  (c/Enter) check  (h) hint  (l) lang  (r) reset  (q) quit"
+	helpText := "(W/S) select exercise  (↑/↓, PgUp/PgDn) scroll instructions  (←/→) horiz scroll  (c/Enter) check  (Tab) view  (h) hint  (l) lang  (r) reset  (q) quit"
 
 	langLabel := "Lang"
 
@@ -243,11 +244,15 @@ func (m model) View() string {
 		title = m.i18n.T(langCode, "title", title)
 		exTitle = m.i18n.T(langCode, "exercises_title", exTitle)
 		instTitle = m.i18n.T(langCode, "instructions_title", instTitle)
+		checkOutputTitle = m.i18n.T(langCode, "check_output_title", checkOutputTitle)
 		readyLabel = m.i18n.T(langCode, "ready_label", readyLabel)
 		workingLabel = m.i18n.T(langCode, "working_label", workingLabel)
 		helpText = m.i18n.T(langCode, "help", helpText)
 		langLabel = m.i18n.T(langCode, "lang_label", langLabel)
 		_ = workingLabel
+	}
+	if m.showingCheckOutput {
+		instTitle = checkOutputTitle
 	}
 
 	if layout.compact {
