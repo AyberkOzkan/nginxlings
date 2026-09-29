@@ -497,6 +497,77 @@ func TestUpdateLanguageSaveFailureIsVisible(t *testing.T) {
 	}
 }
 
+func TestUpdateResetReloadsInstructionsAndClearsCheckOutput(t *testing.T) {
+	root := newCLIAppRoot(t)
+	createExercise(t, root, "01_static_server")
+	createExercise(t, root, "02_config_layout")
+	writeFile(t, filepath.Join(root, "exercises", "01_static_server", "README.en.md"), "# First Exercise\n")
+	writeFile(t, filepath.Join(root, "exercises", "02_config_layout", "README.en.md"), "# Second Exercise\n")
+	m := newUpdateModelFromRoot(t, root, "en")
+	m.readme.Width = 48
+	m.readme.Height = 10
+	m.cursor = 1
+	m.loadReadmeForCurrent()
+	m.lastCheckOutput = "[FAIL] second exercise"
+	m.showingCheckOutput = true
+	m.readme.SetContent(m.lastCheckOutput)
+
+	for _, key := range []string{"r", "y"} {
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+		m = updated.(model)
+	}
+
+	if m.cursor != 0 {
+		t.Fatalf("cursor = %d, want 0", m.cursor)
+	}
+	if m.showingCheckOutput || m.lastCheckOutput != "" {
+		t.Fatalf("check output survived reset: showing=%v output=%q", m.showingCheckOutput, m.lastCheckOutput)
+	}
+	if view := ansi.Strip(m.readme.View()); !strings.Contains(view, "First Exercise") {
+		t.Fatalf("readme = %q, want first exercise instructions after reset", view)
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(model)
+	if m.showingCheckOutput || !strings.Contains(ansi.Strip(m.readme.View()), "First Exercise") {
+		t.Fatalf("Tab after reset left the instructions: status=%q", m.status)
+	}
+}
+
+func TestUpdateResetIsRefusedWhileCheckRuns(t *testing.T) {
+	m := model{
+		exercises: []Exercise{{ID: "01_static_server", DefaultName: "01 - Static", Completed: true}},
+		readme:    viewport.New(40, 10),
+		loading:   true,
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	got := updated.(model)
+
+	if got.confirmReset {
+		t.Fatal("reset confirmation opened while a check is running")
+	}
+	if !strings.Contains(got.status, "running check") {
+		t.Fatalf("status = %q, want running-check refusal", got.status)
+	}
+	if !got.exercises[0].Completed {
+		t.Fatal("progress changed while reset was refused")
+	}
+}
+
+func TestUpdateCtrlCQuitsDuringResetConfirmation(t *testing.T) {
+	m := model{readme: viewport.New(40, 10), confirmReset: true}
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+
+	if cmd == nil {
+		t.Fatal("ctrl+c during reset confirmation returned no command")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("ctrl+c during reset confirmation did not quit")
+	}
+}
+
 func TestUpdateResetProgressClearsState(t *testing.T) {
 	root := newCLIAppRoot(t)
 	createExercise(t, root, "01_static_server")

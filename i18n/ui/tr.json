@@ -23,5 +23,6 @@
   "status_reset_confirm": "Tüm ilerleme sıfırlansın mı? (y/n)",
   "status_reset_done": "İlerleme sıfırlandı.",
   "status_reset_canceled": "Sıfırlama iptal edildi.",
-  "readme_not_found": "README bulunamadı (%s)."
+  "readme_not_found": "README bulunamadı (%s).",
+  "status_reset_blocked": "İlerlemeyi sıfırlamadan önce çalışan kontrolün bitmesini bekle."
 }

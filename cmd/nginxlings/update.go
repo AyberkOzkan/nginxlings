@@ -109,6 +109,41 @@ func (m *model) persistSelectedExercise() {
 	}
 }
 
+// quit stops the program, cancelling a running check first so its process
+// group does not outlive the TUI.
+func (m *model) quit() tea.Cmd {
+	if m.loading && m.checkCancel != nil {
+		cancel := m.checkCancel
+		done := m.checkDone
+		m.checkCancel = nil
+		m.checkDone = nil
+		return cancelCheckAndQuit(cancel, done)
+	}
+	return tea.Quit
+}
+
+// resetProgress clears completion, returns to the first exercise, and shows
+// its instructions. Reset is refused while a check runs, so no late result
+// can mark an exercise complete again.
+func (m *model) resetProgress() tea.Cmd {
+	for i := range m.exercises {
+		m.exercises[i].Completed = false
+	}
+	m.cursor = 0
+	m.lastCheckOutput = ""
+	m.loadReadmeForCurrent()
+
+	m.status = m.ui("status_reset_done", "Progress reset.")
+	if m.state != nil {
+		m.state.Completed = make(map[string]bool)
+		m.state.LastExerciseID = ""
+		if err := m.state.Save(m.paths.StateFile); err != nil {
+			m.status = m.uif("status_state_save_failed", "Progress could not be saved: %v", err)
+		}
+	}
+	return m.resetMarquee()
+}
+
 /* ---------- Bubble Tea Update ---------- */
 
 func (m model) Init() tea.Cmd {
@@ -141,28 +176,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		key := msg.String()
 
+		// ctrl+c her durumda çıkar, reset onayı beklenirken bile
+		if key == "ctrl+c" {
+			return m, m.quit()
+		}
+
 		// Reset onayı açıksa sadece y/n/esc handle et
 		if m.confirmReset {
 			switch key {
 			case "y", "Y":
-				// Tüm progress'i sıfırla
-				for i := range m.exercises {
-					m.exercises[i].Completed = false
-				}
-				if m.state != nil {
-					m.state.Completed = make(map[string]bool)
-					m.state.LastExerciseID = ""
-					if err := m.state.Save(m.paths.StateFile); err != nil {
-						m.status = m.uif("status_state_save_failed", "Progress could not be saved: %v", err)
-					} else {
-						m.status = m.ui("status_reset_done", "Progress reset.")
-					}
-				} else {
-					m.status = m.ui("status_reset_done", "Progress reset.")
-				}
-				m.cursor = 0
 				m.confirmReset = false
-				return m, nil
+				return m, m.resetProgress()
 
 			case "n", "N", "esc":
 				m.status = m.ui("status_reset_canceled", "Reset canceled.")
@@ -176,15 +200,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch key {
 
 		// Global çıkış
-		case "ctrl+c", "q":
-			if m.loading && m.checkCancel != nil {
-				cancel := m.checkCancel
-				done := m.checkDone
-				m.checkCancel = nil
-				m.checkDone = nil
-				return m, cancelCheckAndQuit(cancel, done)
-			}
-			return m, tea.Quit
+		case "q":
+			return m, m.quit()
 
 		// SOL PANEL (egzersiz listesi) – W/S ile hareket
 		case "w":
@@ -284,6 +301,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Progress reset
 		case "r", "R":
+			if m.loading {
+				m.status = m.ui("status_reset_blocked", "Wait for the running check to finish before resetting progress.")
+				return m, nil
+			}
 			m.confirmReset = true
 			m.status = m.ui("status_reset_confirm", "Reset all progress? (y/n)")
 		}
