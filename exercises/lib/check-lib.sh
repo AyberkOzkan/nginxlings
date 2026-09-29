@@ -252,14 +252,21 @@ wait_host_nginx() {
 
 DOCKER_BIN="${DOCKER_BIN:-docker}"
 
-# docker_build IMAGE CONTEXT builds an image labelled with DOCKER_LABEL and
-# prints the end of the build log when the build fails.
+# docker_build IMAGE CONTEXT builds an image labelled with DOCKER_LABEL. When
+# the build fails it prints the end of the build log and fails with the last
+# output line of the failing step (for example "E: Unable to locate package
+# nginx"), or with BuildKit's own error such as a Dockerfile parse error.
 docker_build() {
-  local image=$1 context=$2 log
+  local image=$1 context=$2 log reason
   temp_file log
   if ! "${DOCKER_BIN}" build --label "${DOCKER_LABEL}" -t "${image}" "${context}" >"${log}" 2>&1; then
     tail -n 40 "${log}"
-    fail "docker build failed for ${image}; see the build output above."
+    reason="$(awk '
+      /^#[0-9]+ ERROR: / && last != "" { print last; done = 1; exit }
+      /^#[0-9]+ [0-9.]+ / { last = $0; sub(/^#[0-9]+ [0-9.]+ /, "", last) }
+      /^ERROR: / { err = $0; sub(/^ERROR: (failed to build: )?(failed to solve: )?/, "", err) }
+      END { if (!done && err != "") print err }' "${log}")"
+    fail "docker build failed for ${image}: ${reason:-see the build output above.}"
   fi
 }
 

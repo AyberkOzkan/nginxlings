@@ -130,6 +130,42 @@ nginx: configuration file /tmp/ex/nginx.conf test failed`,
 	}
 }
 
+func TestCheckLibDockerBuildNamesTheFailingStep(t *testing.T) {
+	tests := []struct {
+		name, log, want string
+	}{
+		{
+			name: "failing RUN step",
+			log: `#5 [2/2] RUN apt-get install -y nginx
+#5 0.170 Reading package lists...
+#5 0.181 E: Unable to locate package nginx
+#5 ERROR: process "/bin/sh -c apt-get install -y nginx" did not complete successfully: exit code: 100
+ERROR: failed to build: failed to solve: process "/bin/sh -c apt-get install -y nginx" did not complete successfully: exit code: 100`,
+			want: "[FAIL] docker build failed for img: E: Unable to locate package nginx",
+		},
+		{
+			name: "Dockerfile parse error",
+			log: `#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 120B done
+ERROR: failed to build: failed to solve: dockerfile parse error on line 3: unknown instruction: RUNN`,
+			want: "[FAIL] docker build failed for img: dockerfile parse error on line 3: unknown instruction: RUNN",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logPath := filepath.Join(t.TempDir(), "build.log")
+			if err := os.WriteFile(logPath, []byte(tt.log+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			fakePath := writeFakeBin(t, "docker", fmt.Sprintf("cat %q\nexit 1\n", logPath))
+			run := runLibScript(t, `DOCKER_LABEL=test; docker_build img .`, fakePath, "DOCKER_BIN=docker")
+			if run.exitCode != 1 || run.lastLine() != tt.want {
+				t.Fatalf("exit=%d last=%q, want %q", run.exitCode, run.lastLine(), tt.want)
+			}
+		})
+	}
+}
+
 func TestCheckLibUnexpectedErrorEndsWithOneFailLine(t *testing.T) {
 	run := runLibScript(t, "echo '[1/2] Starting...'\nvalue=\"$(false)\"\necho unreachable")
 
