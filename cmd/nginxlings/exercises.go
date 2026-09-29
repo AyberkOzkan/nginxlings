@@ -13,6 +13,10 @@ import (
 
 var exerciseIDPattern = regexp.MustCompile(`^[0-9]{2}_[a-z0-9_]+$`)
 
+// exerciseLibDir holds shell helpers shared by check scripts. It is a
+// reserved name under exercises/ and is not an exercise.
+const exerciseLibDir = "lib"
+
 type exerciseManifest struct {
 	Exercises []exerciseManifestEntry `json:"exercises"`
 }
@@ -43,7 +47,7 @@ func LoadExercises(baseDir string) ([]Exercise, error) {
 			continue
 		}
 		name := entry.Name()
-		if strings.HasPrefix(name, ".") {
+		if strings.HasPrefix(name, ".") || name == exerciseLibDir {
 			continue
 		}
 		if !exerciseIDPattern.MatchString(name) {

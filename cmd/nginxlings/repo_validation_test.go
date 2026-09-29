@@ -248,6 +248,13 @@ func TestRepoDockerExercisesUseScopedResources(t *testing.T) {
 	root := repoRoot(t)
 	exRoot := filepath.Join(root, "exercises")
 
+	libPath := filepath.Join(exRoot, exerciseLibDir, "check-lib.sh")
+	lib, err := os.ReadFile(libPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertContains(t, libPath, string(lib), `"${DOCKER_BIN}" build --label "${DOCKER_LABEL}"`)
+
 	for _, id := range readRepoExerciseDirIDs(t, exRoot) {
 		dockerfilePath := filepath.Join(exRoot, id, "Dockerfile")
 		if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
@@ -579,7 +586,7 @@ func readRepoExerciseDirIDs(t *testing.T, exRoot string) []string {
 
 	var ids []string
 	for _, entry := range entries {
-		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") || entry.Name() == exerciseLibDir {
 			continue
 		}
 		if !exerciseIDPattern.MatchString(entry.Name()) {

@@ -39,7 +39,9 @@ jobs:
         run: |
           go test ./...
           go vet ./...
-          bash -n exercises/*/check.sh
+          for script in exercises/*/check.sh exercises/lib/*.sh; do
+            bash -n "$script"
+          done
 
       - name: Publish GitHub release
         uses: goreleaser/goreleaser-action@v7

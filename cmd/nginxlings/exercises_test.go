@@ -93,6 +93,22 @@ func TestLoadExercisesInvalidExerciseDirectory(t *testing.T) {
 	}
 }
 
+func TestLoadExercisesSkipsSharedCheckLibrary(t *testing.T) {
+	root := newExerciseRoot(t)
+	createExercise(t, root, "01_static_server")
+	if err := os.Mkdir(filepath.Join(root, "exercises", exerciseLibDir), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	exercises, err := LoadExercises(root)
+	if err != nil {
+		t.Fatalf("LoadExercises() error = %v", err)
+	}
+	if len(exercises) != 1 || exercises[0].ID != "01_static_server" {
+		t.Fatalf("exercises = %+v, want only 01_static_server", exercises)
+	}
+}
+
 func TestLoadExercisesEmptyExercisesDirectory(t *testing.T) {
 	root := newExerciseRoot(t)
 

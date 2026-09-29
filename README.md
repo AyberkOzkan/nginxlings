@@ -189,5 +189,5 @@ Before committing changes, run:
 gofmt -w .
 go test ./...
 go vet ./...
-bash -n exercises/*/check.sh
+for script in exercises/*/check.sh exercises/lib/*.sh; do bash -n "$script"; done
 ```

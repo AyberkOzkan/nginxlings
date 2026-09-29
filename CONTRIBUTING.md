@@ -47,7 +47,7 @@ Run all checks before opening a pull request:
 gofmt -w .
 go test ./...
 go vet ./...
-bash -n exercises/*/check.sh
+for script in exercises/*/check.sh exercises/lib/*.sh; do bash -n "$script"; done
 node --test packaging/prepare-release.test.mjs
 ```
 

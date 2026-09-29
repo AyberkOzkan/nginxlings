@@ -39,7 +39,10 @@ jobs:
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
       - name: Check shell syntax
-        run: bash -n exercises/*/check.sh
+        run: |
+          for script in exercises/*/check.sh exercises/lib/*.sh; do
+            bash -n "$script"
+          done
 
       - name: Run shellcheck
         run: |
