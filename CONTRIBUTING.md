@@ -51,3 +51,7 @@ for script in exercises/*/check.sh exercises/lib/*.sh; do bash -n "$script"; don
 ```
 
 CI also runs ShellCheck and validates the GoReleaser configuration.
+
+## GitHub Actions
+
+Workflows pin every action to a full commit SHA followed by its version tag, for example `actions/checkout@<sha> # v4.4.0`, and CI runs with read-only repository permissions. To update an action, review its release notes, resolve the new tag to its commit with `git ls-remote https://github.com/<owner>/<action> 'refs/tags/<tag>^{}' 'refs/tags/<tag>'`, and update both the SHA and the comment. A repository test rejects unpinned actions.

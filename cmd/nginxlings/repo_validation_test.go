@@ -107,6 +107,35 @@ func TestRepoDocsMatchSupportedToolchainAndTargets(t *testing.T) {
 	}
 }
 
+// TestRepoWorkflowsPinActionsAndLimitPermissions requires every third-party
+// action to be pinned to a reviewed commit SHA with a version comment, and
+// the CI workflow to run with read-only repository permissions.
+func TestRepoWorkflowsPinActionsAndLimitPermissions(t *testing.T) {
+	root := repoRoot(t)
+	pinned := regexp.MustCompile(`^\s*(?:-\s*)?uses:\s*[\w.-]+/[\w./-]+@[0-9a-f]{40} # v[0-9]+\.[0-9]+\.[0-9]+\s*$`)
+
+	for _, name := range []string{"ci.yml", "release.yml"} {
+		path := filepath.Join(root, ".github", "workflows", name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, line := range strings.Split(string(data), "\n") {
+			if strings.Contains(line, "uses:") && !pinned.MatchString(line) {
+				t.Errorf("%s:%d: action is not pinned to a commit SHA with a version comment: %s", path, i+1, strings.TrimSpace(line))
+			}
+		}
+	}
+
+	ci, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(ci), "\npermissions:\n  contents: read\n") {
+		t.Fatal("ci.yml must declare top-level permissions: contents: read")
+	}
+}
+
 func TestRepoCIRunsPinnedGovulncheck(t *testing.T) {
 	root := repoRoot(t)
 	path := filepath.Join(root, ".github", "workflows", "ci.yml")
