@@ -22,7 +22,7 @@ Use this checklist when adding an exercise:
 2. Add non-empty `README.en.md` and `README.tr.md` files with equivalent heading structure and learning objectives.
 3. Add an executable `check.sh` that runs from its exercise directory and returns zero only when the exercise passes.
 4. Add the exercise to `exercises/manifest.json` with an ID matching the directory and a useful `default_name` fallback.
-5. Add the same exercise ID to every `i18n/exercises/<language>.json` file with a non-empty translated title.
+5. Add the same exercise ID to every `i18n/exercises/<language>.json` file with a non-empty translated title, and to every `i18n/hints/<language>.json` file with a one-sentence hint that points at the concept without giving away the complete solution.
 6. Keep NGINX configuration syntax and comments in English. Keep English instructions in `README.en.md` and Turkish instructions in `README.tr.md`.
 7. For Docker exercises, use the scoped resource labels and image naming conventions already used by existing checks. Do not prune global Docker resources.
 8. Pin Docker base image patch versions consistently with existing exercises.
@@ -35,7 +35,7 @@ Exercise checks should remain understandable on failure and must not require Doc
 
 - `i18n/langs.json` defines supported languages.
 - `i18n/ui/<language>.json` files must contain the same UI keys.
-- `i18n/exercises/<language>.json` files must contain exactly the manifest exercise IDs.
+- `i18n/exercises/<language>.json` and `i18n/hints/<language>.json` files must contain exactly the manifest exercise IDs.
 - Missing runtime translations still fall back safely, but repository validation requires complete checked-in translations.
 - Keep translated README documents structurally aligned when adding or removing sections.
 

@@ -61,6 +61,24 @@ func (m model) selectedCheckOutput() string {
 	return m.checkOutputs[m.exercises[m.cursor].ID]
 }
 
+// selectedHint is the selected exercise's hint in the current language, or
+// the generic hint when the exercise has none.
+func (m model) selectedHint() string {
+	if m.cursor >= 0 && m.cursor < len(m.exercises) {
+		if hint := m.i18n.Hint(m.currentLangCode(), m.exercises[m.cursor].ID); hint != "" {
+			return hint
+		}
+	}
+	return m.ui("hint_default", "Read the README carefully and fix the TODOs in the exercise files.")
+}
+
+// showHint switches the right panel to the selected exercise's hint.
+func (m *model) showHint() {
+	m.panel = panelHint
+	m.readme.SetContent(m.renderMarkdown(m.selectedHint()))
+	m.readme.GotoTop()
+}
+
 // showCheckOutput switches the right panel to the selected exercise's output.
 func (m *model) showCheckOutput() {
 	m.panel = panelCheckOutput

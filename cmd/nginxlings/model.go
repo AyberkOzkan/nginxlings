@@ -81,6 +81,7 @@ type panelMode int
 const (
 	panelInstructions panelMode = iota
 	panelCheckOutput
+	panelHint
 )
 
 /* ---------- Yardımcı fonksiyonlar ---------- */

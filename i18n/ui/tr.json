@@ -5,7 +5,7 @@
   "check_output_title": "Son Kontrol Çıktısı",
   "status_initial": "Bir egzersiz seç, dosyalarını düzenle, sonra çözümünü kontrol etmek için c'ye bas.",
   "readme_initial": "Soldan bir egzersiz seç ve talimatları burada oku.",
-  "hint_default": "İpucu: README’yi dikkatli oku; nginx.conf içindeki TODO’ları düzelt.",
+  "hint_default": "README'yi dikkatlice oku ve egzersiz dosyalarındaki TODO'ları düzelt.",
   "status_no_exercises": "Hiç egzersiz yok.",
   "status_lang_switched": "Dil değiştirildi.",
   "status_showing_instructions": "Egzersiz talimatları gösteriliyor.",
@@ -24,5 +24,7 @@
   "status_reset_done": "İlerleme sıfırlandı.",
   "status_reset_canceled": "Sıfırlama iptal edildi.",
   "readme_not_found": "README bulunamadı (%s).",
-  "status_reset_blocked": "İlerlemeyi sıfırlamadan önce çalışan kontrolün bitmesini bekle."
+  "status_reset_blocked": "İlerlemeyi sıfırlamadan önce çalışan kontrolün bitmesini bekle.",
+  "hint_title": "İpucu",
+  "status_showing_hint": "İpucu gösteriliyor. Talimatlara dönmek için h veya Tab'a bas."
 }

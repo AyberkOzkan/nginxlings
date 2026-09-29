@@ -207,6 +207,12 @@ func TestRepoTranslationFilesCoverManifest(t *testing.T) {
 			t.Fatalf("%s exercise translation IDs = %v, want manifest IDs %v", lang.Code, exerciseIDs, manifestIDs)
 		}
 
+		hints := readRepoTranslationMap(t, filepath.Join(root, "i18n", "hints", lang.Code+".json"))
+		hintIDs := nonEmptyTranslationKeys(t, lang.Code+" hint", hints)
+		if strings.Join(hintIDs, ",") != strings.Join(manifestIDs, ",") {
+			t.Fatalf("%s hint IDs = %v, want manifest IDs %v", lang.Code, hintIDs, manifestIDs)
+		}
+
 		uiStrings := readRepoTranslationMap(t, filepath.Join(root, "i18n", "ui", lang.Code+".json"))
 		uiKeys := nonEmptyTranslationKeys(t, lang.Code+" UI", uiStrings)
 		if index == 0 {

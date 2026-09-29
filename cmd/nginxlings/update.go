@@ -165,8 +165,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.readme.Height = layout.readmeHeight
 
 		m.loadReadmeForCurrent()
-		if panel == panelCheckOutput && m.selectedCheckOutput() != "" {
+		switch {
+		case panel == panelCheckOutput && m.selectedCheckOutput() != "":
 			m.showCheckOutput()
+		case panel == panelHint:
+			m.showHint()
 		}
 		return m, m.resetMarquee()
 
@@ -273,9 +276,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = fmt.Sprintf("\"%s\"...", name)
 			return m, runCheck(ctx, idx, ex, done)
 
-		// Hint
+		// Hint: sağ panelde gösterilir, çünkü durum satırına sığmaz
 		case "h":
-			m.status = m.ui("hint_default", "Hint: Read the README carefully and fix the TODOs in nginx.conf.")
+			if m.panel == panelHint {
+				m.panel = panelInstructions
+				m.readme.SetContent(m.instructionsContent)
+				m.readme.GotoTop()
+				m.status = m.ui("status_showing_instructions", "Showing exercise instructions.")
+			} else {
+				m.showHint()
+				m.status = m.ui("status_showing_hint", "Showing the hint. Press h or Tab to return to the instructions.")
+			}
 
 		// Dil değiştir
 		case "l", "L":

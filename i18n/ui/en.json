@@ -5,7 +5,7 @@
   "check_output_title": "Last Check Output",
   "status_initial": "Pick an exercise, edit its files, then press c to check your solution.",
   "readme_initial": "Select an exercise on the left and read the instructions here.",
-  "hint_default": "Hint: Read the README carefully and fix the TODOs in nginx.conf.",
+  "hint_default": "Read the README carefully and fix the TODOs in the exercise files.",
   "status_no_exercises": "No exercises found.",
   "status_lang_switched": "Language switched.",
   "status_showing_instructions": "Showing exercise instructions.",
@@ -24,5 +24,7 @@
   "status_reset_done": "Progress reset.",
   "status_reset_canceled": "Reset canceled.",
   "readme_not_found": "README not found (%s).",
-  "status_reset_blocked": "Wait for the running check to finish before resetting progress."
+  "status_reset_blocked": "Wait for the running check to finish before resetting progress.",
+  "hint_title": "Hint",
+  "status_showing_hint": "Showing the hint. Press h or Tab to return to the instructions."
 }

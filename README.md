@@ -38,7 +38,7 @@ Inside the TUI:
 - `left` / `right`: horizontal scroll
 - `c` or `enter`: run the selected exercise check
 - `tab`: toggle between instructions and the last check output
-- `h`: show a hint
+- `h`: show the selected exercise's hint (press again to return)
 - `l`: switch language
 - `r`: reset progress
 - `q`: quit
