@@ -73,6 +73,40 @@ func TestRepoReleaseTargetsLinuxWithoutNPMOrHomebrew(t *testing.T) {
 	}
 }
 
+// TestRepoDocsMatchSupportedToolchainAndTargets keeps contributor and release
+// docs aligned with go.mod and the Linux-only GitHub Release pipeline.
+func TestRepoDocsMatchSupportedToolchainAndTargets(t *testing.T) {
+	root := repoRoot(t)
+
+	goMod, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	goVersion := regexp.MustCompile(`(?m)^go ([0-9]+\.[0-9]+)`).FindSubmatch(goMod)
+	if goVersion == nil {
+		t.Fatal("go.mod has no go directive")
+	}
+	readme, err := os.ReadFile(filepath.Join(root, "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "Go " + string(goVersion[1]) + " or newer"; !strings.Contains(string(readme), want) {
+		t.Fatalf("README.md does not state %q from go.mod", want)
+	}
+
+	for _, doc := range []string{"CONTRIBUTING.md", filepath.Join("docs", "RELEASING.md")} {
+		data, err := os.ReadFile(filepath.Join(root, doc))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, stale := range []string{"node --test", "packaging/", "dist/npm", "dist/homebrew", "four archives"} {
+			if strings.Contains(string(data), stale) {
+				t.Fatalf("%s still references removed release tooling %q", doc, stale)
+			}
+		}
+	}
+}
+
 func TestRepoCIRunsPinnedGovulncheck(t *testing.T) {
 	root := repoRoot(t)
 	path := filepath.Join(root, ".github", "workflows", "ci.yml")

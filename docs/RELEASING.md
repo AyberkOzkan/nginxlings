@@ -2,24 +2,18 @@
 
 Releases are created from semantic version tags such as `v1.2.3`.
 
-The release workflow builds Linux and macOS binaries for AMD64 and ARM64. Each archive contains the binary together with `exercises/`, `i18n/`, and the root README and LICENSE so asset discovery works after extraction. GoReleaser injects the tag version into `main.version` and publishes SHA-256 checksums.
+Pushing a tag runs `.github/workflows/release.yml`. GoReleaser builds Linux binaries for AMD64 and ARM64 and packs each one into a `tar.gz` archive together with `exercises/` (including the shared `exercises/lib/` check helpers), `i18n/`, `README.md`, and `LICENSE`, so asset discovery works after extraction. The tag version is injected into `main.version`. The release publishes `checksums.txt` (SHA-256), and the workflow attests the archives with GitHub artifact attestations.
 
-The workflow also prepares two package-manager artifacts:
-
-- an npm package containing all four supported binaries and the shared assets;
-- a Homebrew formula with platform-specific archive URLs and checksums.
-
-These artifacts are attached to the GitHub release. Publishing to the npm registry and pushing to a Homebrew tap are intentionally disabled until the final repository owner, package ownership, and registry credentials are configured.
+Only GitHub Releases are published. Native macOS and Windows builds, npm packages, and Homebrew formulas are intentionally not produced.
 
 ## Before Tagging
 
-1. Confirm the repository has a GitHub remote and that release contents remain compatible with `AGPL-3.0-only`.
-2. Run the project validation commands from `README.md`.
-3. Run `node --test packaging/prepare-release.test.mjs`.
-4. Run `goreleaser check` and `goreleaser release --snapshot --clean` with GoReleaser v2.
-5. Confirm `./dist` contains four archives and `checksums.txt`.
-
-6. If an exercise adds a new asset file type, include its glob in `.goreleaser.yml` and inspect one snapshot archive.
+1. Confirm that the release contents remain compatible with `AGPL-3.0-only`.
+2. Run the development checks from `README.md`.
+3. Run `goreleaser check` and `goreleaser release --snapshot --clean` with GoReleaser v2.
+4. Confirm that `./dist` contains two archives (`linux_amd64` and `linux_arm64`) and `checksums.txt`.
+5. Extract one archive into an empty directory and confirm that `./nginxlings --list` prints all exercises from there.
+6. If an exercise added a new asset file type, make sure `.goreleaser.yml` includes its glob and that the extracted archive contains the file.
 
 Push an annotated tag only after those checks pass:
 
@@ -27,7 +21,3 @@ Push an annotated tag only after those checks pass:
 git tag -a v1.2.3 -m "v1.2.3"
 git push origin v1.2.3
 ```
-
-## Package Publication
-
-The generated npm package is under `dist/npm`, and the generated formula is under `dist/homebrew/Formula`. Registry publication should be added as a separate authenticated workflow step after ownership decisions are finalized. Keep GitHub release creation independent from external registry availability so npm or tap outages cannot block binary releases.

@@ -6,7 +6,7 @@ The project currently includes 18 exercises under `exercises/`.
 
 ## Requirements
 
-- Go 1.24 or newer
+- Go 1.25 or newer (only to build or run from source)
 - A POSIX-like shell environment
 - `bash`
 - `curl`
@@ -176,8 +176,8 @@ Copyright (c) 2026 Kenan Ayberk Özkan. Nginxlings is licensed under `AGPL-3.0-o
 ```text
 cmd/nginxlings/   Bubble Tea TUI application
 exercises/        NGINX exercise directories
-i18n/             UI and exercise title translations
-docker/           Shared Docker resources
+exercises/lib/    Shared helpers sourced by every check.sh
+i18n/             UI texts, exercise titles, and hints per language
 docs/             Maintainer and release documentation
 ```
 

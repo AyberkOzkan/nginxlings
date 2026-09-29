@@ -48,7 +48,6 @@ gofmt -w .
 go test ./...
 go vet ./...
 for script in exercises/*/check.sh exercises/lib/*.sh; do bash -n "$script"; done
-node --test packaging/prepare-release.test.mjs
 ```
 
 CI also runs ShellCheck and validates the GoReleaser configuration.
