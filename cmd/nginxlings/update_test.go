@@ -135,8 +135,8 @@ func TestUpdateCheckResultSuccessState(t *testing.T) {
 	if !got.exercises[0].Completed {
 		t.Fatalf("exercise completed = false, want true")
 	}
-	if got.lastCheckOutput != "[PASS] ok" {
-		t.Fatalf("lastCheckOutput = %q, want [PASS] ok", got.lastCheckOutput)
+	if got.checkOutputs["01_static_server"] != "[PASS] ok" {
+		t.Fatalf("check output = %q, want [PASS] ok", got.checkOutputs["01_static_server"])
 	}
 	if !strings.Contains(got.readme.View(), "[PASS] ok") {
 		t.Fatalf("readme view = %q, want check output", got.readme.View())
@@ -169,8 +169,8 @@ func TestUpdateCheckResultFailureState(t *testing.T) {
 	if got.exercises[0].Completed {
 		t.Fatalf("exercise completed = true, want false")
 	}
-	if got.lastCheckOutput != "[FAIL] bad" {
-		t.Fatalf("lastCheckOutput = %q, want [FAIL] bad", got.lastCheckOutput)
+	if got.checkOutputs["01_static_server"] != "[FAIL] bad" {
+		t.Fatalf("check output = %q, want [FAIL] bad", got.checkOutputs["01_static_server"])
 	}
 	if !strings.Contains(got.status, "[FAIL] bad") {
 		t.Fatalf("status = %q, want fail line", got.status)
@@ -187,8 +187,8 @@ func TestUpdateCheckResultEmptyFailureShowsRunnerError(t *testing.T) {
 	updated, _ := m.Update(checkResultMsg{err: errors.New("check.sh not found for exercise 01_static_server"), index: 0})
 	got := updated.(model)
 
-	if !strings.Contains(got.lastCheckOutput, "check.sh not found") {
-		t.Fatalf("lastCheckOutput = %q, want runner error", got.lastCheckOutput)
+	if !strings.Contains(got.checkOutputs["01_static_server"], "check.sh not found") {
+		t.Fatalf("check output = %q, want runner error", got.checkOutputs["01_static_server"])
 	}
 	if !strings.Contains(got.status, "check.sh not found") {
 		t.Fatalf("status = %q, want runner error", got.status)
@@ -275,7 +275,7 @@ func TestUpdateOutputToggleUsesTranslatedLabelsAndHandlesMissingOutput(t *testin
 		t.Fatalf("status = %q, want translated empty-output status", withoutOutput.status)
 	}
 
-	withoutOutput.lastCheckOutput = "[PASS] tamamlandı"
+	withoutOutput.checkOutputs = map[string]string{withoutOutput.exercises[withoutOutput.cursor].ID: "[PASS] tamamlandı"}
 	updated, _ = withoutOutput.Update(tea.KeyMsg{Type: tea.KeyTab})
 	output := updated.(model)
 	if output.status != "Son kontrol çıktısı gösteriliyor." {
@@ -301,9 +301,9 @@ func TestWindowResizePreservesActiveCheckOutputView(t *testing.T) {
 	m := layoutTestModel(100, 24)
 	m.exercises = []Exercise{{ID: "01_static", DefaultName: "Static Server", Path: dir}}
 	m.instructionsContent = "Instructions"
-	m.lastCheckOutput = "[PASS] complete"
+	m.checkOutputs = map[string]string{m.exercises[m.cursor].ID: "[PASS] complete"}
 	m.showingCheckOutput = true
-	m.readme.SetContent(m.lastCheckOutput)
+	m.readme.SetContent(m.selectedCheckOutput())
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 90, Height: 20})
 	got := updated.(model)
@@ -331,9 +331,9 @@ func TestUpdateSelectionLoadsSelectedExerciseInstructions(t *testing.T) {
 	m.height = 24
 	m.readme.Width = 48
 	m.readme.Height = 16
-	m.lastCheckOutput = "[PASS] previous"
+	m.checkOutputs = map[string]string{m.exercises[m.cursor].ID: "[PASS] previous"}
 	m.showingCheckOutput = true
-	m.readme.SetContent(m.lastCheckOutput)
+	m.readme.SetContent(m.selectedCheckOutput())
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	got := updated.(model)
@@ -453,9 +453,9 @@ func TestUpdateLanguageSwitchReloadsInstructions(t *testing.T) {
 	m.height = 24
 	m.readme.Width = 48
 	m.readme.Height = 16
-	m.lastCheckOutput = "[PASS] previous"
+	m.checkOutputs = map[string]string{m.exercises[m.cursor].ID: "[PASS] previous"}
 	m.showingCheckOutput = true
-	m.readme.SetContent(m.lastCheckOutput)
+	m.readme.SetContent(m.selectedCheckOutput())
 
 	if got := m.currentLangCode(); got != "en" {
 		t.Fatalf("initial lang = %q, want en", got)
@@ -508,9 +508,9 @@ func TestUpdateResetReloadsInstructionsAndClearsCheckOutput(t *testing.T) {
 	m.readme.Height = 10
 	m.cursor = 1
 	m.loadReadmeForCurrent()
-	m.lastCheckOutput = "[FAIL] second exercise"
+	m.checkOutputs = map[string]string{m.exercises[m.cursor].ID: "[FAIL] second exercise"}
 	m.showingCheckOutput = true
-	m.readme.SetContent(m.lastCheckOutput)
+	m.readme.SetContent(m.selectedCheckOutput())
 
 	for _, key := range []string{"r", "y"} {
 		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
@@ -520,8 +520,8 @@ func TestUpdateResetReloadsInstructionsAndClearsCheckOutput(t *testing.T) {
 	if m.cursor != 0 {
 		t.Fatalf("cursor = %d, want 0", m.cursor)
 	}
-	if m.showingCheckOutput || m.lastCheckOutput != "" {
-		t.Fatalf("check output survived reset: showing=%v output=%q", m.showingCheckOutput, m.lastCheckOutput)
+	if m.showingCheckOutput || len(m.checkOutputs) != 0 {
+		t.Fatalf("check output survived reset: showing=%v outputs=%v", m.showingCheckOutput, m.checkOutputs)
 	}
 	if view := ansi.Strip(m.readme.View()); !strings.Contains(view, "First Exercise") {
 		t.Fatalf("readme = %q, want first exercise instructions after reset", view)

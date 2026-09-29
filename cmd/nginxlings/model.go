@@ -51,8 +51,10 @@ type model struct {
 	checkCancel         context.CancelFunc
 	checkDone           <-chan struct{}
 	instructionsContent string
-	lastCheckOutput     string
-	showingCheckOutput  bool
+	// checkOutputs holds the sanitized output of the last check per exercise
+	// ID for this session; Tab shows the selected exercise's entry.
+	checkOutputs       map[string]string
+	showingCheckOutput bool
 
 	i18n      *I18n
 	langIndex int

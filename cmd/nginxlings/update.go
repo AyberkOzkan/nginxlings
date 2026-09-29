@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -130,7 +129,7 @@ func (m *model) resetProgress() tea.Cmd {
 		m.exercises[i].Completed = false
 	}
 	m.cursor = 0
-	m.lastCheckOutput = ""
+	m.checkOutputs = nil
 	m.loadReadmeForCurrent()
 
 	m.status = m.ui("status_reset_done", "Progress reset.")
@@ -166,10 +165,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.readme.Height = layout.readmeHeight
 
 		m.loadReadmeForCurrent()
-		if showingCheckOutput && m.lastCheckOutput != "" {
-			m.showingCheckOutput = true
-			m.readme.SetContent(m.lastCheckOutput)
-			m.readme.GotoTop()
+		if showingCheckOutput && m.selectedCheckOutput() != "" {
+			m.showCheckOutput()
 		}
 		return m, m.resetMarquee()
 
@@ -242,10 +239,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.readme.SetContent(m.instructionsContent)
 				m.readme.GotoTop()
 				m.status = m.ui("status_showing_instructions", "Showing exercise instructions.")
-			} else if m.lastCheckOutput != "" {
-				m.showingCheckOutput = true
-				m.readme.SetContent(m.lastCheckOutput)
-				m.readme.GotoTop()
+			} else if m.selectedCheckOutput() != "" {
+				m.showCheckOutput()
 				m.status = m.ui("status_showing_check_output", "Showing last check output.")
 			} else {
 				m.status = m.ui("status_no_check_output", "No check output yet.")
@@ -320,8 +315,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.checkCancel = nil
 		m.checkDone = nil
 
-		// Tüm çıktıyı trim’le
-		out := strings.TrimSpace(msg.output)
+		// Kaçış dizilerini ve kontrol karakterlerini temizle
+		out := sanitizeCheckOutput(msg.output)
 		if msg.err != nil && out == "" {
 			out = "[FAIL] " + msg.err.Error()
 		}
@@ -348,27 +343,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// ✅ / ❌ her iki durumda da: check.sh çıktısını sağ panelde göster
-		if out != "" {
-			m.lastCheckOutput = out
-			m.showingCheckOutput = true
-			m.readme.SetContent(out)
-			m.readme.GotoTop()
-		}
-
 		// Status satırı için kısa özet
-		if msg.err != nil {
-			failLine := lastLine(out)
-			if failLine == "" {
-				failLine = "[FAIL] check.sh failed"
+		summary := lastLine(out)
+		if summary == "" && msg.err != nil {
+			summary = "[FAIL] check.sh failed"
+		} else if summary == "" {
+			summary = "[PASS] check.sh OK"
+		}
+		m.status = summary
+
+		// Çıktıyı egzersize bağla; panel sadece sonuç hâlâ seçili egzersize
+		// aitse değişir, yoksa kullanıcının baktığı içerik yerinde kalır.
+		if msg.index >= 0 && msg.index < len(m.exercises) {
+			id := m.exercises[msg.index].ID
+			if out != "" {
+				if m.checkOutputs == nil {
+					m.checkOutputs = make(map[string]string)
+				}
+				m.checkOutputs[id] = out
 			}
-			m.status = failLine
-		} else {
-			passLine := lastLine(out)
-			if passLine == "" {
-				passLine = "[PASS] check.sh OK"
+			if msg.index == m.cursor {
+				if out != "" {
+					m.showCheckOutput()
+				}
+			} else {
+				m.status = id + ": " + summary
 			}
-			m.status = passLine
 		}
 
 		return m, nil
