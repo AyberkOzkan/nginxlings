@@ -20,12 +20,12 @@ Use this checklist when adding an exercise:
 
 1. Create `exercises/NN_short_name/`, using the next two-digit number. Directory names determine stable discovery order.
 2. Add non-empty `README.en.md` and `README.tr.md` files with equivalent heading structure and learning objectives.
-3. Add an executable `check.sh` that runs from its exercise directory and returns zero only when the exercise passes.
+3. Add an executable `check.sh` that sources `exercises/lib/check-lib.sh`, runs from its exercise directory, and returns zero only when the exercise passes. Use the library helpers for cleanup, temporary files, port checks, image builds, and readiness waits instead of fixed `sleep` calls.
 4. Add the exercise to `exercises/manifest.json` with an ID matching the directory and a useful `default_name` fallback.
 5. Add the same exercise ID to every `i18n/exercises/<language>.json` file with a non-empty translated title, and to every `i18n/hints/<language>.json` file with a one-sentence hint that points at the concept without giving away the complete solution.
 6. Keep NGINX configuration syntax and comments in English. Keep English instructions in `README.en.md` and Turkish instructions in `README.tr.md`.
 7. For Docker exercises, use the scoped resource labels and image naming conventions already used by existing checks. Do not prune global Docker resources.
-8. Pin Docker base image patch versions consistently with existing exercises.
+8. Pin Docker base image patch versions consistently with existing exercises, and pin images that a check runs directly by digest (see Container Images).
 9. If the exercise introduces a new asset file type, add its glob to `.goreleaser.yml` and inspect a snapshot archive.
 10. Do not commit logs, generated certificates, PID files, check response bodies, or other runtime artifacts.
 
@@ -55,3 +55,9 @@ CI also runs ShellCheck and validates the GoReleaser configuration.
 ## GitHub Actions
 
 Workflows pin every action to a full commit SHA followed by its version tag, for example `actions/checkout@<sha> # v4.4.0`, and CI runs with read-only repository permissions. To update an action, review its release notes, resolve the new tag to its commit with `git ls-remote https://github.com/<owner>/<action> 'refs/tags/<tag>^{}' 'refs/tags/<tag>'`, and update both the SHA and the comment. A repository test rejects unpinned actions.
+
+## Container Images
+
+Exercise `Dockerfile`s use patch-pinned base image tags such as `nginx:1.28.3-alpine`, which keeps them readable for learners. Images that a check runs directly, such as the BusyBox backends in exercise 10, are pinned by digest as `<name>:<tag>@sha256:<digest>`. To update one, resolve the new tag with `docker buildx imagetools inspect <name>:<tag>`, copy the top-level `Digest` of the multi-platform index, and update both the tag and the digest.
+
+Packages installed with `apk add` or `apt-get install` come from the distribution mirror at build time, so their exact versions can change between builds even with pinned base images.

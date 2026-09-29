@@ -8,7 +8,8 @@ EX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXERCISE_ID="10_upstream_status_zone"
 DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
 IMAGE_NAME="${IMAGE_NAME:-nginxlings/${EXERCISE_ID}:check}"
-BUSYBOX_IMAGE="${BUSYBOX_IMAGE:-busybox}"
+# Pinned by digest; see "Container Images" in CONTRIBUTING.md to update it.
+BUSYBOX_IMAGE="${BUSYBOX_IMAGE:-busybox:1.38.0@sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e}"
 LB_NAME="${LB_NAME:-nginxlings_upstream_zone_10_lb}"
 NET_NAME="${NET_NAME:-nginxlings_ex10_net}"
 # The learner's nginx.conf resolves these container names, so they are fixed.

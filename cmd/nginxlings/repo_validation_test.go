@@ -324,6 +324,67 @@ func TestRepoCheckScriptsAreExecutable(t *testing.T) {
 	}
 }
 
+func TestRepoCheckScriptsUseSharedLibrary(t *testing.T) {
+	root := repoRoot(t)
+	exRoot := filepath.Join(root, "exercises")
+
+	// The library owns traps, temporary files, and error handling; checks wait
+	// for readiness by polling instead of sleeping for whole seconds.
+	forbidden := map[string]string{
+		"DOCKER_BUILDKIT=0": "use docker_build from the library",
+		"mktemp":            "use temp_file from the library",
+		"trap ":             "use on_exit from the library",
+		"fail() {":          "use fail from the library",
+	}
+	wholeSecondSleep := regexp.MustCompile(`(?m)^[^#\n]*\bsleep[ \t]+[0-9]+([ \t;]|$)`)
+
+	for _, id := range readRepoExerciseDirIDs(t, exRoot) {
+		checkPath := filepath.Join(exRoot, id, checkScriptName)
+		data, err := os.ReadFile(checkPath)
+		if err != nil {
+			t.Fatalf("%s: %v", checkPath, err)
+		}
+		script := string(data)
+
+		assertContains(t, checkPath, script, `. "${EX_DIR}/../lib/check-lib.sh"`)
+		for text, reason := range forbidden {
+			if strings.Contains(script, text) {
+				t.Errorf("%s contains %q; %s", checkPath, text, reason)
+			}
+		}
+		if match := wholeSecondSleep.FindString(script); match != "" {
+			t.Errorf("%s sleeps for a fixed time (%q); poll for readiness instead", checkPath, strings.TrimSpace(match))
+		}
+	}
+}
+
+func TestRepoCheckRuntimeImagesArePinnedByDigest(t *testing.T) {
+	root := repoRoot(t)
+	exRoot := filepath.Join(root, "exercises")
+
+	// Images built from the exercise are named nginxlings/...; any other image a
+	// check runs directly must carry a digest.
+	imageDefault := regexp.MustCompile(`(?m)^([A-Z0-9_]*IMAGE[A-Z0-9_]*)="\$\{[A-Z0-9_]+:-([^}]+)\}"`)
+	pinned := regexp.MustCompile(`^[a-z0-9./_-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$`)
+
+	for _, id := range readRepoExerciseDirIDs(t, exRoot) {
+		checkPath := filepath.Join(exRoot, id, checkScriptName)
+		data, err := os.ReadFile(checkPath)
+		if err != nil {
+			t.Fatalf("%s: %v", checkPath, err)
+		}
+		for _, match := range imageDefault.FindAllStringSubmatch(string(data), -1) {
+			name, image := match[1], match[2]
+			if strings.HasPrefix(image, "nginxlings/") {
+				continue
+			}
+			if !pinned.MatchString(image) {
+				t.Errorf("%s: %s defaults to %q; pin it as <name>:<tag>@sha256:<digest>", checkPath, name, image)
+			}
+		}
+	}
+}
+
 func TestRepoDockerExercisesUseScopedResources(t *testing.T) {
 	root := repoRoot(t)
 	exRoot := filepath.Join(root, "exercises")
