@@ -3,7 +3,7 @@
   "exercises_title": "Egzersizler",
   "instructions_title": "Talimatlar",
   "check_output_title": "Son Kontrol Çıktısı",
-  "status_initial": "W/S ile egzersiz seç, c ile kontrol et, h ile ipucu al, l ile dili değiştir, q ile çık. Talimatları kaydırmak için ↑/↓ ve PgUp/PgDn kullan.",
+  "status_initial": "W/S ile egzersiz seç, c ile kontrol et, Tab ile görünümü değiştir, h ile ipucu al, l ile dili değiştir, r ile sıfırla, q ile çık. Talimatları kaydırmak için ↑/↓ ve PgUp/PgDn kullan.",
   "readme_initial": "Soldan bir egzersiz seç ve talimatları burada oku.",
   "hint_default": "İpucu: README’yi dikkatli oku; nginx.conf içindeki TODO’ları düzelt.",
   "status_no_exercises": "Hiç egzersiz yok.",
@@ -14,6 +14,14 @@
   "ready_label": "[HAZIR]",
   "working_label": "[ÇALIŞIYOR]",
   "help": "(W/S) seç  (↑/↓) kaydır  (PgUp/PgDn) hızlı kaydır  (←/→) yatay  (c/Enter) kontrol  (Tab) görünüm  (h) ipucu  (l) dil  (r) sıfırla  (q) çık",
-  "lang_label": "Dil"
+  "lang_label": "Dil",
+  "status_loading": "Nginxlings yükleniyor...",
+  "status_state_load_failed": "İlerleme yüklenemedi: %v",
+  "status_exercises_load_failed": "Egzersizler yüklenemedi: %v",
+  "status_state_save_failed": "İlerleme kaydedilemedi: %v",
+  "status_check_already_running": "Bir kontrol zaten çalışıyor; sonucu bekleniyor.",
+  "status_reset_confirm": "Tüm ilerleme sıfırlansın mı? (y/n)",
+  "status_reset_done": "İlerleme sıfırlandı.",
+  "status_reset_canceled": "Sıfırlama iptal edildi.",
+  "readme_not_found": "README bulunamadı (%s)."
 }
-

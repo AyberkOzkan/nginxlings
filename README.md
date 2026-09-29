@@ -73,6 +73,8 @@ go run ./cmd/nginxlings --lang tr
 go run ./cmd/nginxlings --lang en
 ```
 
+The code must be listed in `i18n/langs.json`; an unknown code exits with an error that lists the available languages.
+
 Override asset and state paths:
 
 ```sh

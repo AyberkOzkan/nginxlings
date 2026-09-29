@@ -31,12 +31,12 @@ func LoadState(path string) (*AppState, error) {
 			// İlk çalıştırma: state yoksa default
 			return defaultState(), nil
 		}
-		return defaultState(), fmt.Errorf("state okunamadı: %w", err)
+		return defaultState(), fmt.Errorf("state cannot be read: %w", err)
 	}
 
 	st := defaultState()
 	if err := json.Unmarshal(data, st); err != nil {
-		return defaultState(), fmt.Errorf("state parse edilemedi: %w", err)
+		return defaultState(), fmt.Errorf("state cannot be parsed: %w", err)
 	}
 
 	if st.Completed == nil {
@@ -60,17 +60,17 @@ func (s *AppState) save(path string, renameFile func(string, string) error) erro
 
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
-		return fmt.Errorf("state marshal hatası: %w", err)
+		return fmt.Errorf("state cannot be encoded: %w", err)
 	}
 
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("state dizini oluşturulamadı: %w", err)
+		return fmt.Errorf("state directory cannot be created: %w", err)
 	}
 
 	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
 	if err != nil {
-		return fmt.Errorf("state yazılamadı: %w", err)
+		return fmt.Errorf("state temporary file cannot be created: %w", err)
 	}
 	tmpPath := tmp.Name()
 	closed := false
@@ -82,30 +82,30 @@ func (s *AppState) save(path string, renameFile func(string, string) error) erro
 	}()
 
 	if err := tmp.Chmod(0o644); err != nil {
-		return fmt.Errorf("state geçici dosya modu ayarlanamadı: %w", err)
+		return fmt.Errorf("state temporary file mode cannot be set: %w", err)
 	}
 	if _, err := tmp.Write(b); err != nil {
-		return fmt.Errorf("state geçici dosyaya yazılamadı: %w", err)
+		return fmt.Errorf("state temporary file cannot be written: %w", err)
 	}
 	if err := tmp.Sync(); err != nil {
-		return fmt.Errorf("state geçici dosyası eşitlenemedi: %w", err)
+		return fmt.Errorf("state temporary file cannot be synced: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("state geçici dosyası kapatılamadı: %w", err)
+		return fmt.Errorf("state temporary file cannot be closed: %w", err)
 	}
 	closed = true
 
 	if err := renameFile(tmpPath, path); err != nil {
-		return fmt.Errorf("state atomik olarak değiştirilemedi: %w", err)
+		return fmt.Errorf("state file cannot be replaced atomically: %w", err)
 	}
 
 	dirHandle, err := os.Open(dir)
 	if err != nil {
-		return fmt.Errorf("state dizini açılamadı: %w", err)
+		return fmt.Errorf("state directory cannot be opened: %w", err)
 	}
 	defer dirHandle.Close()
 	if err := dirHandle.Sync(); err != nil {
-		return fmt.Errorf("state dizini eşitlenemedi: %w", err)
+		return fmt.Errorf("state directory cannot be synced: %w", err)
 	}
 	return nil
 }

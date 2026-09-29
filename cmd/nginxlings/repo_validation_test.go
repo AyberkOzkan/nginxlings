@@ -2,9 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -467,6 +472,66 @@ func assertContains(t *testing.T, path, content, want string) {
 		t.Fatalf("%s does not contain %q", path, want)
 	}
 }
+
+// TestRepoUIFormatVerbsMatchAcrossLanguages keeps fmt verbs aligned, so a
+// translation cannot drop or add the %v that uif fills in.
+func TestRepoUIFormatVerbsMatchAcrossLanguages(t *testing.T) {
+	root := repoRoot(t)
+	langsData, err := os.ReadFile(filepath.Join(root, "i18n", "langs.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var langs []LangMeta
+	if err := json.Unmarshal(langsData, &langs); err != nil {
+		t.Fatal(err)
+	}
+
+	verbs := regexp.MustCompile(`%[-+# 0]*[0-9]*(?:\.[0-9]+)?[a-zA-Z%]`)
+	reference := readRepoTranslationMap(t, filepath.Join(root, "i18n", "ui", langs[0].Code+".json"))
+	for _, lang := range langs[1:] {
+		translated := readRepoTranslationMap(t, filepath.Join(root, "i18n", "ui", lang.Code+".json"))
+		for key, want := range reference {
+			wantVerbs := strings.Join(verbs.FindAllString(want, -1), " ")
+			gotVerbs := strings.Join(verbs.FindAllString(translated[key], -1), " ")
+			if gotVerbs != wantVerbs {
+				t.Errorf("%s %s format verbs = %q, want %q like %s", lang.Code, key, gotVerbs, wantVerbs, langs[0].Code)
+			}
+		}
+	}
+}
+
+// TestRepoGoStringLiteralsHaveNoTurkishText keeps user-facing text in the
+// i18n files: Go literals are English fallbacks or developer-facing errors.
+func TestRepoGoStringLiteralsHaveNoTurkishText(t *testing.T) {
+	dir := filepath.Join(repoRoot(t), "cmd", "nginxlings")
+	fset := token.NewFileSet()
+	packages, err := parser.ParseDir(fset, dir, func(info os.FileInfo) bool {
+		return !strings.HasSuffix(info.Name(), "_test.go")
+	}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, pkg := range packages {
+		for _, file := range pkg.Files {
+			ast.Inspect(file, func(node ast.Node) bool {
+				lit, ok := node.(*ast.BasicLit)
+				if !ok || lit.Kind != token.STRING {
+					return true
+				}
+				value, err := strconv.Unquote(lit.Value)
+				if err != nil {
+					t.Fatalf("%s: cannot unquote %s: %v", fset.Position(lit.Pos()), lit.Value, err)
+				}
+				if strings.ContainsAny(value, "çğıİöşüÇĞÖŞÜ") {
+					t.Errorf("%s: Turkish text in Go literal %q; move it to i18n/ui", fset.Position(lit.Pos()), value)
+				}
+				return true
+			})
+		}
+	}
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	return filepath.Clean(filepath.Join("..", ".."))

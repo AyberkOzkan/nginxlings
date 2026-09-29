@@ -105,7 +105,7 @@ func (m *model) persistSelectedExercise() {
 	}
 	m.state.LastExerciseID = id
 	if err := m.state.Save(m.paths.StateFile); err != nil {
-		m.status = fmt.Sprintf("State kaydedilemedi: %v", err)
+		m.status = m.uif("status_state_save_failed", "Progress could not be saved: %v", err)
 	}
 }
 
@@ -153,19 +153,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state.Completed = make(map[string]bool)
 					m.state.LastExerciseID = ""
 					if err := m.state.Save(m.paths.StateFile); err != nil {
-						m.status = fmt.Sprintf("Reset kaydedilemedi: %v", err)
+						m.status = m.uif("status_state_save_failed", "Progress could not be saved: %v", err)
 					} else {
-						m.status = "İlerleme sıfırlandı."
+						m.status = m.ui("status_reset_done", "Progress reset.")
 					}
 				} else {
-					m.status = "İlerleme sıfırlandı."
+					m.status = m.ui("status_reset_done", "Progress reset.")
 				}
 				m.cursor = 0
 				m.confirmReset = false
 				return m, nil
 
 			case "n", "N", "esc":
-				m.status = "Reset iptal edildi."
+				m.status = m.ui("status_reset_canceled", "Reset canceled.")
 				m.confirmReset = false
 				return m, nil
 			}
@@ -224,41 +224,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showingCheckOutput = false
 				m.readme.SetContent(m.instructionsContent)
 				m.readme.GotoTop()
-				m.status = "Showing exercise instructions."
-				if m.i18n != nil {
-					m.status = m.i18n.T(m.currentLangCode(), "status_showing_instructions", m.status)
-				}
+				m.status = m.ui("status_showing_instructions", "Showing exercise instructions.")
 			} else if m.lastCheckOutput != "" {
 				m.showingCheckOutput = true
 				m.readme.SetContent(m.lastCheckOutput)
 				m.readme.GotoTop()
-				m.status = "Showing last check output."
-				if m.i18n != nil {
-					m.status = m.i18n.T(m.currentLangCode(), "status_showing_check_output", m.status)
-				}
+				m.status = m.ui("status_showing_check_output", "Showing last check output.")
 			} else {
-				m.status = "No check output yet."
-				if m.i18n != nil {
-					m.status = m.i18n.T(m.currentLangCode(), "status_no_check_output", m.status)
-				}
+				m.status = m.ui("status_no_check_output", "No check output yet.")
 			}
 
 		// CHECK çalıştır
 		case "c", "enter":
 			if m.loading {
-				m.status = "Check zaten çalışıyor; mevcut sonuç bekleniyor."
+				m.status = m.ui("status_check_already_running", "A check is already running; waiting for its result.")
 				return m, nil
 			}
 			if len(m.exercises) == 0 {
-				if m.i18n != nil {
-					m.status = m.i18n.T(
-						m.currentLangCode(),
-						"status_no_exercises",
-						"No exercises.",
-					)
-				} else {
-					m.status = "No exercises."
-				}
+				m.status = m.ui("status_no_exercises", "No exercises found.")
 				return m, nil
 			}
 
@@ -280,32 +263,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Hint
 		case "h":
-			if m.i18n != nil {
-				m.status = m.i18n.T(
-					m.currentLangCode(),
-					"hint_default",
-					"Hint: Read the README carefully; fix the TODOs in nginx.conf.",
-				)
-			} else {
-				m.status = "Hint: Read the README carefully; fix the TODOs in nginx.conf."
-			}
+			m.status = m.ui("hint_default", "Hint: Read the README carefully and fix the TODOs in nginx.conf.")
 
 		// Dil değiştir
 		case "l", "L":
 			if m.i18n != nil && len(m.i18n.Langs()) > 0 {
 				m.langIndex = m.i18n.NextLangIndex(m.langIndex)
-				m.status = m.i18n.T(
-					m.currentLangCode(),
-					"status_lang_switched",
-					"Language changed.",
-				)
+				m.status = m.ui("status_lang_switched", "Language switched.")
 				m.loadReadmeForCurrent()
 
 				// Dil tercihini state'e yaz
 				if m.state != nil {
 					m.state.LangCode = m.currentLangCode()
 					if err := m.state.Save(m.paths.StateFile); err != nil {
-						m.status = fmt.Sprintf("State kaydedilemedi: %v", err)
+						m.status = m.uif("status_state_save_failed", "Progress could not be saved: %v", err)
 					}
 				}
 				return m, m.resetMarquee()
@@ -314,7 +285,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Progress reset
 		case "r", "R":
 			m.confirmReset = true
-			m.status = "Tüm ilerlemeyi sıfırlamak istiyor musun? (y/n)"
+			m.status = m.ui("status_reset_confirm", "Reset all progress? (y/n)")
 		}
 
 		// KeyMsg case’inin sonunda mutlaka return et

@@ -30,7 +30,7 @@ func TestUpdateDoesNotStartSecondCheckWhileLoading(t *testing.T) {
 	if !got.loading {
 		t.Fatalf("loading = false, want true")
 	}
-	if !strings.Contains(got.status, "zaten çalışıyor") {
+	if !strings.Contains(got.status, "already running") {
 		t.Fatalf("status = %q, want already running message", got.status)
 	}
 }
@@ -380,7 +380,7 @@ func TestUpdateSelectionSaveFailureIsVisible(t *testing.T) {
 	if got.cursor != 1 {
 		t.Fatalf("cursor = %d, want 1 despite save failure", got.cursor)
 	}
-	if !strings.Contains(got.status, "State kaydedilemedi") {
+	if !strings.Contains(got.status, "could not be saved") {
 		t.Fatalf("status = %q, want visible state save error", got.status)
 	}
 }
@@ -492,7 +492,7 @@ func TestUpdateLanguageSaveFailureIsVisible(t *testing.T) {
 	if got.currentLangCode() != "tr" {
 		t.Fatalf("language = %q, want tr despite save failure", got.currentLangCode())
 	}
-	if !strings.Contains(got.status, "State kaydedilemedi") {
+	if !strings.Contains(got.status, "could not be saved") {
 		t.Fatalf("status = %q, want visible state save error", got.status)
 	}
 }

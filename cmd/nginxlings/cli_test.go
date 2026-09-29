@@ -295,6 +295,58 @@ func TestInitialModelWithOptionsUsesLangFlag(t *testing.T) {
 	}
 }
 
+func TestNewTUIModelRejectsUnknownLanguage(t *testing.T) {
+	root := newCLIAppRoot(t)
+	createExercise(t, root, "01_static_server")
+
+	_, err := newTUIModel(cliOptions{root: root, state: filepath.Join(t.TempDir(), "state.json"), lang: "xx"})
+
+	if err == nil {
+		t.Fatal("newTUIModel() error = nil, want unknown language error")
+	}
+	for _, want := range []string{`unknown language "xx"`, "available: tr, en"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error = %q, want %q", err, want)
+		}
+	}
+}
+
+func TestNewTUIModelAcceptsKnownLanguage(t *testing.T) {
+	root := newCLIAppRoot(t)
+	createExercise(t, root, "01_static_server")
+
+	m, err := newTUIModel(cliOptions{root: root, state: filepath.Join(t.TempDir(), "state.json"), lang: "tr"})
+
+	if err != nil {
+		t.Fatalf("newTUIModel() error = %v", err)
+	}
+	if got := m.currentLangCode(); got != "tr" {
+		t.Fatalf("currentLangCode() = %q, want tr", got)
+	}
+}
+
+func TestRunCLIReportsUnknownLanguage(t *testing.T) {
+	root := newCLIAppRoot(t)
+	createExercise(t, root, "01_static_server")
+	var stdout, stderr bytes.Buffer
+	startTUI := func(opts cliOptions) error {
+		_, err := newTUIModel(opts)
+		return err
+	}
+
+	code := runCLI(
+		[]string{"--root", root, "--state", filepath.Join(t.TempDir(), "state.json"), "--lang", "xx"},
+		&stdout, &stderr, nil, startTUI,
+	)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), `unknown language "xx"`) {
+		t.Fatalf("stderr = %q, want unknown language error", stderr.String())
+	}
+}
+
 func clearStateLocationEnv(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{

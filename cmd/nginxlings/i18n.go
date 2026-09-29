@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type LangMeta struct {
@@ -24,15 +25,15 @@ func LoadI18n(root string) (*I18n, error) {
 	// 1) langs.json
 	data, err := os.ReadFile(filepath.Join(i18nDir, "langs.json"))
 	if err != nil {
-		return nil, fmt.Errorf("langs.json okunamadı: %w", err)
+		return nil, fmt.Errorf("langs.json cannot be read: %w", err)
 	}
 
 	var langs []LangMeta
 	if err := json.Unmarshal(data, &langs); err != nil {
-		return nil, fmt.Errorf("langs.json parse edilemedi: %w", err)
+		return nil, fmt.Errorf("langs.json cannot be parsed: %w", err)
 	}
 	if len(langs) == 0 {
-		return nil, fmt.Errorf("langs.json boş")
+		return nil, fmt.Errorf("langs.json lists no languages")
 	}
 
 	uiDir := filepath.Join(i18nDir, "ui")
@@ -68,6 +69,27 @@ func LoadI18n(root string) (*I18n, error) {
 		uiStrings:     ui,
 		exerciseNames: exNames,
 	}, nil
+}
+
+// validateLangCode rejects an explicit language code that i18n/langs.json does
+// not list. An empty code means "use the default". When translations cannot be
+// loaded the code cannot be checked; the TUI then reports the load failure.
+func validateLangCode(root, code string) error {
+	if code == "" {
+		return nil
+	}
+	i18n, err := LoadI18n(root)
+	if err != nil {
+		return nil
+	}
+	codes := make([]string, 0, len(i18n.Langs()))
+	for _, meta := range i18n.Langs() {
+		if meta.Code == code {
+			return nil
+		}
+		codes = append(codes, meta.Code)
+	}
+	return fmt.Errorf("unknown language %q (available: %s)", code, strings.Join(codes, ", "))
 }
 
 func (i *I18n) Langs() []LangMeta {

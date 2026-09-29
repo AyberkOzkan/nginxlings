@@ -270,35 +270,21 @@ func (m *model) renderMarkdown(raw string) string {
 
 func (m model) View() string {
 	if !m.ready {
-		return "Nginxlings yükleniyor...\n"
+		return m.ui("status_loading", "Loading Nginxlings...")
 	}
 
 	layout := m.layout()
 	langCode := m.currentLangCode()
-	title := "Nginxlings"
-	exTitle := "Exercises"
-	instTitle := "Instructions"
-	checkOutputTitle := "Last Check Output"
-	readyLabel := "[READY]"
-	workingLabel := "[RUNNING]" // sadece çeviri için
-	helpText := "(W/S) select exercise  (↑/↓, PgUp/PgDn) scroll instructions  (←/→) horiz scroll  (c/Enter) check  (Tab) view  (h) hint  (l) lang  (r) reset  (q) quit"
-
-	langLabel := "Lang"
-
-	if m.i18n != nil {
-		title = m.i18n.T(langCode, "title", title)
-		exTitle = m.i18n.T(langCode, "exercises_title", exTitle)
-		instTitle = m.i18n.T(langCode, "instructions_title", instTitle)
-		checkOutputTitle = m.i18n.T(langCode, "check_output_title", checkOutputTitle)
-		readyLabel = m.i18n.T(langCode, "ready_label", readyLabel)
-		workingLabel = m.i18n.T(langCode, "working_label", workingLabel)
-		helpText = m.i18n.T(langCode, "help", helpText)
-		langLabel = m.i18n.T(langCode, "lang_label", langLabel)
-		_ = workingLabel
-	}
+	title := m.ui("title", "Nginxlings")
+	exTitle := m.ui("exercises_title", "Exercises")
+	instTitle := m.ui("instructions_title", "Instructions")
 	if m.showingCheckOutput {
-		instTitle = checkOutputTitle
+		instTitle = m.ui("check_output_title", "Last Check Output")
 	}
+	readyLabel := m.ui("ready_label", "[READY]")
+	workingLabel := m.ui("working_label", "[RUNNING]")
+	helpText := m.ui("help", "(W/S) select  (↑/↓) scroll  (PgUp/PgDn) fast scroll  (←/→) horiz  (c/Enter) check  (Tab) view  (h) hint  (l) lang  (r) reset  (q) quit")
+	langLabel := m.ui("lang_label", "Lang")
 
 	if layout.compact {
 		lines := make([]string, 0, 3)
@@ -345,11 +331,7 @@ func (m model) View() string {
 	listBuilder.WriteString(m.styles.ListTitle.Render(truncateCells(exTitle, listTitleWidth)) + "\n\n")
 
 	if len(m.exercises) == 0 {
-		if m.i18n != nil {
-			listBuilder.WriteString("  (" + m.i18n.T(langCode, "status_no_exercises", "Hiç egzersiz yok.") + ")\n")
-		} else {
-			listBuilder.WriteString("  (Hiç egzersiz yok)\n")
-		}
+		listBuilder.WriteString("  (" + m.ui("status_no_exercises", "No exercises found.") + ")\n")
 	} else {
 		start, end := visibleExerciseRange(len(m.exercises), m.cursor, layout.listRows)
 		for i := start; i < end; i++ {
