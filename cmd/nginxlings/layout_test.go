@@ -28,13 +28,13 @@ func TestCalculateLayoutSmallHeight(t *testing.T) {
 	layout := calculateLayout(100, 3)
 
 	if layout.readmeHeight < 1 {
-		if layout.listOuterHeight < 1 || layout.rightOuterHeight < 1 || layout.listRows < 1 {
-			t.Fatalf("vertical dimensions must be positive: %+v", layout)
-		}
-		if !layout.compact {
-			t.Fatalf("compact = false, want true for a three-line terminal")
-		}
 		t.Fatalf("readmeHeight = %d, want >= 1", layout.readmeHeight)
+	}
+	if layout.listOuterHeight < 1 || layout.rightOuterHeight < 1 || layout.listRows < 1 {
+		t.Fatalf("vertical dimensions must be positive: %+v", layout)
+	}
+	if !layout.compact {
+		t.Fatalf("compact = false, want true for a three-line terminal")
 	}
 }
 
