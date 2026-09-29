@@ -29,8 +29,8 @@ fi
 # Effective configuration without comment lines.
 temp_file ACTIVE
 grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
-if ! grep -qE '^[[:space:]]*include[[:space:]]+conf\.d/\*\.conf;' "${ACTIVE}"; then
-  fail "The line 'include conf.d/*.conf;' was not found (or is commented out) in the effective configuration."
+if ! grep -qE '^[[:space:]]*include[[:space:]]+([^;[:space:]]*/)?conf\.d/\*\.conf[[:space:]]*;' "${ACTIVE}"; then
+  fail "nginx.conf does not load the .conf files in conf.d/ yet; the include belongs in the http block."
 fi
 
 # Only the part of the dump that comes from conf.d/default.conf.

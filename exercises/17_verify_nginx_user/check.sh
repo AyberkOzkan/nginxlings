@@ -46,7 +46,7 @@ fi
 # Comment-safe; "user nginx;" and "user nginx nginx;" are both valid.
 if ! grep -v '^[[:space:]]*#' <<<"${EFFECTIVE}" |
   grep -qE '^[[:space:]]*user[[:space:]]+nginx([[:space:]]+nginx)?[[:space:]]*;'; then
-  fail "Missing or incorrect user directive. Expected: user nginx;"
+  fail "No active user directive for the nginx account yet: set it in the main context, outside events {} and http {}."
 fi
 
 # Workers are forked right after the master starts; poll instead of sleeping.

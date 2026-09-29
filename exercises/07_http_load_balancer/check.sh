@@ -64,6 +64,12 @@ count2="$(grep -c "upstream=${BACK2}" "${LOGS}" || true)"
 if ((count1 == 0 || count2 == 0)); then
   echo "Sample logs (first 60 lines):"
   sed -n '1,60p' "${LOGS}"
+  if grep -q 'upstream=127\.0\.0\.1:65535' "${LOGS}"; then
+    fail "Requests went to the placeholder 127.0.0.1:65535: replace it in the upstream block with the two backends."
+  fi
+  if (($(grep -c 'upstream=-' "${LOGS}" || true) >= REQUESTS)); then
+    fail "No request reached an upstream (upstream=-): location / still answers by itself instead of passing requests to the backend group."
+  fi
   fail "Expected both ${BACK1} and ${BACK2} in upstream=\$upstream_addr, got ${BACK1}=${count1}, ${BACK2}=${count2}."
 fi
 
