@@ -26,8 +26,7 @@ docker_build "${IMAGE_NAME}" "${EX_DIR}"
 
 echo "[3/6] Testing nginx config inside the image (nginx -t)..."
 if ! T_OUTPUT="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -t 2>&1)"; then
-  printf '%s\n' "${T_OUTPUT}"
-  fail "nginx -t rejected nginx.conf; fix the errors above."
+  fail_nginx_rejected - <<<"${T_OUTPUT}"
 fi
 
 echo "[4/6] Starting container ${CONTAINER_NAME} (host ${HOST_PORT} -> container 8080)..."

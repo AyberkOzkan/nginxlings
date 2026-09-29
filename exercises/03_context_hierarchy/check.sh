@@ -20,10 +20,7 @@ mkdir -p "${EX_DIR}/logs"
 echo "[2/3] Testing nginx.conf with nginx -t (it enforces the contexts)..."
 temp_file T_OUTPUT
 if ! "${NGINX_BIN}" -t -c "${CONF}" -p "${EX_DIR}" >"${T_OUTPUT}" 2>&1; then
-  cat "${T_OUTPUT}"
-  # Keep only the message of the first [emerg] line for the TUI status.
-  FIRST_ERROR="$(sed -n 's/^.*\[emerg\] [0-9]*#[0-9]*: //p' "${T_OUTPUT}" | head -n 1)"
-  fail "nginx -t rejected nginx.conf: ${FIRST_ERROR:-see the errors above.}"
+  fail_nginx_rejected "${T_OUTPUT}"
 fi
 
 echo "[3/3] Starting NGINX on port ${PORT} and requesting /..."

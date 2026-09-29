@@ -12,10 +12,11 @@ CONTAINER_NAME="${CONTAINER_NAME:-nginxlings_ex13_include_modular_run}"
 HOST_PORT="${HOST_PORT:-18130}"
 BASE_URL="http://127.0.0.1:${HOST_PORT}"
 
-# expect_body PATH EXPECTED fetches BASE_URL/PATH and requires HTTP 200 with
-# EXPECTED as the body (trailing newlines are ignored).
+# expect_body PATH EXPECTED HINT fetches BASE_URL/PATH and requires HTTP 200
+# with EXPECTED as the body (trailing newlines are ignored); HINT says where
+# the learner should look when it does not match.
 expect_body() {
-  local path=$1 expected=$2 code body
+  local path=$1 expected=$2 hint=$3 code body
   if ! code="$(curl -sS -m 5 -o "${BODY_FILE}" -w '%{http_code}' "${BASE_URL}${path}")"; then
     fail "GET ${path} failed; see the curl error above."
   fi
@@ -23,7 +24,7 @@ expect_body() {
   if [[ "${code}" != "200" || "${body}" != "${expected}" ]]; then
     echo "GET ${path} returned HTTP ${code} with body:"
     printf '%s\n' "${body}"
-    fail "Expected GET ${path} to return HTTP 200 with exactly: ${expected}"
+    fail "Expected GET ${path} to return HTTP 200 with exactly: ${expected}. ${hint}"
   fi
   echo "GET ${path} -> ${expected}"
 }
@@ -43,8 +44,7 @@ docker_build "${IMAGE_NAME}" "${EX_DIR}"
 echo "[3/5] Testing the config and its include directives inside the image (nginx -T)..."
 temp_file DUMP
 if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
-  cat "${DUMP}"
-  fail "NGINX rejected the configuration; fix the errors above."
+  fail_nginx_rejected "${DUMP}"
 fi
 # Effective configuration without comment lines.
 temp_file ACTIVE
@@ -69,8 +69,11 @@ fi
 
 echo "[5/5] Checking endpoints..."
 temp_file BODY_FILE
-expect_body "/" "base-ok"
-expect_body "/modular" "include-ok"
-expect_body "/modular2" "include2-ok"
+expect_body "/" "base-ok" \
+  "location / in conf.d/10-server.conf answers it."
+expect_body "/modular" "include-ok" \
+  "Is location /modular defined (not commented out) in server.d/20-modular.conf? Otherwise location / answers it."
+expect_body "/modular2" "include2-ok" \
+  "Is location /modular2 defined (not commented out) in server.d/30-modular-extra.conf? Otherwise location / answers it."
 
 pass "13 – Include & Modular Config Design"

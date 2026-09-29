@@ -27,8 +27,7 @@ docker_build "${IMAGE_NAME}" "${EX_DIR}"
 echo "[3/5] Testing nginx config and its server blocks inside the image (nginx -T)..."
 temp_file DUMP
 if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
-  cat "${DUMP}"
-  fail "NGINX rejected nginx.conf; fix the errors above."
+  fail_nginx_rejected "${DUMP}"
 fi
 # Effective configuration without comment lines.
 temp_file ACTIVE
@@ -55,7 +54,7 @@ for n in 1 2; do
   echo "GET / with Host=site${n}.local returned:"
   printf '%s\n' "${body}"
   grep -q "site${n}-static-ok" <<<"${body}" ||
-    fail "site${n}.local did not return the expected static content (site${n}-static-ok)."
+    fail "site${n}.local did not return its own page (site${n}-static-ok). Check that the server block with server_name site${n}.local serves files from /usr/share/nginx/site${n}."
 done
 
 pass "14 – Multiple Domains, Static Sites"

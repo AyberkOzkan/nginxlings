@@ -27,11 +27,25 @@ echo "[2/6] Building Docker image ${IMAGE_NAME}..."
 on_exit "\"${DOCKER_BIN}\" image rm -f \"${IMAGE_NAME}\""
 docker_build "${IMAGE_NAME}" "${EX_DIR}"
 
-echo "[3/6] Testing nginx config inside the image (nginx -t)..."
-if ! T_OUTPUT="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -t 2>&1)"; then
-  printf '%s\n' "${T_OUTPUT}"
-  fail "nginx -t rejected nginx.conf; fix the errors above."
+echo "[3/6] Testing nginx config and its L7/L4 parts inside the image (nginx -T)..."
+temp_file DUMP
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
+  if grep -q 'unknown directive "stream"' "${DUMP}"; then
+    cat "${DUMP}"
+    fail "NGINX does not know the stream directive yet: load the stream module with load_module at the top of nginx.conf (the README names the module file)."
+  fi
+  fail_nginx_rejected "${DUMP}"
 fi
+# Effective configuration without comment lines; these give quick, specific
+# hints before the behaviour checks below.
+temp_file ACTIVE
+grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
+grep -qE '^[[:space:]]*load_module[[:space:]]+[^;]*ngx_stream_module\.so' "${ACTIVE}" ||
+  fail "The stream module is not loaded yet: add load_module at the top of nginx.conf (the README names the module file)."
+grep -qE '^[[:space:]]*stream[[:space:]]*\{' "${ACTIVE}" ||
+  fail "No stream {} block yet: add one at the top level, next to http {}, that forwards port 9000 to the TCP backends."
+grep -qiE '^[[:space:]]*add_header[[:space:]]+X-L7-Upstream[[:space:]]' "${ACTIVE}" ||
+  fail "No X-L7-Upstream header yet: in location /l7, add it with the address of the backend that answered."
 
 echo "[4/6] Starting container ${CONTAINER_NAME} (host ${HTTP_PORT} -> 8080, ${TCP_PORT} -> 9000)..."
 "${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
@@ -48,9 +62,18 @@ wait_container_http "${CONTAINER_NAME}" "http://127.0.0.1:${HTTP_PORT}/l7"
 echo "[5/6] Checking L7 HTTP upstream distribution..."
 l7_8081=0
 l7_8082=0
+l7_seen=0
+plain_200=0
 for ((n = 0; n < 60; n++)); do
   hdrs="$(curl -s -m 5 -D - -o /dev/null "http://127.0.0.1:${HTTP_PORT}/l7" | tr -d '\r' || true)"
   up="$(awk -F': ' 'tolower($1) == "x-l7-upstream" {print $2}' <<<"${hdrs}" | tail -n 1)"
+  if [[ -n "${up}" ]]; then l7_seen=$((l7_seen + 1)); fi
+  # A 200 without the header means NGINX answered /l7 itself: backends that
+  # are still starting would give 502, not 200.
+  if [[ -z "${up}" && "$(awk 'NR == 1 {print $2}' <<<"${hdrs}")" == "200" ]]; then
+    plain_200=$((plain_200 + 1))
+    ((plain_200 < 3)) || break
+  fi
   if [[ "${up}" == *:8081* ]]; then l7_8081=$((l7_8081 + 1)); fi
   if [[ "${up}" == *:8082* ]]; then l7_8082=$((l7_8082 + 1)); fi
   if ((l7_8081 > 0 && l7_8082 > 0)); then break; fi
@@ -59,6 +82,9 @@ done
 if ((l7_8081 == 0 || l7_8082 == 0)); then
   echo "Last response headers:"
   printf '%s\n' "${hdrs}"
+  if ((l7_seen == 0)); then
+    fail "/l7 answered without an X-L7-Upstream value. Is /l7 proxied to the HTTP upstream with no return left in it, and is add_header inside location /l7 itself?"
+  fi
   fail "Expected both HTTP backends to appear in the X-L7-Upstream header. Got 8081=${l7_8081}, 8082=${l7_8082}."
 fi
 echo "L7 distribution observed: 8081=${l7_8081}, 8082=${l7_8082}"

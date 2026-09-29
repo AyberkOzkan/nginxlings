@@ -27,8 +27,7 @@ docker_build "${IMAGE_NAME}" "${EX_DIR}"
 
 echo "[3/6] Validating nginx.conf inside the image (nginx -t)..."
 if ! T_OUTPUT="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -t 2>&1)"; then
-  printf '%s\n' "${T_OUTPUT}"
-  fail "nginx -t rejected nginx.conf; fix the errors above."
+  fail_nginx_rejected - <<<"${T_OUTPUT}"
 fi
 
 echo "[4/6] Inspecting the effective config (nginx -T) for the zone directives..."

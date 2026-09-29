@@ -94,6 +94,42 @@ func TestCheckLibRequireCmdNamesMissingPrerequisite(t *testing.T) {
 	}
 }
 
+func TestCheckLibNginxRejectionNamesTheFirstError(t *testing.T) {
+	tests := []struct {
+		name, output, want string
+	}{
+		{
+			name: "docker log format",
+			output: `2026/09/29 20:22:34 [emerg] 1#1: no servers are inside upstream in /etc/nginx/nginx.conf:22
+nginx: [emerg] no servers are inside upstream in /etc/nginx/nginx.conf:22
+nginx: configuration file /etc/nginx/nginx.conf test failed`,
+			want: "[FAIL] NGINX rejected the configuration: no servers are inside upstream in /etc/nginx/nginx.conf:22",
+		},
+		{
+			name: "host nginx -t format",
+			output: `nginx: [emerg] "listen" directive is not allowed here in /tmp/ex/nginx.conf:31
+nginx: configuration file /tmp/ex/nginx.conf test failed`,
+			want: `[FAIL] NGINX rejected the configuration: "listen" directive is not allowed here in /tmp/ex/nginx.conf:31`,
+		},
+		{
+			name:   "no emerg line",
+			output: "nginx: configuration file test failed",
+			want:   "[FAIL] NGINX rejected the configuration: see the errors above.",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := runLibScript(t, "fail_nginx_rejected - <<'EOF'\n"+tt.output+"\nEOF")
+			if run.exitCode != 1 || run.lastLine() != tt.want {
+				t.Fatalf("exit=%d last=%q, want %q", run.exitCode, run.lastLine(), tt.want)
+			}
+			if !strings.Contains(run.output, tt.output) {
+				t.Fatalf("output does not repeat the NGINX output:\n%s", run.output)
+			}
+		})
+	}
+}
+
 func TestCheckLibUnexpectedErrorEndsWithOneFailLine(t *testing.T) {
 	run := runLibScript(t, "echo '[1/2] Starting...'\nvalue=\"$(false)\"\necho unreachable")
 

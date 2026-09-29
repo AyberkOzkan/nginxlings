@@ -182,12 +182,22 @@ NGINX_BIN="${NGINX_BIN:-nginx}"
 NGINX_PID=""
 NGINX_STDERR=""
 
-# nginx_test CONF PREFIX runs nginx -t and prints its output on failure.
+# fail_nginx_rejected FILE prints nginx -t/-T output (FILE, or - for stdin) and
+# fails with NGINX's first [emerg] message, so the TUI status line shows where
+# the error is, e.g. '"listen" directive is not allowed here in nginx.conf:31'.
+fail_nginx_rejected() {
+  local output first
+  output="$(cat "$1")"
+  printf '%s\n' "${output}"
+  first="$(sed -nE '/\[emerg\]/{s/^.*\[emerg\] ([0-9]+#[0-9]+: )?//;p;q;}' <<<"${output}")"
+  fail "NGINX rejected the configuration: ${first:-see the errors above.}"
+}
+
+# nginx_test CONF PREFIX runs nginx -t and fails with NGINX's first error.
 nginx_test() {
   local conf=$1 prefix=$2 output
   if ! output="$("${NGINX_BIN}" -t -c "${conf}" -p "${prefix}" 2>&1)"; then
-    printf '%s\n' "${output}"
-    fail "nginx -t rejected ${conf##*/}; fix the errors above."
+    fail_nginx_rejected - <<<"${output}"
   fi
 }
 

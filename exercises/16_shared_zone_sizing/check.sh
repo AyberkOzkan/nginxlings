@@ -45,8 +45,7 @@ docker_build "${IMAGE_NAME}" "${EX_DIR}"
 echo "[3/6] Testing the config and reading req_zone (nginx -T)..."
 temp_file DUMP
 if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
-  cat "${DUMP}"
-  fail "NGINX rejected nginx.conf; fix the errors above."
+  fail_nginx_rejected "${DUMP}"
 fi
 # Effective configuration without comment lines.
 temp_file ACTIVE
