@@ -76,7 +76,7 @@ func TestCheckResultForAnotherExerciseKeepsCurrentPanel(t *testing.T) {
 	updated, _ := m.Update(checkResultMsg{output: "[PASS] first exercise", index: 0})
 	got := updated.(model)
 
-	if got.showingCheckOutput {
+	if got.panel == panelCheckOutput {
 		t.Fatal("result for another exercise replaced the selected exercise's panel")
 	}
 	if !strings.Contains(got.readme.View(), "Second instructions") {
@@ -88,14 +88,14 @@ func TestCheckResultForAnotherExerciseKeepsCurrentPanel(t *testing.T) {
 
 	updated, _ = got.Update(tea.KeyMsg{Type: tea.KeyTab})
 	got = updated.(model)
-	if got.showingCheckOutput || got.status != "No check output yet." {
+	if got.panel == panelCheckOutput || got.status != "No check output yet." {
 		t.Fatalf("Tab on an unchecked exercise showed output: status=%q", got.status)
 	}
 
 	updated, _ = got.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("w")})
 	updated, _ = updated.(model).Update(tea.KeyMsg{Type: tea.KeyTab})
 	got = updated.(model)
-	if !got.showingCheckOutput || !strings.Contains(got.readme.View(), "[PASS] first exercise") {
+	if got.panel != panelCheckOutput || !strings.Contains(got.readme.View(), "[PASS] first exercise") {
 		t.Fatalf("Tab on the checked exercise did not show its output: %q", got.readme.View())
 	}
 }

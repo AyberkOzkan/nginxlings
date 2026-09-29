@@ -53,8 +53,9 @@ type model struct {
 	instructionsContent string
 	// checkOutputs holds the sanitized output of the last check per exercise
 	// ID for this session; Tab shows the selected exercise's entry.
-	checkOutputs       map[string]string
-	showingCheckOutput bool
+	checkOutputs map[string]string
+	// panel is what the right panel currently shows.
+	panel panelMode
 
 	i18n      *I18n
 	langIndex int
@@ -73,6 +74,14 @@ type model struct {
 	// Reset onayı için
 	confirmReset bool
 }
+
+// panelMode selects the content of the right panel.
+type panelMode int
+
+const (
+	panelInstructions panelMode = iota
+	panelCheckOutput
+)
 
 /* ---------- Yardımcı fonksiyonlar ---------- */
 
@@ -243,7 +252,7 @@ func (m model) langIndexFor(code string, current int) int {
 /* ---------- README yükleme (dil koduna göre) ---------- */
 
 func (m *model) loadReadmeForCurrent() {
-	m.showingCheckOutput = false
+	m.panel = panelInstructions
 	if len(m.exercises) == 0 {
 		content := m.ui("status_no_exercises", "No exercises found.")
 		m.instructionsContent = content

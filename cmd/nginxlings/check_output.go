@@ -63,7 +63,7 @@ func (m model) selectedCheckOutput() string {
 
 // showCheckOutput switches the right panel to the selected exercise's output.
 func (m *model) showCheckOutput() {
-	m.showingCheckOutput = true
+	m.panel = panelCheckOutput
 	m.readme.SetContent(wrapCheckOutput(m.selectedCheckOutput(), m.readme.Width))
 	m.readme.GotoTop()
 }

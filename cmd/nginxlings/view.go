@@ -305,7 +305,7 @@ func (m model) View() string {
 	title := m.ui("title", "Nginxlings")
 	exTitle := m.ui("exercises_title", "Exercises")
 	instTitle := m.ui("instructions_title", "Instructions")
-	if m.showingCheckOutput {
+	if m.panel == panelCheckOutput {
 		instTitle = m.ui("check_output_title", "Last Check Output")
 	}
 	readyLabel := m.ui("ready_label", "[READY]")

@@ -216,7 +216,7 @@ func TestUpdateTogglesSuccessfulAndFailedCheckOutput(t *testing.T) {
 
 			updated, _ := m.Update(checkResultMsg{output: tt.output, err: tt.err, index: 0})
 			result := updated.(model)
-			if !result.showingCheckOutput {
+			if result.panel != panelCheckOutput {
 				t.Fatal("check result did not activate output view")
 			}
 			if !strings.Contains(result.readme.View(), tt.output) {
@@ -228,7 +228,7 @@ func TestUpdateTogglesSuccessfulAndFailedCheckOutput(t *testing.T) {
 			if cmd != nil {
 				t.Fatalf("toggle command = %v, want nil", cmd)
 			}
-			if instructions.showingCheckOutput {
+			if instructions.panel == panelCheckOutput {
 				t.Fatal("Tab did not activate instructions view")
 			}
 			if !strings.Contains(instructions.readme.View(), "Exercise instructions") {
@@ -237,7 +237,7 @@ func TestUpdateTogglesSuccessfulAndFailedCheckOutput(t *testing.T) {
 
 			updated, _ = instructions.Update(tea.KeyMsg{Type: tea.KeyTab})
 			output := updated.(model)
-			if !output.showingCheckOutput {
+			if output.panel != panelCheckOutput {
 				t.Fatal("second Tab did not reactivate check output view")
 			}
 			if !strings.Contains(output.readme.View(), tt.output) {
@@ -268,7 +268,7 @@ func TestUpdateOutputToggleUsesTranslatedLabelsAndHandlesMissingOutput(t *testin
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	withoutOutput := updated.(model)
-	if withoutOutput.showingCheckOutput {
+	if withoutOutput.panel == panelCheckOutput {
 		t.Fatal("empty output activated check output view")
 	}
 	if withoutOutput.status != "Henüz kontrol çıktısı yok." {
@@ -302,12 +302,12 @@ func TestWindowResizePreservesActiveCheckOutputView(t *testing.T) {
 	m.exercises = []Exercise{{ID: "01_static", DefaultName: "Static Server", Path: dir}}
 	m.instructionsContent = "Instructions"
 	m.checkOutputs = map[string]string{m.exercises[m.cursor].ID: "[PASS] complete"}
-	m.showingCheckOutput = true
+	m.panel = panelCheckOutput
 	m.readme.SetContent(m.selectedCheckOutput())
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 90, Height: 20})
 	got := updated.(model)
-	if !got.showingCheckOutput {
+	if got.panel != panelCheckOutput {
 		t.Fatal("window resize switched away from active check output")
 	}
 	if !strings.Contains(got.readme.View(), "[PASS] complete") {
@@ -332,7 +332,7 @@ func TestUpdateSelectionLoadsSelectedExerciseInstructions(t *testing.T) {
 	m.readme.Width = 48
 	m.readme.Height = 16
 	m.checkOutputs = map[string]string{m.exercises[m.cursor].ID: "[PASS] previous"}
-	m.showingCheckOutput = true
+	m.panel = panelCheckOutput
 	m.readme.SetContent(m.selectedCheckOutput())
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
@@ -344,7 +344,7 @@ func TestUpdateSelectionLoadsSelectedExerciseInstructions(t *testing.T) {
 	if !strings.Contains(ansi.Strip(got.instructionsContent), "Second Exercise") {
 		t.Fatalf("instructionsContent = %q, want second exercise README", got.instructionsContent)
 	}
-	if got.showingCheckOutput {
+	if got.panel == panelCheckOutput {
 		t.Fatal("selection change did not return to instructions view")
 	}
 	if !strings.Contains(ansi.Strip(got.readme.View()), "Second Exercise") {
@@ -454,7 +454,7 @@ func TestUpdateLanguageSwitchReloadsInstructions(t *testing.T) {
 	m.readme.Width = 48
 	m.readme.Height = 16
 	m.checkOutputs = map[string]string{m.exercises[m.cursor].ID: "[PASS] previous"}
-	m.showingCheckOutput = true
+	m.panel = panelCheckOutput
 	m.readme.SetContent(m.selectedCheckOutput())
 
 	if got := m.currentLangCode(); got != "en" {
@@ -470,7 +470,7 @@ func TestUpdateLanguageSwitchReloadsInstructions(t *testing.T) {
 	if !strings.Contains(ansi.Strip(got.instructionsContent), "Turkce Talimatlar") {
 		t.Fatalf("instructionsContent = %q, want Turkish README", got.instructionsContent)
 	}
-	if got.showingCheckOutput {
+	if got.panel == panelCheckOutput {
 		t.Fatal("language switch did not return to instructions view")
 	}
 	if !strings.Contains(ansi.Strip(got.readme.View()), "Turkce Talimatlar") {
@@ -509,7 +509,7 @@ func TestUpdateResetReloadsInstructionsAndClearsCheckOutput(t *testing.T) {
 	m.cursor = 1
 	m.loadReadmeForCurrent()
 	m.checkOutputs = map[string]string{m.exercises[m.cursor].ID: "[FAIL] second exercise"}
-	m.showingCheckOutput = true
+	m.panel = panelCheckOutput
 	m.readme.SetContent(m.selectedCheckOutput())
 
 	for _, key := range []string{"r", "y"} {
@@ -520,8 +520,8 @@ func TestUpdateResetReloadsInstructionsAndClearsCheckOutput(t *testing.T) {
 	if m.cursor != 0 {
 		t.Fatalf("cursor = %d, want 0", m.cursor)
 	}
-	if m.showingCheckOutput || len(m.checkOutputs) != 0 {
-		t.Fatalf("check output survived reset: showing=%v outputs=%v", m.showingCheckOutput, m.checkOutputs)
+	if m.panel == panelCheckOutput || len(m.checkOutputs) != 0 {
+		t.Fatalf("check output survived reset: showing=%v outputs=%v", m.panel == panelCheckOutput, m.checkOutputs)
 	}
 	if view := ansi.Strip(m.readme.View()); !strings.Contains(view, "First Exercise") {
 		t.Fatalf("readme = %q, want first exercise instructions after reset", view)
@@ -529,7 +529,7 @@ func TestUpdateResetReloadsInstructionsAndClearsCheckOutput(t *testing.T) {
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updated.(model)
-	if m.showingCheckOutput || !strings.Contains(ansi.Strip(m.readme.View()), "First Exercise") {
+	if m.panel == panelCheckOutput || !strings.Contains(ansi.Strip(m.readme.View()), "First Exercise") {
 		t.Fatalf("Tab after reset left the instructions: status=%q", m.status)
 	}
 }

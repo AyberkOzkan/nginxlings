@@ -153,7 +153,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case tea.WindowSizeMsg:
-		showingCheckOutput := m.showingCheckOutput
+		panel := m.panel
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
@@ -165,7 +165,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.readme.Height = layout.readmeHeight
 
 		m.loadReadmeForCurrent()
-		if showingCheckOutput && m.selectedCheckOutput() != "" {
+		if panel == panelCheckOutput && m.selectedCheckOutput() != "" {
 			m.showCheckOutput()
 		}
 		return m, m.resetMarquee()
@@ -234,8 +234,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.readme.ScrollLeft(4)
 
 		case "tab":
-			if m.showingCheckOutput {
-				m.showingCheckOutput = false
+			if m.panel != panelInstructions {
+				m.panel = panelInstructions
 				m.readme.SetContent(m.instructionsContent)
 				m.readme.GotoTop()
 				m.status = m.ui("status_showing_instructions", "Showing exercise instructions.")
