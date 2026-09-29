@@ -2,66 +2,114 @@
 
 ## Goal
 
-In this exercise you will practice shared memory zones using NGINX rate limiting.
-
-You will:
-
-- Define a shared memory zone with `limit_req_zone`.
-- Use that zone with `limit_req` to enforce a request rate limit.
-- Confirm that the zone size is defined in the configuration (for example `:64k`).
-
-The automated check will:
-
-- Validate your NGINX configuration syntax.
-- Confirm that a `limit_req_zone` with a specific zone name and size exists.
-- Confirm that `limit_req` actually uses that zone.
-- Send several quick requests and verify that rate limiting is active.
+In this exercise you will declare your first **shared memory zone** and use it
+for rate limiting. You will see how a zone is created once, with a name and a
+size, and then referenced by name wherever it is needed.
 
 ---
 
-## What you edit
+## Background – shared memory zones
 
-You will edit:
+NGINX runs several worker processes. State that all of them must agree on, such
+as how many requests a client has made, cannot live in one worker's memory, so
+NGINX keeps it in **shared memory zones**. A zone is declared once with a name
+and a size and then used by name; rate limiting, connection limiting, upstream
+state and caching all work this way.
 
-    nginx.conf
+For rate limiting:
 
+- `limit_req_zone` (in the `http` context) declares the zone. It takes a **key**
+  (what to count per, for example per client), `zone=<name>:<size>`, and a
+  `rate=` such as `10r/s` or `30r/m`.
+- `limit_req` (in `http`, `server` or `location`) applies a zone by name.
+  `burst=` lets some excess requests wait in a queue; `nodelay` serves those
+  queued requests at once instead of spacing them out.
+- A rejected request gets status 503 unless `limit_req_status` says otherwise.
+
+A generic example (different names, key and values from this lab):
+
+    limit_req_zone $server_name zone=per_site:1m rate=50r/s;
+
+    server {
+        location /search/ {
+            limit_req zone=per_site burst=20 nodelay;
+        }
+    }
+
+`return` answers in the rewrite phase, before `limit_req` runs in the preaccess
+phase, so a location that uses `return` is never limited.
+
+Reference: [ngx_http_limit_req_module](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html).
 
 ---
 
-## Requirements
+## Lab environment
 
-Your `nginx.conf` must include:
+- `Dockerfile` copies your `nginx.conf` into an `nginx:1.28.3-alpine` image;
+  `start.sh` runs NGINX in the foreground.
+- `nginx.conf` already has a `server` on port 8080 that serves `index.html` from
+  `/usr/share/nginx/html`; `location /` is empty.
 
-1) A shared memory zone definition:
+The check (`c` or Enter in Nginxlings, or `./check.sh`) builds the image, runs
+`nginx -t`, reads the effective configuration with `nginx -T` (comment lines are
+ignored), and starts the container (host port 19090). It waits for NGINX from
+**inside** the container, so the wait does not use up the host client's
+allowance, then sends 20 parallel requests from the host and counts the status
+codes.
 
-    limit_req_zone $binary_remote_addr zone=req_zone:64k rate=1r/m;
+---
 
-2) A place where that zone is applied:
+## Task
 
-    limit_req zone=req_zone burst=1 nodelay;
+Edit `nginx.conf`:
 
-Notes:
-
-- The zone name must be `req_zone`.
-- The zone size must be `64k` (this is checked).
+1. In the `http` block, declare a rate-limit zone named `req_zone` with a size
+   of `64k`. Its key must be the client address in binary form,
+   `$binary_remote_addr`. Choose a rate low enough that 20 simultaneous
+   requests from one client cannot all get through.
+2. Apply `req_zone` in `location /`.
+3. Keep `location /` serving the file.
 
 ---
 
 ## Success criteria
 
-This exercise is successful when:
-
-- `nginx -t` succeeds.
-- The configuration contains `zone=req_zone:64k`.
-- The configuration contains `limit_req zone=req_zone`.
-- Under a burst of quick requests:
-  - At least one request returns 200,
-  - At least one request is rate-limited (HTTP 429 or 503).
+- `nginx -t` accepts the configuration.
+- The effective configuration declares `req_zone` with a size of `64k` and the
+  key `$binary_remote_addr`, and a `limit_req` uses it.
+- Of 20 parallel requests, at least one gets HTTP 200 and at least one is
+  rejected (429 or 503).
 
 ---
 
-## Tips
+## If you are stuck
 
-- `limit_req_zone` is typically defined in the `http` context.
-- `limit_req` is typically placed in `server` or `location`.
-- If rate limiting never triggers, reduce the rate and burst values.
+Work through these one at a time, re-running the check in between:
+
+- `No active limit_req_zone yet`: the zone is not declared, or it is still a
+  comment.
+- `NGINX rejected the configuration: "limit_req_zone" directive is not allowed
+  here`: zones are declared in the `http` block, not inside `server` or
+  `location`.
+- `must create a zone named req_zone with a size of 64k`: look at the
+  `zone=<name>:<size>` parameter.
+- `The key of req_zone must be ...`: the key is the first parameter of
+  `limit_req_zone`.
+- `Nothing uses req_zone yet`: declaring a zone does not limit anything until
+  a `limit_req` refers to it.
+- `All 20 parallel requests got through`: the rate or the burst is too generous,
+  or `location /` answers with `return`.
+- `requests got no answer within 2s instead of being rejected`: excess requests
+  are queued by `burst` and released slowly. Should they wait, or be rejected?
+
+---
+
+## Review questions
+
+- Why must the request counters live in shared memory instead of in each worker
+  process?
+- Which status code does a rejected request get by default, and how would you
+  make it 429?
+- What is the difference between `burst=5` with and without `nodelay`?
+- Why is `$binary_remote_addr` a better key than `$remote_addr` for the same
+  purpose?

@@ -36,12 +36,16 @@ if ! CONF_OUTPUT="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_
   fail "nginx -T failed inside the image."
 fi
 CONF="$(printf '%s\n' "${CONF_OUTPUT}" | grep -v '^[[:space:]]*#' || true)"
+ZONE_LINES="$(grep -E '^[[:space:]]*limit_req_zone[[:space:]]' <<<"${CONF}" || true)"
+[[ -n "${ZONE_LINES}" ]] || fail "No active limit_req_zone yet: define the shared memory zone in the http block."
+REQ_ZONE="$(grep -E 'zone=req_zone:64k([[:space:];]|$)' <<<"${ZONE_LINES}" || true)"
+[[ -n "${REQ_ZONE}" ]] ||
+  fail "limit_req_zone must create a zone named req_zone with a size of 64k (zone=<name>:<size>)."
 # shellcheck disable=SC2016 # the pattern is a regex, not a shell expansion
-if ! grep -qE '^[[:space:]]*limit_req_zone[[:space:]]+\$binary_remote_addr[[:space:]]+zone=req_zone:64k[[:space:]]+rate=' <<<"${CONF}"; then
-  fail "Missing or incorrect limit_req_zone. Expected: limit_req_zone \$binary_remote_addr zone=req_zone:64k rate=...;"
-fi
-if ! grep -qE '^[[:space:]]*limit_req[[:space:]]+zone=req_zone([[:space:]]|;)' <<<"${CONF}"; then
-  fail "Missing limit_req usage with zone=req_zone."
+grep -qE '^[[:space:]]*limit_req_zone[[:space:]]+\$binary_remote_addr[[:space:]]' <<<"${REQ_ZONE}" ||
+  fail "The key of req_zone must be the client address in binary form, \$binary_remote_addr."
+if ! grep -qE '^[[:space:]]*limit_req[[:space:]]+([^;]*[[:space:]])?zone=req_zone([[:space:];]|$)' <<<"${CONF}"; then
+  fail "Nothing uses req_zone yet: apply the zone with limit_req in location /."
 fi
 
 echo "[5/6] Starting container ${CONTAINER_NAME} (host ${HOST_PORT} -> container 8080)..."
@@ -90,15 +94,17 @@ done
 
 ok_count="$(grep -c '^200$' "${CODES_FILE}" || true)"
 limited_count="$(grep -cE '^(429|503)$' "${CODES_FILE}" || true)"
-if ((ok_count == 0)); then
+timeout_count="$(grep -c '^000$' "${CODES_FILE}" || true)"
+if ((ok_count == 0 || limited_count == 0)); then
   echo "HTTP codes:"
   sort "${CODES_FILE}" | uniq -c
-  fail "Expected at least one 200 response."
+fi
+((ok_count > 0)) || fail "Expected at least one 200 response. Does location / serve a file (for example index.html from the root)?"
+if ((limited_count == 0 && timeout_count > 0)); then
+  fail "${timeout_count} requests got no answer within 2s instead of being rejected: with a burst and without nodelay, NGINX delays excess requests. Reject them at once instead."
 fi
 if ((limited_count == 0)); then
-  echo "HTTP codes:"
-  sort "${CODES_FILE}" | uniq -c
-  fail "Expected at least one rate-limited response (429 or 503)."
+  fail "All ${PARALLEL_N} parallel requests got through: lower the rate or the burst. A return in location / would also skip limit_req, because return runs before it."
 fi
 
 echo "Rate limiting is active: 200=${ok_count}, 429/503=${limited_count}."

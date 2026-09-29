@@ -2,36 +2,33 @@
 
 ## Amaç
 
-Bu egzersizde:
-
-- NGINX’i bir container içinde **resmi işletim sistemi paket deposundan** (apt)
-  kullanarak kuracaksın.
-- Bu dizindeki `Dockerfile` ile bir imaj build edeceksin.
-- İmaj içinde NGINX’in doğru kurulduğunu aşağıdaki komutlarla doğrulayacaksın:
-  - `nginx -v`
-  - `nginx -V`
-- Container içinde NGINX’in çalışıp 80 numaralı porttan HTTP cevap verebildiğinden
-  emin olacaksın.
+Bu egzersizde NGINX'i dağıtımın paket deposundan bir container image'ına
+kuracak, sonra kurulumu yeni bir sunucuda yapacağın gibi doğrulayacaksın: hangi
+sürüm, nasıl derlenmiş, hangi paketten gelmiş ve HTTP sunuyor mu.
 
 ---
 
-## Arkaplan – resmi paket deposu
+## Arka plan – paketler ve image'lar
 
-Debian/Ubuntu tabanlı sistemlerde NGINX genellikle resmi dağıtım depolarından,
-örneğin:
-
-    apt-get update
-    apt-get install -y nginx
-
-komutları ile kurulur.
-
-Bu sayede:
-
-- Paketlenmiş bir NGINX binary’si (`/usr/sbin/nginx` gibi),
-- `/etc/nginx/` altında varsayılan konfigürasyonlar,
-- Log ve diğer entegrasyonlar,
-
-otomatik olarak sağlanır.
+- Debian'ın paket aracı `apt-get`'tir. Yeni bir `debian:*-slim` image'ı **paket
+  dizini olmadan** gelir; dizin indirilmeden hiçbir paket bulunamaz.
+- `docker build` sırasında hiçbir soruya cevap verilemez. `apt-get`'in kendi onay
+  sorusuna otomatik "evet" diyen bir seçeneği vardır;
+  `DEBIAN_FRONTEND=noninteractive` ortam değişkeni de debconf'a yapılandırma
+  diyaloğu açmamasını söyler.
+- Her `RUN` talimatı bir image katmanı olur ve Docker katmanları önbelleğe alır.
+  Dizini yenilemek ile paket kurmak ayrı `RUN` talimatlarında olursa, sonraki bir
+  build eski önbellekteki dizini yeni bir kurulum satırıyla kullanabilir. Bu
+  yüzden ikisi genellikle tek bir `RUN` içinde `&&` ile zincirlenir.
+- `/var/lib/apt/lists/` altına indirilen dizin çalışma zamanında gerekmez. Onu
+  **aynı `RUN` içinde** silmek katmanı küçük tutar; sonraki bir `RUN` içinde
+  silmek işe yaramaz, çünkü önceki katman onu hâlâ içerir.
+- Doğrulama komutları:
+  - `nginx -v` sürümü yazar.
+  - `nginx -V` ayrıca derleyiciyi ve NGINX'in hangi `configure arguments:` ile
+    derlendiğini yazar; buradan hangi modüllerin olduğunu ve statik mi dinamik
+    mi derlendiklerini görürsün.
+  - `dpkg -s nginx` paketin durumunu, sürümünü ve bağımlılıklarını gösterir.
 
 Buradaki "resmi depo", taban imajın zaten kullandığı Debian paket arşividir.
 nginx.org da daha yeni NGINX sürümleri içeren kendi paket deposunu yayınlar; onu
@@ -39,88 +36,74 @@ eklemek için ek bir apt kaynağı ve imza anahtarı gerekir ve bu egzersiz onu
 kullanmaz. Check, `dpkg`'nin kurulu olarak gösterdiği her `nginx` paketini kabul
 eder.
 
-Bu egzersizde aynı kurulumu, bu dizindeki `Dockerfile` ile tanımlanan bir
-container imajının içinde gerçekleştireceksin.
+Kaynak: [Installing NGINX Open Source](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/).
 
 ---
 
-## Bu egzersizde ne yapıyorsun?
+## Lab ortamı
 
-Çalışma dizinin:
+- `Dockerfile`, `debian:12.15-slim` ile başlar. Kurulumun yeri bir `TODO` yorumuyla
+  işaretli; `EXPOSE 80` ve NGINX'i foreground'da çalıştıran `CMD` hazır.
+- Debian paketi 80 portunda cevap veren varsayılan bir site ile gelir; bu yüzden
+  bu egzersizde kendi NGINX yapılandırmanı yazman gerekmez.
 
-    05_install_verify/
+Check (Nginxlings'te `c` veya Enter ya da `./check.sh`) image'i
+(`nginxlings/05_install_verify:check`) build eder, `nginx`'in `PATH` üzerinde
+olduğunu doğrular, `nginx -v` ve `nginx -V` çalıştırır (`configure arguments:`
+satırını arar), `dpkg`'nin `nginx` paketini kurulu gösterdiğini doğrular, ardından
+80 portunu boş bir yerel porta açarak bir container başlatır ve `/` ister.
 
-Buradaki temel dosya:
+---
 
-    Dockerfile
+## Görev
 
-Yapman gerekenler:
+`Dockerfile` içindeki `TODO`'nun altına, şunları yapan tek bir `RUN` talimatı
+ekle:
 
-1. Bu dizindeki `Dockerfile` dosyasını aç.
+1. paket dizinini yenilesin,
+2. `nginx` paketini hiçbir soru sormadan kursun,
+3. indirilen paket dizinini silsin.
 
-2. İçindeki `TODO` yorumunun altına, aşağıdaki adımları yapan bir veya birden
-   fazla `RUN` komutu ekle:
-
-    - Paket indeksini güncelle (`apt-get update`),
-    - Resmi repodan `apt-get install -y nginx` ile NGINX’i kur,
-    - Tercihen `/var/lib/apt/lists/*` içeriğini silerek apt cache’i temizle.
-
-   Yani bu blok kavramsal olarak:
-
-    - `apt-get update` çalıştırmalı,
-    - `DEBIAN_FRONTEND=noninteractive apt-get install -y nginx` ile NGINX kurmalı,
-    - Sonunda `rm -rf /var/lib/apt/lists/*` ile cache’i temizlemeli.
-
-3. Kurduğun NGINX’in `PATH` içinde erişilebilir olduğundan emin ol. Böylece
-   imajdan oluşturulan bir container içinde şu komutlar çalışabilmeli:
-
-       nginx -v
-       nginx -V
-
-4. İmaj, NGINX’i başlatıp 80 numaralı porttan HTTP trafiği kabul edebilmeli.
-   `Dockerfile` içindeki varsayılan `CMD` satırı bu amaçla hazırlanmıştır;
-   senin asıl görevin NGINX’in doğru şekilde kurulmasını sağlamak.
+`FROM`, `EXPOSE` ve `CMD` satırlarını olduğu gibi bırak.
 
 ---
 
 ## Başarı kriterleri
 
-Bu egzersiz şu koşullar sağlandığında başarılı sayılır:
-
-- Bu `Dockerfile` ile tanımlanan imaj, şu komutla sorunsuz build edilebiliyor:
-
-      docker build -t <bir-isim> .
-
-- İmaj içinde NGINX, işletim sistemi paket deposundan kurulu durumda
-  (binary eksik değil, paket hatası yok).
-
-- Bu imaja dayalı bir container içinde aşağıdaki komutlar hatasız çalışıyor:
-
-      nginx -v
-      nginx -V
-
-- Container içinde NGINX başarılı şekilde başlatılabiliyor ve 80 numaralı portta
-  dinleyerek `/` isteğine geçerli bir HTTP cevabı döndürebiliyor.
+- Image build olmalı.
+- `nginx` `PATH` üzerinde olmalı; `nginx -v` ve `nginx -V` çalışmalı, `nginx -V`
+  `configure arguments:` satırını göstermeli.
+- `dpkg -s nginx`, `Status: install ok installed` göstermeli.
+- Image'dan başlatılan bir container, 80 portunda `/` isteğine başarılı bir HTTP
+  cevabı vermeli.
 
 ---
 
-## İpuçları
+## Takıldıysan
 
-- `apt-get install` sırasında etkileşimli soruları engellemek için
-  `DEBIAN_FRONTEND=noninteractive` kullan:
+Bunları sırayla dene, aralarda check'i yeniden çalıştır:
 
-      DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+- `E: Unable to locate package nginx`: paket dizini boş. Kurulumdan önce ne
+  çalışmalı?
+- `Do you want to continue? [Y/n] Abort.`: kurulum, build sırasında hiç gelmeyecek
+  bir cevabı bekliyor.
+- Build çıktısında `debconf: unable to initialize frontend: Dialog`: yalnızca bir
+  uyarı, kurulum yine çalışır. Arka plan bölümündeki ortam değişkeni bu uyarıyı
+  susturur.
+- `The image has no nginx yet.`: build başarılı ama NGINX'i hiçbir şey kurmamış.
+  `RUN` talimatın `TODO`'nun altında mı ve yorum satırı olarak kalmadı mı?
 
-- Yeni bir imajda her zaman ilk önce:
+---
 
-      apt-get update
+## Pekiştirme soruları
 
-  çalıştır.
-
-- İmaj boyutunu gereksiz büyütmemek için, `apt-get install` sonrası cache’i temizle:
-
-      rm -rf /var/lib/apt/lists/*
-
-- Build veya NGINX komutları hata verirse, çıkan mesajları dikkatlice oku;
-  genellikle hangi paketin, hangi adımın eksik olduğunu doğrudan söyler.
-
+- Debian paketinde `stream` modülünün olup olmadığını `nginx -V` çıktısının neresinde
+  görürsün; modül statik mi derlenmiş, dinamik mi? Bir `stream {}` bloğunun
+  çalışması için başka neye ihtiyacın olur?
+- Dizini yenilemek ile paket kurmak neden genellikle tek bir `RUN` talimatında
+  zincirlenir?
+- Debian 12 hangi NGINX sürümünü sunar ve güncel sürümü nginx.org'dan kurmak için
+  neyi değiştirirdin?
+- Debian paketi varsayılan siteyi nerede tutar ve bunu `nginx.conf` içindeki hangi
+  satır yükler? Diğer egzersizlerde kullanılan resmi `nginx` Docker image'ından
+  farkı ne?

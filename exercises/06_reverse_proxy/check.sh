@@ -63,9 +63,12 @@ if ! kill -0 "${BACKEND_PID}" 2>/dev/null; then
   cat "${BACKEND_LOG}" || true
   fail "The backend stopped unexpectedly."
 fi
-if [[ "${HTTP_CODE}" != "200" ]]; then
-  fail "Expected HTTP 200 from ${PROXY_URL}, got ${HTTP_CODE}. Is proxy_pass configured correctly?"
-fi
+case "${HTTP_CODE}" in
+  200) ;;
+  404) fail "Expected HTTP 200 from ${PROXY_URL}, got 404: location / has no handler, so NGINX looked for files under its html/ root. Hand the request to the backend." ;;
+  502) fail "Expected HTTP 200 from ${PROXY_URL}, got 502: NGINX tried to proxy, but nothing answered at that address. Check the address and port in proxy_pass." ;;
+  *) fail "Expected HTTP 200 from ${PROXY_URL}, got ${HTTP_CODE}. Is proxy_pass configured correctly?" ;;
+esac
 if ! grep -q "${TOKEN}" "${BODY}"; then
   echo "Response via proxy:"
   cat "${BODY}"

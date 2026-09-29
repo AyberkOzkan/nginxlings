@@ -2,144 +2,99 @@
 
 ## Amaç
 
-Bu egzersizde NGINX’i basit bir **HTTP reverse proxy** olarak
-yapılandıracaksın.
-
-Hedeflerin:
-
-- `http://127.0.0.1:8080` adresinde dinleyen küçük bir backend uygulamasına sahip olmak,
-- NGINX’i 8081 portunu dinleyecek şekilde ayarlamak (check `127.0.0.1:8081` adresine bağlanır),
-- `proxy_pass` kullanarak gelen istekleri backend’e yönlendirmek,
-- İstemcinin sadece NGINX ile konuşmasını, backend’i doğrudan görmemesini sağlamak.
-
-Bu dizindeki otomatik kontrol script’i, yapılandırmanı doğrulayacak.
+Bu egzersizde NGINX'i küçük bir backend uygulamasının önüne **HTTP reverse
+proxy** olarak koyacaksın: istemciler yalnızca NGINX ile konuşur, cevabı
+backend'den NGINX getirir.
 
 ---
 
-## Arkaplan – Reverse proxy nedir?
+## Arka plan – reverse proxy ne yapar
 
-Reverse proxy, istemciden gelen istekleri:
+Reverse proxy, istemcinin bağlantısını kabul eder, backend sunucuya kendi
+bağlantısını açar, isteği iletir ve backend'in cevabını geri döndürür. İstemci
+backend'in adresini hiç görmez.
 
-- Kendisi karşılayan (örneğin `127.0.0.1:8081`),
-- Arkadaki bir veya birden fazla backend sunucuya ileten,
-- Backend’den gelen yanıtı tekrar istemciye dönen bir katmandır.
+NGINX'te bu iş bir `location` içindeki `proxy_pass`'e düşer. `proxy_pass`, şemalı
+(`http://` veya `https://`) bir URL ve bir adres alır. Genel bir örnek (bu
+lab'dakinden farklı ad ve adresler):
 
-NGINX için minimal bir reverse proxy örneği:
+    server {
+        listen 80;
 
-    http {
-        server {
-            listen 8081;
-            server_name localhost;
-
-            location / {
-                proxy_pass http://127.0.0.1:8080;
-            }
+        location /shop/ {
+            proxy_pass http://10.0.0.20:5000;
         }
     }
 
-Bu örnekte:
+Bilinmesi gerekenler:
 
-- **İstemci**, NGINX’e `127.0.0.1:8081` üzerinden bağlanır,
-- NGINX isteği `127.0.0.1:8080` adresindeki backend’e iletir,
-- Backend yanıt döner,
-- NGINX bu yanıtı istemciye iletir.
+- `proxy_pass` veya `return` gibi bir işleyicisi olmayan `location`, dosyaları
+  `root` dizininden sunar (varsayılan olarak NGINX prefix'i altındaki `html/`).
+- `proxy_pass` URL'sinin bir yol ile bitip bitmemesi, backend'in hangi yolu
+  alacağını değiştirir. Yol yoksa istek yolu olduğu gibi iletilir.
+- NGINX varsayılan olarak istemcinin `Host` başlığını ve adresini backend'e
+  iletmez; backend'e ne gideceğini `proxy_set_header` belirler.
 
-İstemci backend’i doğrudan görmez, sadece NGINX’i görür.
+Kaynak: [proxy_pass](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass).
 
 ---
 
-## Bu egzersizde ne yapıyorsun?
+## Lab ortamı
 
-Şu dizinde çalışıyorsun:
+Bu egzersiz NGINX'i Docker'da değil, doğrudan makinende çalıştırır:
 
-    06_reverse_proxy/
+- `backend_app.py` küçük bir HTTP backend'dir. Check onu **127.0.0.1:8080**
+  üzerinde başlatır; senin çalıştırman gerekmez.
+- `nginx.conf` senin dosyan. `events`/`http` yapısı, `logs/` altındaki loglar ve
+  **8081** portunu dinleyen bir `server` hazır; `location /` boş.
 
-Önemli dosyalar:
+Check (Nginxlings'te `c` veya Enter ya da `./check.sh`) backend'i yalnızca
+backend'in bildiği rastgele bir token ile başlatır, bu dizini prefix alarak
+`nginx -t` çalıştırır, NGINX'i başlatır ve `http://127.0.0.1:8081/` ister. Cevap
+HTTP 200 olmalı **ve** backend'in token'ını içermeli; yani NGINX'in kendi ürettiği
+bir cevap geçmez. 8080 ve 8081 portları boş olmalı; değilse check bu portları
+tutan süreci söyler.
 
-- `nginx.conf` – NGINX yapılandırman,
-- `backend_app.py` – basit bir HTTP backend (örnek bir yanıt döner),
-- `check.sh` – otomatik kontrol script’i.
+---
 
-Görevin:
+## Görev
 
-1. `nginx.conf` dosyasını şu şekilde ayarlamak:
-
-   - NGINX 8081 portunu dinlemeli (HTTP),
-   - `http` bloğu altında bir `server` bloğu olmalı,
-   - `server` içinde bir `location /` bloğu olmalı ve:
-     - `proxy_pass` ile istekleri `http://127.0.0.1:8080` adresine yönlendirmeli.
-
-2. Diğer egzersizlerle uyumlu temel iskeleti korumak:
-
-   - Log’lar için `logs/` dizinini kullanmak (`error_log`, `access_log`),
-   - `events { ... }` ve `http { ... }` context’lerini geçerli tutmak.
-
-3. Backend uygulaması, kontrol script’i tarafından otomatik başlatılacaktır.
-   Bu dosyayı **elle çalıştırman gerekmez**.
-
-Bu egzersiz için `backend_app.py` veya `check.sh` dosyalarına dokunman gerekmez.
+`nginx.conf` dosyasını, `location /` her isteği `127.0.0.1:8080` üzerindeki
+backend'e iletecek şekilde düzenle. `listen 8081;` satırını ve dosyanın geri
+kalanını olduğu gibi bırak.
 
 ---
 
 ## Başarı kriterleri
 
-Egzersiz **başarılı** sayılması için:
-
-- `nginx.conf` syntax olarak geçerli olmalı ve `nginx -t` testini,
-  bu dizini `-p` prefix olarak kullanarak geçmeli,
-- NGINX yapılandırmanla sorunsuz şekilde başlayabilmeli (runtime hatası olmamalı),
-- `http://127.0.0.1:8081/` adresine gelen istekler, arkadaki
-  `http://127.0.0.1:8080/` backend’ine yönlenmiş olmalı,
-- İstemciye dönen içerik, backend’in ürettiği yanıt olmalı
-  (otomatik kontrolller bunu doğrular),
-- Bu dizindeki otomatik kontrol script’i başarı mesajı vermeli.
+- `nginx -t` yapılandırmayı kabul etmeli.
+- `http://127.0.0.1:8081/` HTTP 200 ile cevap vermeli.
+- Cevap gövdesi backend'den gelmeli (backend'in token'ını içermeli).
 
 ---
 
-## İpuçları
+## Takıldıysan
 
-- Context hiyerarşisini doğru tut:
+Bunları sırayla dene, aralarda check'i yeniden çalıştır:
 
-  - `events` ve `http` en üst (main) seviyede,
-  - `server` → `http` bloğunun içinde,
-  - `location` → `server` bloğunun içinde.
+- `got 404: location / has no handler`: location hâlâ boş; NGINX backend'e
+  sormak yerine dosya arıyor.
+- `got 502: NGINX tried to proxy, but nothing answered`: istek yanlış adrese ya da
+  porta gitti. Backend hangi portu kullanıyor?
+- `NGINX rejected the configuration: invalid URL prefix`: `proxy_pass` şema ile
+  başlayan bir URL ister.
+- `The response via NGINX does not come from the backend`: NGINX cevabı kendisi
+  vermiş, örneğin bir `return` ile. Onu proxy işlemiyle değiştir.
 
-- Genellikle çalışan basit bir şablon:
+---
 
-      user  www-data;
-      worker_processes auto;
+## Pekiştirme soruları
 
-      error_log  logs/error.log;
-      pid        logs/nginx.pid;
-
-      events {
-          worker_connections 1024;
-      }
-
-      http {
-          access_log  logs/access.log;
-
-          server {
-              listen 8081;
-              server_name localhost;
-
-              location / {
-                  proxy_pass http://127.0.0.1:8080;
-              }
-          }
-      }
-
-- Gerçek dünyada yaygın olan bazı header ayarlarını da ekleyebilirsin:
-
-      proxy_set_header Host $host;
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-  Bu ayarlar temel çalışmayı zorunlu kılmaz ama reverse proxy
-  için iyi bir alışkanlıktır.
-
-
-
-
-
-
+- `location /app/` içinde, `proxy_pass` adresten sonra yol içermiyorsa `/app/x`
+  isteği için backend hangi yolu alır; `/` ile bitiyorsa hangisini?
+- Backend varsayılan olarak hangi `Host` başlığını alır ve istemcinin gönderdiği
+  `Host`'u nasıl iletirsin?
+- Backend yalnızca NGINX'ten gelen bağlantıları görür. İstemcinin IP adresini yine
+  de nasıl öğrenebilir?
+- Backend bağlantıyı reddettiğinde istemci ne alır ve NGINX'in bağlanmak ve cevabı
+  okumak için ne kadar bekleyeceğini hangi direktifler sınırlar?
