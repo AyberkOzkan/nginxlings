@@ -24,7 +24,7 @@ func TestLoadExercisesLoadsRepoExercises(t *testing.T) {
 	if got, want := exercises[17].ID, "18_osi_layers_usecases"; got != want {
 		t.Fatalf("last exercise ID = %q, want %q", got, want)
 	}
-	if got, want := exercises[1].DefaultName, "02 - Config Layout ve Default Paths"; got != want {
+	if got, want := exercises[1].DefaultName, "02 - Config Layout and Default Paths"; got != want {
 		t.Fatalf("second exercise DefaultName = %q, want %q", got, want)
 	}
 }

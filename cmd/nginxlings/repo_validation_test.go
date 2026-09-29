@@ -136,6 +136,23 @@ func TestRepoWorkflowsPinActionsAndLimitPermissions(t *testing.T) {
 	}
 }
 
+// TestRepoManifestFallbackNamesAreEnglish keeps manifest default names equal
+// to the English titles, because they are shown when translations fail to
+// load and English is the default UI language.
+func TestRepoManifestFallbackNamesAreEnglish(t *testing.T) {
+	root := repoRoot(t)
+	exercises, err := LoadExercises(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	english := readRepoTranslationMap(t, filepath.Join(root, "i18n", "exercises", "en.json"))
+	for _, ex := range exercises {
+		if ex.DefaultName != english[ex.ID] {
+			t.Errorf("%s default_name = %q, want English title %q", ex.ID, ex.DefaultName, english[ex.ID])
+		}
+	}
+}
+
 func TestRepoCIRunsPinnedGovulncheck(t *testing.T) {
 	root := repoRoot(t)
 	path := filepath.Join(root, ".github", "workflows", "ci.yml")
