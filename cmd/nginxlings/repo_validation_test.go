@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -71,6 +72,122 @@ func TestRepoReleaseTargetsLinuxWithoutNPMOrHomebrew(t *testing.T) {
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("inspect packaging directory: %v", err)
 	}
+}
+
+// TestRepoReleaseArchiveIncludesEveryAsset checks that the GoReleaser archive
+// globs cover every exercise and translation file, so a new asset type cannot
+// be left out of a release silently, and that no glob has gone stale.
+func TestRepoReleaseArchiveIncludesEveryAsset(t *testing.T) {
+	root := repoRoot(t)
+	globs := releaseArchiveGlobs(t, filepath.Join(root, ".goreleaser.yml"))
+	patterns := make([]*regexp.Regexp, len(globs))
+	for i, glob := range globs {
+		patterns[i] = releaseGlobRegexp(glob)
+	}
+
+	assets := []string{"LICENSE", "README.md"}
+	for _, dir := range []string{"exercises", "i18n"} {
+		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			// Skip the runtime artifacts listed in .gitignore.
+			if entry.IsDir() {
+				if entry.Name() == "logs" {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			name := entry.Name()
+			if strings.HasPrefix(name, ".check_body") || name == "response.html" ||
+				name == "nginx_test.log" || strings.HasSuffix(name, ".pid") {
+				return nil
+			}
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			assets = append(assets, filepath.ToSlash(rel))
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walk %s: %v", dir, err)
+		}
+	}
+
+	used := make([]bool, len(globs))
+	for _, asset := range assets {
+		included := false
+		for i, pattern := range patterns {
+			if pattern.MatchString(asset) {
+				used[i] = true
+				included = true
+			}
+		}
+		if !included {
+			t.Errorf("%s is not included by any archive glob in .goreleaser.yml", asset)
+		}
+	}
+	for i, glob := range globs {
+		if !used[i] {
+			t.Errorf("archive glob %q in .goreleaser.yml matches no file", glob)
+		}
+	}
+}
+
+// releaseArchiveGlobs returns the "files:" entries of the archives section.
+func releaseArchiveGlobs(t *testing.T, path string) []string {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	var globs []string
+	inArchives, inFiles := false, false
+	for _, line := range strings.Split(string(data), "\n") {
+		switch {
+		case line == "archives:":
+			inArchives = true
+		case inArchives && line != "" && !strings.HasPrefix(line, " "):
+			inArchives, inFiles = false, false
+		case inArchives && line == "    files:":
+			inFiles = true
+		case inFiles && strings.HasPrefix(line, "      - "):
+			globs = append(globs, strings.TrimSpace(strings.TrimPrefix(line, "      - ")))
+		case inFiles:
+			inFiles = false
+		}
+	}
+	if len(globs) == 0 {
+		t.Fatalf("%s: no archive files found", path)
+	}
+	return globs
+}
+
+// releaseGlobRegexp translates a GoReleaser file glob into a regexp over
+// slash-separated repository paths; "**/" also matches no directory.
+func releaseGlobRegexp(glob string) *regexp.Regexp {
+	var b strings.Builder
+	b.WriteString("^")
+	for i := 0; i < len(glob); i++ {
+		switch {
+		case strings.HasPrefix(glob[i:], "**/"):
+			b.WriteString("(?:.*/)?")
+			i += 2
+		case strings.HasPrefix(glob[i:], "**"):
+			b.WriteString(".*")
+			i++
+		case glob[i] == '*':
+			b.WriteString("[^/]*")
+		case glob[i] == '?':
+			b.WriteString("[^/]")
+		default:
+			b.WriteString(regexp.QuoteMeta(glob[i : i+1]))
+		}
+	}
+	b.WriteString("$")
+	return regexp.MustCompile(b.String())
 }
 
 // TestRepoDocsMatchSupportedToolchainAndTargets keeps contributor and release

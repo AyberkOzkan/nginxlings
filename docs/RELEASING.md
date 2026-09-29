@@ -13,7 +13,7 @@ Only GitHub Releases are published. Native macOS and Windows builds, npm package
 3. Run `goreleaser check` and `goreleaser release --snapshot --clean` with GoReleaser v2.
 4. Confirm that `./dist` contains two archives (`linux_amd64` and `linux_arm64`) and `checksums.txt`.
 5. Extract one archive into an empty directory and confirm that `./nginxlings --list` prints all exercises from there.
-6. If an exercise added a new asset file type, make sure `.goreleaser.yml` includes its glob and that the extracted archive contains the file.
+6. `go test ./...` fails when an exercise or translation file is not covered by an archive glob in `.goreleaser.yml`, or when a glob matches nothing. After adding a new asset file type, also confirm that the extracted archive contains the file.
 
 Push an annotated tag only after those checks pass:
 

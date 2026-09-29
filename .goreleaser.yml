@@ -37,7 +37,6 @@ archives:
       - exercises/**/*.sh
       - exercises/**/Dockerfile
       - exercises/**/*.conf
-      - exercises/**/*.default
       - exercises/**/index.html
       - exercises/**/backend_app.py
       - exercises/manifest.json
