@@ -52,19 +52,24 @@ if ! HDRS="$(in_container "curl -s -D - -o /tmp/zone_sync.json http://127.0.0.1:
 fi
 
 # Status code must be 200
-if ! printf '%s\n' "${HDRS}" | head -n 1 | grep -q " 200"; then
+STATUS="$(printf '%s\n' "${HDRS}" | awk 'NR == 1 {print $2}')"
+if [[ "${STATUS}" != "200" ]]; then
   echo "Response headers:"
   printf '%s\n' "${HDRS}"
   echo "Body snippet:"
   in_container "sed -n '1,40p' /tmp/zone_sync.json" || true
-  fail "Expected HTTP 200."
+  if [[ "${STATUS}" == "404" ]]; then
+    fail "Expected HTTP 200, got 404: no location serves this exact path, or it does not map the path to the JSON file (root appends the request path to its directory, alias replaces the matched part)."
+  fi
+  fail "Expected HTTP 200, got ${STATUS:-no response}."
 fi
 
 # Content-Type must include application/json
 if ! printf '%s\n' "${HDRS}" | grep -i -q "content-type:.*application/json"; then
   echo "Response headers:"
   printf '%s\n' "${HDRS}"
-  fail "Expected Content-Type to include application/json."
+  CTYPE="$(printf '%s\n' "${HDRS}" | awk -F': ' 'tolower($1) == "content-type" {print $2}')"
+  fail "Expected Content-Type to include application/json, got ${CTYPE:-none}. NGINX takes the type from the extension of the request path, and this path has none, so it falls back to the default type."
 fi
 
 # JSON must be valid and contain required fields

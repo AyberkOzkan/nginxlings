@@ -49,11 +49,12 @@ fi
 # Effective configuration without comment lines.
 temp_file ACTIVE
 grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
-if ! grep -qE '^[[:space:]]*include[[:space:]]+/etc/nginx/conf\.d/\*\.conf;' "${ACTIVE}"; then
-  fail "Missing: include /etc/nginx/conf.d/*.conf; (must be in http{} of nginx.conf)."
+# Relative paths are resolved against /etc/nginx, so both spellings are fine.
+if ! grep -qE '^[[:space:]]*include[[:space:]]+(/etc/nginx/)?conf\.d/\*\.conf[[:space:]]*;' "${ACTIVE}"; then
+  fail "nginx.conf does not load the .conf files in /etc/nginx/conf.d/ yet; the include belongs in http {}."
 fi
-if ! grep -qE '^[[:space:]]*include[[:space:]]+/etc/nginx/server\.d/\*\.conf;' "${ACTIVE}"; then
-  fail "Missing: include /etc/nginx/server.d/*.conf; (must be in server{} of conf.d/10-server.conf)."
+if ! grep -qE '^[[:space:]]*include[[:space:]]+(/etc/nginx/)?server\.d/\*\.conf[[:space:]]*;' "${ACTIVE}"; then
+  fail "conf.d/10-server.conf does not load the .conf files in /etc/nginx/server.d/ yet; the include belongs in server {}."
 fi
 
 echo "[4/5] Starting container ${CONTAINER_NAME} (host ${HOST_PORT} -> container 8080)..."
