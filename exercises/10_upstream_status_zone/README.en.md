@@ -1,4 +1,4 @@
-# 10 – Upstream Status in Shared Memory (zone up_mem)
+# 10 – Upstream State in Shared Memory (zone up_mem)
 
 ## Goal
 
@@ -23,8 +23,9 @@ You will:
 
       X-Upstream: <ip:port>
 
-During validation, one backend will be stopped on purpose. After that, requests should
-stop being routed to the down backend.
+During validation, the HTTP server of one backend is stopped on purpose while its
+container keeps running, so connections to it are refused. After that, every request
+should still succeed through the other backend.
 
 ---
 
@@ -50,6 +51,15 @@ The validator checks the configuration before the backend containers exist. Use
 Docker's embedded DNS at `127.0.0.11` in the `http` context and enable runtime name
 resolution with the `resolve` parameter on each upstream server.
 
+Why the zone is required: `resolve` keeps the addresses it looks up in the
+upstream's shared memory zone, so `nginx -t` rejects `resolve` in an upstream
+without `zone` ("resolving names at run time requires upstream ... to be in
+shared memory"). Open-source NGINX supports `resolve` since 1.27.3; this image
+uses 1.28.3. The zone also lets all worker processes share the upstream state,
+such as failure counts. Open-source NGINX does not report that state through an
+API or a status page (that is an NGINX Plus feature), so this lab makes the
+chosen backend visible with the `X-Upstream` header instead.
+
 ---
 
 ## Requirements
@@ -73,7 +83,7 @@ The automated validation is successful when:
 - Both backends are reached before one is stopped (distribution observed).
 - After backend 8082 is stopped:
 
-    - Requests must continue being served by backend 8081.
+    - All 12 follow-up requests must succeed (HTTP 200) through backend 8081.
     - The response header may show a retry chain like:
 
       X-Upstream: <addr>:8082, <addr>:8081

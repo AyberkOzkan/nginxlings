@@ -8,7 +8,7 @@
   "07_http_load_balancer": "07 - HTTP Load Balancer (Layer 7)",
   "08_stream_load_balancer": "08 - TCP/UDP Load Balancer (Layer 4, stream)",
   "09_shared_zones_basics": "09 - Shared Memory Zones Fundamentals",
-  "10_upstream_status_zone": "10 - Upstream Status in Shared Memory (zone up_mem)",
+  "10_upstream_status_zone": "10 - Upstream State in Shared Memory (zone up_mem)",
   "11_zone_sync_api": "11 - Zone Synchronization and API (zone_sync)",
   "12_logs_and_variables": "12 - Logs and Variables",
   "13_include_modular_config": "13 - Include and Modular Config Design",

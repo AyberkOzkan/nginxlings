@@ -25,8 +25,9 @@ Yapacakların:
 
       X-Upstream: <ip:port>
 
-Doğrulama sırasında backend’lerden biri bilerek durdurulur. Bu durumdan sonra
-isteklerin “down” olan backend’e gitmemesi beklenir.
+Doğrulama sırasında backend’lerden birinin HTTP sunucusu bilerek durdurulur;
+container çalışmaya devam ettiği için ona giden bağlantılar reddedilir. Bu
+durumdan sonra her isteğin diğer backend üzerinden başarıyla cevaplanması beklenir.
 
 ---
 
@@ -73,7 +74,7 @@ Otomatik doğrulama başarılı sayılması için:
 - İlk aşamada iki backend’e de istek gittiği görülmeli (dağıtım gözlenmeli).
 - 8082 backend’i durdurulduktan sonra:
 
-    - İstekler 8081 üzerinden cevaplanmaya devam etmeli.
+    - Sonraki 12 isteğin tamamı 8081 üzerinden başarıyla (HTTP 200) cevaplanmalı.
     - Header bazen retry zinciri şeklinde görünebilir:
 
         X-Upstream: <addr>:8082, <addr>:8081

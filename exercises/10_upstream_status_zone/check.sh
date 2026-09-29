@@ -19,14 +19,14 @@ HOST_PORT="${HOST_PORT:-19100}"
 URL="http://127.0.0.1:${HOST_PORT}/"
 # Refused connections fail fast, so a short per-request timeout is enough
 # and keeps the failover phase quick when a request does hang.
-REQUEST_TIMEOUT=1
+REQUEST_TIMEOUT=3
 
 # get_upstream prints "CODE|X-Upstream" for one request through the LB.
 get_upstream() {
   curl -s -m "${REQUEST_TIMEOUT}" -o /dev/null -D - -w "HTTP_CODE:%{http_code}\n" "${URL}" |
     awk -F': ' '
       /^X-Upstream:/ {gsub(/\r/,"",$2); up=$2}
-      /^HTTP_CODE:/ {code=$2}
+      /^HTTP_CODE:/ {code=substr($0, 11)}
       END {
         if (code == "") code="000"
         if (up == "") up="-"
@@ -92,8 +92,10 @@ on_exit "\"${DOCKER_BIN}\" rm -f \"${LB_NAME}\" \"${B1_NAME}\" \"${B2_NAME}\""
 echo "[5/7] Starting two backend containers..."
 "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d --name "${B1_NAME}" --network "${NET_NAME}" \
   "${BUSYBOX_IMAGE}" sh -c "mkdir -p /www && echo 'backend=8081' > /www/index.html && httpd -f -p 8081 -h /www" >/dev/null
+# httpd runs in the background here so the check can stop it later while the
+# container, and with it the backend's IP address, stays up.
 "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d --name "${B2_NAME}" --network "${NET_NAME}" \
-  "${BUSYBOX_IMAGE}" sh -c "mkdir -p /www && echo 'backend=8082' > /www/index.html && httpd -f -p 8082 -h /www" >/dev/null
+  "${BUSYBOX_IMAGE}" sh -c "mkdir -p /www && echo 'backend=8082' > /www/index.html && httpd -p 8082 -h /www && exec sleep 86400" >/dev/null
 wait_backend "${B1_NAME}" 8081
 wait_backend "${B2_NAME}" 8082
 
@@ -121,25 +123,29 @@ if ((before_8081 == 0 || before_8082 == 0)); then
 fi
 echo "Distribution observed: 8081=${before_8081}, 8082=${before_8082}"
 
-# docker rm -f returns once the container is gone.
-"${DOCKER_BIN}" rm -f "${B2_NAME}" >/dev/null
+# Stop backend2's HTTP server but keep its container: connections to 8082 are
+# now refused at once, the way a crashed backend process behaves.
+"${DOCKER_BIN}" exec "${B2_NAME}" killall httpd
+for ((i = 0; i < 25; i++)); do
+  "${DOCKER_BIN}" exec "${B2_NAME}" wget -q -O /dev/null "http://127.0.0.1:8082/" 2>/dev/null || break
+  sleep 0.2
+done
 
-after_8081=0
-after_only_8082=0
+# Every request must still succeed, answered by 8081 (possibly after a retry
+# that shows up as "...:8082, ...:8081").
+after_bad=0
+bad_sample=""
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
   r="$(get_upstream)"
-  up="${r#*|}"
-  if [[ "${up}" == *:8081* ]]; then after_8081=$((after_8081 + 1)); fi
-  # A request that ended on 8082 without a retry to 8081 is a failure.
-  if [[ "${up}" == *:8082* && "${up}" != *:8081* ]]; then
-    after_only_8082=$((after_only_8082 + 1))
+  if [[ "${r%%|*}" != "200" || "${r#*|}" != *:8081* ]]; then
+    after_bad=$((after_bad + 1))
+    bad_sample="${r}"
   fi
 done
-if ((after_8081 == 0)); then
-  fail "After stopping backend2, expected upstream port 8081 to be used."
+if ((after_bad != 0)); then
+  echo "Last failing response (code|X-Upstream): ${bad_sample}"
+  fail "After stopping backend2, ${after_bad} of 12 requests did not succeed through 8081. NGINX should retry the next server when a connection is refused."
 fi
-if ((after_only_8082 != 0)); then
-  fail "After stopping backend2, ${after_only_8082} request(s) were served only by 8082 (no retry to 8081)."
-fi
+echo "Failover observed: all 12 requests answered by 8081."
 
-pass "10 – Upstream Status in Shared Memory (zone up_mem)"
+pass "10 – Upstream State in Shared Memory (zone up_mem)"

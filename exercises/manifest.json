@@ -38,7 +38,7 @@
     },
     {
       "id": "10_upstream_status_zone",
-      "default_name": "10 - Upstream Status in Shared Memory (zone up_mem)"
+      "default_name": "10 - Upstream State in Shared Memory (zone up_mem)"
     },
     {
       "id": "11_zone_sync_api",
