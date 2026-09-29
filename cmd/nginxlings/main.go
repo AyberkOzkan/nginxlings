@@ -5,6 +5,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func main() {
@@ -17,7 +18,12 @@ func startBubbleTea(opts cliOptions) error {
 		return err
 	}
 
-	p := tea.NewProgram(initialModelWithOptions(paths, opts.lang), tea.WithAltScreen())
+	m := initialModelWithOptions(paths, opts.lang)
+	// Query the background before Bubble Tea owns stdin; a terminal query
+	// from inside the program would race its input reader.
+	m.lightBackground = !lipgloss.HasDarkBackground()
+
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	if err := p.Start(); err != nil {
 		return fmt.Errorf("Hata: %w", err)
 	}

@@ -60,6 +60,10 @@ type model struct {
 	spinner spinner.Model
 	styles  Styles
 
+	// lightBackground selects the light markdown theme. It is detected once
+	// before Bubble Tea starts reading the terminal.
+	lightBackground bool
+
 	// Kalıcı state için
 	paths AppPaths
 	state *AppState

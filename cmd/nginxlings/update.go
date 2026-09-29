@@ -71,7 +71,7 @@ func (m model) selectedNameOverflows() bool {
 		return false
 	}
 	layout := m.layout()
-	nameWidth := maxInt(1, layout.listInnerWidth-8)
+	nameWidth := layout.listNameWidth()
 	if layout.compact {
 		nameWidth = maxInt(1, m.width-4)
 	}

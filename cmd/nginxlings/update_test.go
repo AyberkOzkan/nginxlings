@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestUpdateDoesNotStartSecondCheckWhileLoading(t *testing.T) {
@@ -340,13 +341,13 @@ func TestUpdateSelectionLoadsSelectedExerciseInstructions(t *testing.T) {
 	if got.cursor != 1 {
 		t.Fatalf("cursor = %d, want 1", got.cursor)
 	}
-	if !strings.Contains(got.instructionsContent, "Second Exercise") {
+	if !strings.Contains(ansi.Strip(got.instructionsContent), "Second Exercise") {
 		t.Fatalf("instructionsContent = %q, want second exercise README", got.instructionsContent)
 	}
 	if got.showingCheckOutput {
 		t.Fatal("selection change did not return to instructions view")
 	}
-	if !strings.Contains(got.readme.View(), "Second Exercise") {
+	if !strings.Contains(ansi.Strip(got.readme.View()), "Second Exercise") {
 		t.Fatalf("readme = %q, want selected exercise instructions", got.readme.View())
 	}
 
@@ -466,13 +467,13 @@ func TestUpdateLanguageSwitchReloadsInstructions(t *testing.T) {
 	if got.currentLangCode() != "tr" {
 		t.Fatalf("lang after switch = %q, want tr", got.currentLangCode())
 	}
-	if !strings.Contains(got.instructionsContent, "Turkce Talimatlar") {
+	if !strings.Contains(ansi.Strip(got.instructionsContent), "Turkce Talimatlar") {
 		t.Fatalf("instructionsContent = %q, want Turkish README", got.instructionsContent)
 	}
 	if got.showingCheckOutput {
 		t.Fatal("language switch did not return to instructions view")
 	}
-	if !strings.Contains(got.readme.View(), "Turkce Talimatlar") {
+	if !strings.Contains(ansi.Strip(got.readme.View()), "Turkce Talimatlar") {
 		t.Fatalf("readme = %q, want translated instructions", got.readme.View())
 	}
 }

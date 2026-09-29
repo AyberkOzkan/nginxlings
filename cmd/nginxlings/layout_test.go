@@ -335,8 +335,11 @@ func TestViewFitsTerminalHeightAndKeepsStatusVisible(t *testing.T) {
 
 			rendered := m.View()
 			assertRenderedLinesWithin(t, rendered, tt.width)
-			if got := lipgloss.Height(strings.TrimRight(rendered, "\n")); got > tt.height {
-				t.Fatalf("rendered height = %d, want <= %d\n%s", got, tt.height, rendered)
+			if got := renderedRows(rendered); got > tt.height {
+				t.Fatalf("rendered rows = %d, want <= %d\n%s", got, tt.height, rendered)
+			}
+			if !strings.Contains(rendered, "Nginxlings") {
+				t.Fatalf("title is not visible in %dx%d render:\n%s", tt.width, tt.height, rendered)
 			}
 			if !strings.Contains(rendered, "Ready") {
 				t.Fatalf("status is not visible in %dx%d render:\n%s", tt.width, tt.height, rendered)
@@ -346,6 +349,73 @@ func TestViewFitsTerminalHeightAndKeepsStatusVisible(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestViewKeepsViewportWideLinesIntact(t *testing.T) {
+	for _, size := range []struct{ width, height int }{{80, 24}, {100, 30}, {60, 24}} {
+		t.Run(fmt.Sprintf("%dx%d", size.width, size.height), func(t *testing.T) {
+			m := layoutTestModel(size.width, size.height)
+			fullLine := strings.Repeat("x", m.readme.Width)
+			m.readme.SetContent(fullLine + "\n[FAIL] nginx -t failed for 01_static_server because this line is long")
+
+			rendered := m.View()
+			assertRenderedLinesWithin(t, rendered, size.width)
+			if got := renderedRows(rendered); got > size.height {
+				t.Fatalf("rendered rows = %d, want <= %d\n%s", got, size.height, rendered)
+			}
+			if !strings.Contains(rendered, fullLine) {
+				t.Fatalf("viewport-wide line was wrapped by the panel:\n%s", rendered)
+			}
+			if !strings.HasPrefix(rendered, "Nginxlings") {
+				t.Fatalf("title row was pushed out of the frame:\n%s", rendered)
+			}
+		})
+	}
+}
+
+func TestViewPanelsUseFullTerminalWidth(t *testing.T) {
+	for _, width := range []int{80, 100, 120, 160} {
+		t.Run(fmt.Sprint(width), func(t *testing.T) {
+			m := layoutTestModel(width, 24)
+			lines := strings.Split(m.View(), "\n")
+			// Row 0 is the title and row 1 the gap; row 2 is the panel top border.
+			if got := lipgloss.Width(lines[2]); got != width {
+				t.Fatalf("panel row width = %d, want %d\n%s", got, width, lines[2])
+			}
+		})
+	}
+}
+
+func TestCalculateLayoutGivesInstructionsRoomAt80Columns(t *testing.T) {
+	layout := calculateLayout(80, 24)
+
+	if layout.rightOuterWidth < rightMinOuterWidth {
+		t.Fatalf("rightOuterWidth = %d, want >= %d", layout.rightOuterWidth, rightMinOuterWidth)
+	}
+	if got := layout.listOuterWidth + layout.rightOuterWidth; got != 80 {
+		t.Fatalf("total panel width = %d, want 80", got)
+	}
+}
+
+func TestMarkdownStyleDropsDocumentMargin(t *testing.T) {
+	for _, light := range []bool{false, true} {
+		style := markdownStyle(light)
+		if style.Document.Margin == nil || *style.Document.Margin != 0 {
+			t.Fatalf("light=%v document margin = %v, want 0", light, style.Document.Margin)
+		}
+		if style.Document.BlockPrefix != "" {
+			t.Fatalf("light=%v document block prefix = %q, want empty", light, style.Document.BlockPrefix)
+		}
+	}
+	if *markdownStyle(false).Document.Margin == *markdownStyle(false).CodeBlock.Margin {
+		t.Fatal("code block margin should be kept to set code apart from prose")
+	}
+}
+
+// renderedRows counts rows the way Bubble Tea's renderer does: it splits the
+// frame on "\n", so a trailing newline adds an extra row.
+func renderedRows(view string) int {
+	return len(strings.Split(view, "\n"))
 }
 
 func layoutTestModel(width, height int) model {

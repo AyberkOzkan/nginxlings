@@ -6,6 +6,8 @@ import (
 	"sync"
 
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/glamour/ansi"
+	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -21,6 +23,20 @@ type layoutInfo struct {
 	compact          bool
 }
 
+const (
+	// panelFrameWidth is the border plus horizontal padding of Styles.Box;
+	// inner widths are the text area left inside a panel.
+	panelFrameWidth = 4
+	// listRowPrefixWidth covers the " ➤ x " drawn before each exercise name.
+	listRowPrefixWidth = 5
+	// Side-by-side panels need at least 80 columns. The list takes about half
+	// of the width but never starves the instructions panel.
+	sideBySideMinWidth = 80
+	listMinOuterWidth  = 36
+	listMaxOuterWidth  = 60
+	rightMinOuterWidth = 40
+)
+
 func calculateLayout(width, height int) layoutInfo {
 	if width < 1 {
 		width = 1
@@ -30,29 +46,26 @@ func calculateLayout(width, height int) layoutInfo {
 	}
 
 	var listOuter, rightOuter int
-	if width < 80 {
+	if width < sideBySideMinWidth {
 		listOuter = width
 		rightOuter = width
 	} else {
-		listOuter = width * 50 / 100
-		if listOuter < 48 {
-			listOuter = 48
+		listOuter = width * 48 / 100
+		if listOuter < listMinOuterWidth {
+			listOuter = listMinOuterWidth
 		}
-		if listOuter > 60 {
-			listOuter = 60
+		if listOuter > listMaxOuterWidth {
+			listOuter = listMaxOuterWidth
 		}
 		rightOuter = width - listOuter
-		if rightOuter < 34 {
-			rightOuter = 34
+		if rightOuter < rightMinOuterWidth {
+			rightOuter = rightMinOuterWidth
 			listOuter = width - rightOuter
-			if listOuter < 20 {
-				listOuter = 20
-			}
 		}
 	}
 
-	listInner := maxInt(1, listOuter-4)
-	rightInner := maxInt(1, rightOuter-4)
+	listInner := maxInt(1, listOuter-panelFrameWidth)
+	rightInner := maxInt(1, rightOuter-panelFrameWidth)
 	compact := height < 9 || width < 80 && height < 14
 	panelBudget := maxInt(1, height-4)
 	listOuterHeight := panelBudget
@@ -173,22 +186,53 @@ func (m model) layout() layoutInfo {
 	layout := calculateLayout(m.width, m.height)
 	if m.listWidth > 0 {
 		layout.listOuterWidth = m.listWidth
-		layout.listInnerWidth = maxInt(1, m.listWidth-4)
+		layout.listInnerWidth = maxInt(1, m.listWidth-panelFrameWidth)
 	}
 	if m.rightWidth > 0 {
 		layout.rightOuterWidth = m.rightWidth
-		layout.rightInnerWidth = maxInt(1, m.rightWidth-4)
+		layout.rightInnerWidth = maxInt(1, m.rightWidth-panelFrameWidth)
 	}
 	return layout
+}
+
+// listNameWidth is the room left for an exercise name after the row prefix.
+func (l layoutInfo) listNameWidth() int {
+	return maxInt(1, l.listInnerWidth-listRowPrefixWidth)
+}
+
+// renderPanel draws content in a bordered box whose total size is exactly the
+// outer size budgeted by calculateLayout. lipgloss Width/Height include the
+// padding but not the border, so only the border is subtracted here.
+func (m model) renderPanel(content string, outerWidth, outerHeight int) string {
+	box := m.styles.Box
+	return box.
+		Width(maxInt(1, outerWidth-box.GetHorizontalBorderSize())).
+		Height(maxInt(1, outerHeight-box.GetVerticalBorderSize())).
+		Render(content)
 }
 
 var (
 	mdMu            sync.Mutex
 	mdRenderer      *glamour.TermRenderer
 	mdRendererWidth int
+	mdRendererLight bool
 )
 
 /* ---------- Markdown rendering ---------- */
+
+// markdownStyle returns glamour's dark or light theme without the document
+// margin and leading blank line: the panel border, padding, and title already
+// frame the text, so they would only narrow the instructions.
+func markdownStyle(light bool) ansi.StyleConfig {
+	style := styles.DarkStyleConfig
+	if light {
+		style = styles.LightStyleConfig
+	}
+	var margin uint
+	style.Document.Margin = &margin
+	style.Document.BlockPrefix = ""
+	return style
+}
 
 func (m *model) renderMarkdown(raw string) string {
 	width := m.readme.Width
@@ -199,15 +243,16 @@ func (m *model) renderMarkdown(raw string) string {
 	mdMu.Lock()
 	defer mdMu.Unlock()
 
-	// renderer sadece width değiştiğinde yeniden oluşturulsun
-	if mdRenderer == nil || mdRendererWidth != width {
+	// renderer sadece width veya tema değiştiğinde yeniden oluşturulsun
+	if mdRenderer == nil || mdRendererWidth != width || mdRendererLight != m.lightBackground {
 		r, err := glamour.NewTermRenderer(
-			glamour.WithAutoStyle(),
+			glamour.WithStyles(markdownStyle(m.lightBackground)),
 			glamour.WithWordWrap(width),
 		)
 		if err == nil {
 			mdRenderer = r
 			mdRendererWidth = width
+			mdRendererLight = m.lightBackground
 		} else {
 			// renderer oluşturulamazsa raw döneriz
 			return raw
@@ -289,12 +334,15 @@ func (m model) View() string {
 		completed, total := m.progressCounts()
 		compactStatus := fmt.Sprintf("%d/%d %s %s: %s", completed, total, statusText, langLabel, m.currentLangLabel())
 		lines = append(lines, m.styles.Help.Padding(0).Render(truncateCells(compactStatus, m.width)))
-		return strings.Join(lines, "\n") + "\n"
+		// No trailing newline: the renderer splits on "\n" and would drop the
+		// first row to fit the extra empty one.
+		return strings.Join(lines, "\n")
 	}
 
 	// Sol panel
 	var listBuilder strings.Builder
-	listBuilder.WriteString(m.styles.ListTitle.Render(exTitle) + "\n\n")
+	listTitleWidth := maxInt(1, layout.listInnerWidth-m.styles.ListTitle.GetHorizontalPadding())
+	listBuilder.WriteString(m.styles.ListTitle.Render(truncateCells(exTitle, listTitleWidth)) + "\n\n")
 
 	if len(m.exercises) == 0 {
 		if m.i18n != nil {
@@ -320,7 +368,7 @@ func (m model) View() string {
 			if m.i18n != nil {
 				displayName = m.i18n.ExerciseName(langCode, ex.ID, ex.DefaultName)
 			}
-			nameWidth := maxInt(1, layout.listInnerWidth-8)
+			nameWidth := layout.listNameWidth()
 			if i == m.cursor {
 				displayName = marqueeText(displayName, nameWidth, m.marquee)
 			} else {
@@ -347,17 +395,17 @@ func (m model) View() string {
 		}
 	}
 
-	listBox := m.styles.Box.Width(layout.listInnerWidth).Height(maxInt(1, layout.listOuterHeight-2)).Render(strings.TrimRight(listBuilder.String(), "\n"))
+	listBox := m.renderPanel(strings.TrimRight(listBuilder.String(), "\n"), layout.listOuterWidth, layout.listOuterHeight)
 
 	// Sağ panel
 	var rightBuilder strings.Builder
 	rightBuilder.WriteString(m.styles.Title.Width(layout.rightInnerWidth).Render(truncateCells(instTitle, layout.rightInnerWidth)) + "\n\n")
 	rightBuilder.WriteString(m.readme.View())
-	rightBox := m.styles.Box.Width(layout.rightInnerWidth).Height(maxInt(1, layout.rightOuterHeight-2)).Render(strings.TrimRight(rightBuilder.String(), "\n"))
+	rightBox := m.renderPanel(strings.TrimRight(rightBuilder.String(), "\n"), layout.rightOuterWidth, layout.rightOuterHeight)
 
 	// Responsive yerleşim
 	var topRow string
-	if m.width < 80 {
+	if m.width < sideBySideMinWidth {
 		// Dar ekran: liste üstte, instructions altta
 		topRow = lipgloss.JoinVertical(
 			lipgloss.Left,
@@ -407,10 +455,11 @@ func (m model) View() string {
 		statusLine = m.styles.Help.Render(truncateCells(plainStatus, maxInt(1, m.width-2)))
 	}
 
-	return m.styles.Title.Render(title) +
+	// No trailing newline: the renderer splits on "\n" and would drop the
+	// title row to fit the extra empty one.
+	return m.styles.Title.Render(truncateCells(title, m.width)) +
 		"\n\n" +
 		topRow +
 		"\n\n" +
-		statusLine +
-		"\n"
+		statusLine
 }
