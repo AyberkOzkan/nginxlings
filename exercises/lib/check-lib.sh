@@ -253,10 +253,11 @@ docker_build() {
   fi
 }
 
-# wait_container_http CONTAINER URL [SECONDS] waits until URL answers while
-# CONTAINER keeps running, and prints the container logs if it exits.
-# Extra curl options may follow the timeout.
-wait_container_http() {
+# try_container_http CONTAINER URL [SECONDS] waits until URL answers while
+# CONTAINER keeps running, and fails with the container logs if it exits.
+# Extra curl options may follow the timeout. On timeout it prints the logs
+# and returns 1, so the caller can say what the learner is probably missing.
+try_container_http() {
   local container=$1 url=$2 seconds=${3:-20} deadline code
   shift $(($# < 3 ? $# : 3))
   deadline=$((SECONDS + seconds))
@@ -274,5 +275,11 @@ wait_container_http() {
   done
   echo "Container logs:"
   "${DOCKER_BIN}" logs "${container}" 2>&1 | tail -n 40 || true
-  fail "${url} did not answer within ${seconds}s."
+  return 1
+}
+
+# wait_container_http CONTAINER URL [SECONDS] is try_container_http with a
+# generic failure on timeout.
+wait_container_http() {
+  try_container_http "$@" || fail "${2} did not answer within ${3:-20}s."
 }

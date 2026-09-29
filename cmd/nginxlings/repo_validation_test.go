@@ -221,8 +221,8 @@ func TestRepoExercise10DocsMatchDockerTopology(t *testing.T) {
 	}
 	checkScript := string(checkData)
 	for _, required := range []string{
-		`B1_NAME_DEFAULT="ex10_backend1"`,
-		`B2_NAME_DEFAULT="ex10_backend2"`,
+		`B1_NAME="ex10_backend1"`,
+		`B2_NAME="ex10_backend2"`,
 		`--network "${NET_NAME}"`,
 	} {
 		assertContains(t, checkPath, checkScript, required)
