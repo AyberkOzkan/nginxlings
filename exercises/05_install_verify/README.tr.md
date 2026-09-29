@@ -33,6 +33,12 @@ Bu sayede:
 
 otomatik olarak sağlanır.
 
+Buradaki "resmi depo", taban imajın zaten kullandığı Debian paket arşividir.
+nginx.org da daha yeni NGINX sürümleri içeren kendi paket deposunu yayınlar; onu
+eklemek için ek bir apt kaynağı ve imza anahtarı gerekir ve bu egzersiz onu
+kullanmaz. Check, `dpkg`'nin kurulu olarak gösterdiği her `nginx` paketini kabul
+eder.
+
 Bu egzersizde aynı kurulumu, bu dizindeki `Dockerfile` ile tanımlanan bir
 container imajının içinde gerçekleştireceksin.
 

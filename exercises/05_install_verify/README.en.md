@@ -27,6 +27,12 @@ This provides:
 - Default configuration files under `/etc/nginx/`,
 - System integration (logs, default configs, etc.).
 
+"Official repository" here means the Debian package archive that the base image
+already uses. nginx.org also publishes its own package repository with newer
+NGINX versions; adding it needs an extra apt source and signing key, and this
+exercise does not use it. The check accepts any `nginx` package that `dpkg`
+reports as installed.
+
 In this exercise, you will simulate that installation **inside a container**
 defined by the `Dockerfile` in this directory.
 

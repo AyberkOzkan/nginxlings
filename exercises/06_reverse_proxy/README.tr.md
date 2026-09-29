@@ -8,7 +8,7 @@ yapılandıracaksın.
 Hedeflerin:
 
 - `http://127.0.0.1:8080` adresinde dinleyen küçük bir backend uygulamasına sahip olmak,
-- NGINX’i `127.0.0.1:8081` üzerinde dinleyecek şekilde ayarlamak,
+- NGINX’i 8081 portunu dinleyecek şekilde ayarlamak (check `127.0.0.1:8081` adresine bağlanır),
 - `proxy_pass` kullanarak gelen istekleri backend’e yönlendirmek,
 - İstemcinin sadece NGINX ile konuşmasını, backend’i doğrudan görmemesini sağlamak.
 
@@ -64,7 +64,7 @@ Görevin:
 
 1. `nginx.conf` dosyasını şu şekilde ayarlamak:
 
-   - NGINX `127.0.0.1:8081` üzerinde dinlemeli (HTTP),
+   - NGINX 8081 portunu dinlemeli (HTTP),
    - `http` bloğu altında bir `server` bloğu olmalı,
    - `server` içinde bir `location /` bloğu olmalı ve:
      - `proxy_pass` ile istekleri `http://127.0.0.1:8080` adresine yönlendirmeli.

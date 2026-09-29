@@ -7,7 +7,7 @@ In this exercise you will configure NGINX as a simple **HTTP reverse proxy**.
 You will:
 
 - Keep a small backend HTTP app listening on `http://127.0.0.1:8080`,
-- Configure NGINX to listen on `127.0.0.1:8081`,
+- Configure NGINX to listen on port 8081 (the check connects to `127.0.0.1:8081`),
 - Forward requests from NGINX to the backend using `proxy_pass`,
 - Make sure the client only talks to NGINX, not directly to the backend.
 
@@ -62,7 +62,7 @@ The important files are:
 Your task:
 
 1. Configure `nginx.conf` so that:
-   - NGINX listens on `127.0.0.1:8081` (HTTP),
+   - NGINX listens on port 8081 (HTTP),
    - There is a `server` block under `http`,
    - Inside `server` there is a `location /` block that:
      - Uses `proxy_pass` to send requests to `http://127.0.0.1:8080`.
