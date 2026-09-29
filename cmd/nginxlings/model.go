@@ -142,7 +142,7 @@ func (m model) uif(key, fallback string, args ...any) string {
 
 // İlk açılışta status satırı
 func (m *model) initialStatusText() string {
-	return m.ui("status_initial", "Use W/S to select an exercise, c to check, Tab to switch view, h for a hint, l to change language, r to reset, q to quit.")
+	return m.ui("status_initial", "Pick an exercise, edit its files, then press c to check your solution.")
 }
 
 /* ---------- Model başlangıcı ---------- */

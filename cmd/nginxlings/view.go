@@ -35,6 +35,9 @@ const (
 	listMinOuterWidth  = 36
 	listMaxOuterWidth  = 60
 	rightMinOuterWidth = 40
+	// minStatusWidth is the smallest status message room worth keeping the
+	// progress and language segments beside it.
+	minStatusWidth = 10
 )
 
 func calculateLayout(width, height int) layoutInfo {
@@ -144,6 +147,30 @@ func truncateCells(s string, width int) string {
 		b.WriteRune(r)
 	}
 	return b.String() + "..."
+}
+
+// helpSeparator separates the entries of the translated key help text.
+const helpSeparator = " · "
+
+// truncateSegments keeps the whole helpSeparator-separated entries that fit in
+// width, so the key help never ends in the middle of a key description.
+func truncateSegments(s string, width int) string {
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+	parts := strings.Split(s, helpSeparator)
+	out := parts[0]
+	if lipgloss.Width(out) > width {
+		return truncateCells(out, width)
+	}
+	for _, part := range parts[1:] {
+		next := out + helpSeparator + part
+		if lipgloss.Width(next) > width {
+			break
+		}
+		out = next
+	}
+	return out
 }
 
 func clipCells(s string, width int) string {
@@ -283,7 +310,7 @@ func (m model) View() string {
 	}
 	readyLabel := m.ui("ready_label", "[READY]")
 	workingLabel := m.ui("working_label", "[RUNNING]")
-	helpText := m.ui("help", "(W/S) select  (↑/↓) scroll  (PgUp/PgDn) fast scroll  (←/→) horiz  (c/Enter) check  (Tab) view  (h) hint  (l) lang  (r) reset  (q) quit")
+	helpText := m.ui("help", "W/S select · c/Enter check · Tab view · h hint · l language · r reset · q quit · ↑/↓ PgUp/PgDn ←/→ scroll")
 	langLabel := m.ui("lang_label", "Lang")
 
 	if layout.compact {
@@ -403,45 +430,38 @@ func (m model) View() string {
 		)
 	}
 
-	// Progress info
+	// Status line: progress and language have fixed widths, the status
+	// message takes the rest of the row.
 	completed, total := m.progressCounts()
 	progressLabel := fmt.Sprintf("%d/%d", completed, total)
-	progressSegment := m.styles.Help.Render(" " + progressLabel + " ")
+	progressSegment := m.styles.Help.Render(progressLabel)
+	langSegment := m.styles.Help.Render(fmt.Sprintf("%s: %s", langLabel, m.currentLangLabel()))
 
-	// Status bar
-	statusText := m.status
+	statusText := fmt.Sprintf("%s %s", readyLabel, m.status)
 	if m.loading {
 		statusText = fmt.Sprintf("%s %s %s", m.spinner.View(), workingLabel, m.status)
+	}
+
+	var statusLine string
+	statusRoom := m.width - lipgloss.Width(progressSegment) - lipgloss.Width(langSegment) - m.styles.StatusBar.GetHorizontalPadding()
+	if statusRoom >= minStatusWidth {
+		statusSegment := m.styles.StatusBar.Render(truncateCells(statusText, statusRoom))
+		statusLine = lipgloss.JoinHorizontal(lipgloss.Top, progressSegment, langSegment, statusSegment)
 	} else {
-		statusText = fmt.Sprintf("%s %s", readyLabel, m.status)
+		plainStatus := fmt.Sprintf("%s %s", progressLabel, statusText)
+		statusLine = m.styles.Help.Render(truncateCells(plainStatus, maxInt(1, m.width-m.styles.Help.GetHorizontalPadding())))
 	}
 
-	statusSegment := m.styles.StatusBar.Render(" " + truncateCells(statusText, maxInt(1, m.width-lipgloss.Width(progressSegment)-2)) + " ")
-	langInfoText := fmt.Sprintf("%s: %s", langLabel, m.currentLangLabel())
-	langInfo := m.styles.Help.Render(" " + truncateCells(langInfoText, maxInt(1, m.width-lipgloss.Width(progressSegment)-lipgloss.Width(statusSegment)-2)) + " ")
-	usedWidth := lipgloss.Width(progressSegment) + lipgloss.Width(statusSegment) + lipgloss.Width(langInfo)
-	helpSegment := ""
-	if remaining := m.width - usedWidth; remaining > 4 {
-		helpSegment = m.styles.Help.Render(truncateCells(helpText, remaining))
-	}
-
-	statusLine := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		progressSegment,
-		statusSegment,
-		langInfo,
-		helpSegment,
-	)
-	if lipgloss.Width(statusLine) > m.width {
-		plainStatus := strings.TrimSpace(fmt.Sprintf("%s %s %s %s", progressLabel, statusText, langInfoText, helpText))
-		statusLine = m.styles.Help.Render(truncateCells(plainStatus, maxInt(1, m.width-2)))
-	}
+	// Key help gets its own row so the status message never hides it.
+	helpLine := m.styles.Help.Render(truncateSegments(helpText, maxInt(1, m.width-m.styles.Help.GetHorizontalPadding())))
 
 	// No trailing newline: the renderer splits on "\n" and would drop the
 	// title row to fit the extra empty one.
 	return m.styles.Title.Render(truncateCells(title, m.width)) +
 		"\n\n" +
 		topRow +
-		"\n\n" +
-		statusLine
+		"\n" +
+		statusLine +
+		"\n" +
+		helpLine
 }

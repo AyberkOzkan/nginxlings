@@ -386,6 +386,46 @@ func TestViewPanelsUseFullTerminalWidth(t *testing.T) {
 	}
 }
 
+func TestViewKeepsKeyHelpAndLanguageVisibleWithLongStatus(t *testing.T) {
+	for _, size := range []struct{ width, height int }{{80, 24}, {60, 24}, {120, 30}} {
+		t.Run(fmt.Sprintf("%dx%d", size.width, size.height), func(t *testing.T) {
+			m := layoutTestModel(size.width, size.height)
+			m.status = "[FAIL] This status message is long enough to fill the whole status row on its own"
+
+			rendered := m.View()
+			lines := strings.Split(rendered, "\n")
+			if got := len(lines); got > size.height {
+				t.Fatalf("rendered rows = %d, want <= %d\n%s", got, size.height, rendered)
+			}
+			statusRow, helpRow := lines[len(lines)-2], lines[len(lines)-1]
+			if !strings.Contains(statusRow, "Lang:") || !strings.Contains(statusRow, "[FAIL]") {
+				t.Fatalf("status row = %q, want language and status", statusRow)
+			}
+			if !strings.HasPrefix(strings.TrimSpace(helpRow), "W/S select · c/Enter check") {
+				t.Fatalf("help row = %q, want key help", helpRow)
+			}
+			assertRenderedLinesWithin(t, rendered, size.width)
+		})
+	}
+}
+
+func TestTruncateSegmentsDropsWholeEntries(t *testing.T) {
+	help := "W/S seç · c/Enter kontrol · Tab görünüm · h ipucu · l dil · r sıfırla · q çık · ↑/↓ PgUp/PgDn ←/→ kaydır"
+
+	if got := truncateSegments(help, 78); got != "W/S seç · c/Enter kontrol · Tab görünüm · h ipucu · l dil · r sıfırla · q çık" {
+		t.Fatalf("truncateSegments(78) = %q", got)
+	}
+	if got := truncateSegments(help, 20); got != "W/S seç" {
+		t.Fatalf("truncateSegments(20) = %q", got)
+	}
+	if got := truncateSegments(help, 5); lipgloss.Width(got) > 5 {
+		t.Fatalf("truncateSegments(5) = %q, wider than 5", got)
+	}
+	if got := truncateSegments(help, 200); got != help {
+		t.Fatalf("truncateSegments(200) = %q, want unchanged", got)
+	}
+}
+
 func TestCalculateLayoutGivesInstructionsRoomAt80Columns(t *testing.T) {
 	layout := calculateLayout(80, 24)
 
