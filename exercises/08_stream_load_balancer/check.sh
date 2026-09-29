@@ -101,4 +101,4 @@ if ((c1 == 0 || c2 == 0)); then
 fi
 
 echo "Distribution looks good: backend=9001 count=${c1}, backend=9002 count=${c2}"
-pass "08 – TCP/UDP Load Balancer (Layer 4, stream)"
+pass "08 – TCP Load Balancer (Layer 4, stream)"

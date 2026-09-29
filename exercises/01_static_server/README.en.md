@@ -42,7 +42,7 @@ request `http://127.0.0.1:8080/` and expect the response body to contain:
    - Behind the scenes, `check.sh` will:
      - Run `nginx -t` to validate your config,
      - Start NGINX on port 8080,
-     - Use `curl` to request the page and look for the required text,
+     - Use `curl` to request the page and check that the response is exactly this directory's `index.html`,
      - Stop NGINX when it is done.
 
 ---
@@ -53,7 +53,7 @@ The exercise is considered **completed** when:
 
 - `nginx -t` succeeds without errors,
 - A request to `http://127.0.0.1:8080/` returns **HTTP 200 OK**,
-- The response body contains **“Merhaba Nginxlings”**.
+- The response body is this directory's `index.html` file and contains **“Merhaba Nginxlings”**.
 
 When all conditions are met, Nginxlings marks this exercise as **completed (✓)**.
 

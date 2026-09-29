@@ -6,7 +6,7 @@
   "05_install_verify": "05 - Resmi Depodan Kurulum ve Doğrulama",
   "06_reverse_proxy": "06 - HTTP Reverse Proxy Temelleri",
   "07_http_load_balancer": "07 - HTTP Load Balancer (Layer 7)",
-  "08_stream_load_balancer": "08 - TCP/UDP Load Balancer (Layer 4, stream)",
+  "08_stream_load_balancer": "08 - TCP Load Balancer (Layer 4, stream)",
   "09_shared_zones_basics": "09 - Shared Memory Zones Temelleri",
   "10_upstream_status_zone": "10 - Upstream Shared Memory (zone up_mem)",
   "11_zone_sync_api": "11 - Zone Senkronizasyonu ve API (zone_sync)",

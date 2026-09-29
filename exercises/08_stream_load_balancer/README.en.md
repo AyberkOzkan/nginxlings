@@ -1,4 +1,4 @@
-# 08 – TCP/UDP Load Balancer (Layer 4, stream)
+# 08 – TCP Load Balancer (Layer 4, stream)
 
 ## Goal
 
@@ -84,3 +84,7 @@ The automated validation is successful when:
 
   without `http://`.
 - Avoid HTTP directives (`server_name`, `location`, `proxy_set_header`) in `stream {}`.
+- The starting `nginx.conf` wraps the upstream and server in `http {}`. Turn that
+  block into `stream {}` instead of adding a second one; two blocks would both try
+  to listen on port 9000.
+- `stream {}` can also proxy UDP (`listen 9000 udp;`); this lab uses TCP only.

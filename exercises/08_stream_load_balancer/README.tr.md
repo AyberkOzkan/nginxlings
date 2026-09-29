@@ -1,4 +1,4 @@
-# 08 – TCP/UDP Load Balancer (Layer 4, stream)
+# 08 – TCP Load Balancer (Layer 4, stream)
 
 ## Amaç
 
@@ -85,3 +85,8 @@ Otomatik doğrulama başarılı sayılması için:
 
   `http://` yazılmaz.
 - `server_name`, `location`, `proxy_set_header` gibi HTTP direktifleri `stream {}` içinde kullanılmaz.
+- Başlangıçtaki `nginx.conf`, upstream ve server bloklarını `http {}` içine koyar.
+  İkinci bir blok eklemek yerine bu bloğu `stream {}` bloğuna çevir; iki blok
+  birden olursa ikisi de 9000 portunu dinlemeye çalışır.
+- `stream {}` UDP trafiğini de proxy edebilir (`listen 9000 udp;`); bu lab
+  sadece TCP kullanır.

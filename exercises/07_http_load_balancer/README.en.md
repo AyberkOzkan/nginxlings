@@ -63,7 +63,7 @@ Files:
   NGINX configuration skeleton. Contains TODO comments for the `upstream backend`
   and the frontend `server` block.
 - `Dockerfile`  
-  Builds an image based on `nginx:alpine`, copies `nginx.conf` and `start.sh`
+  Builds an image based on `nginx:1.28.3-alpine`, copies `nginx.conf` and `start.sh`
   into the image.
 - `start.sh`  
   Starts two backend HTTP servers (127.0.0.1:8081 and 127.0.0.1:8082) inside the
@@ -117,7 +117,7 @@ The main file you will edit is: `nginx.conf`.
 
    The script will:
 
-   - Build a Docker image from the current directory (for example `nginxlings_http_lb_07`),
+   - Build a Docker image from the current directory (`nginxlings/07_http_load_balancer:check`),
    - Start a container from this image,
    - Inside the container:
      - Start two backend HTTP servers on 127.0.0.1:8081 and 127.0.0.1:8082,

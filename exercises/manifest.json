@@ -30,7 +30,7 @@
     },
     {
       "id": "08_stream_load_balancer",
-      "default_name": "08 - TCP/UDP Load Balancer (Layer 4, stream)"
+      "default_name": "08 - TCP Load Balancer (Layer 4, stream)"
     },
     {
       "id": "09_shared_zones_basics",

@@ -42,7 +42,7 @@ Nginxlings içinden bu egzersizi seçip `c` veya Enter’a bastığında yapıla
    - Arka planda `check.sh` çalışır:
      - `nginx -t` ile konfigürasyonunu test eder,
      - 8080 portunda NGINX’i başlatır,
-     - `curl` ile sayfayı ister ve içerikte “Merhaba Nginxlings” metnini arar,
+     - `curl` ile sayfayı ister ve yanıtın bu dizindeki `index.html` ile birebir aynı olduğunu doğrular,
      - İş bittikten sonra NGINX’i durdurur.
 
 ---
@@ -53,7 +53,7 @@ Egzersiz **başarılı** sayılması için:
 
 - NGINX yapılandırması `nginx -t` ile hatasız olmalı,
 - `http://127.0.0.1:8080/` isteği **200 OK** döndürmeli,
-- Cevap gövdesinde **“Merhaba Nginxlings”** metni bulunmalı.
+- Cevap gövdesi bu dizindeki `index.html` dosyasının kendisi olmalı ve **“Merhaba Nginxlings”** metnini içermeli.
 
 Bu şartlar sağlandığında Nginxlings arayüzünde bu egzersiz **tamamlandı (✓)** olarak işaretlenir.
 
@@ -61,10 +61,10 @@ Bu şartlar sağlandığında Nginxlings arayüzünde bu egzersiz **tamamlandı 
 
 ## İpuçları
 
-- Özel bir konfigürasyon dosyası ile NGINX çalıştırma mantığı:
-  ```nginx
+- NGINX'i özel bir konfigürasyon dosyasıyla çalıştırmanın tipik yolu:
+  ```bash
   nginx -c /yol/nginx.conf -p /yol/
   ```
+- Bu egzersizde bu komutu elle çalıştırmana gerek yok; Nginxlings senin yerine çalıştırır.
 
-- “Bu egzersizde bu komutları elle yazmana gerek yok; …”
-- “8080 portu kullanıldığı için root yetkisi gerekmez.”
+- Sunucu 8080 portunu dinlediği için root yetkisi gerekmez.

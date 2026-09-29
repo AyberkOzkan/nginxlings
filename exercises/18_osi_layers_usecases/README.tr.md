@@ -70,7 +70,17 @@ Bu egzersizde iki yapı kuracaksın:
 - `9000` portunu stream upstream’e yönlendir
 
 HTTP tarafında ayrıca:
-- `X-L7-Upstream` header’ı ile hangi backend’e gidildiğini görünür yap
+- cevabı veren backend’in adresini (`$upstream_addr`) `X-L7-Upstream` cevap
+  header’ında görünür yap
+
+Container’daki `start.sh`, NGINX’ten önce backend’leri başlatır:
+
+- HTTP backend’leri: `127.0.0.1:8081` ve `127.0.0.1:8082`
+- TCP backend’leri: `127.0.0.1:9001` ve `127.0.0.1:9002`
+
+Image, Alpine’in `nginx-mod-stream` paketini kurar. Modül dosyası
+`/usr/lib/nginx/modules/ngx_stream_module.so` yolundadır; `load_module` dosyanın
+en üstünde, `events` bloğundan önce yer almalıdır.
 
 ---
 

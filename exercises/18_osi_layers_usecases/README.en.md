@@ -70,7 +70,17 @@ In `nginx.conf`:
 - forward port `9000` to the stream upstream
 
 On the HTTP side:
-- expose the selected backend using the `X-L7-Upstream` header
+- expose the address of the backend that answered (`$upstream_addr`) in the
+  `X-L7-Upstream` response header
+
+The container's `start.sh` starts the backends before NGINX:
+
+- HTTP backends: `127.0.0.1:8081` and `127.0.0.1:8082`
+- TCP backends: `127.0.0.1:9001` and `127.0.0.1:9002`
+
+The image installs Alpine's `nginx-mod-stream` package. Its module file is
+`/usr/lib/nginx/modules/ngx_stream_module.so`, and `load_module` belongs at the
+top of the file, before the `events` block.
 
 ---
 

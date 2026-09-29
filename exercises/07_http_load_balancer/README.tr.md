@@ -61,7 +61,7 @@ Dosyalar:
 - `nginx.conf`  
   NGINX yapılandırma iskeleti. `upstream backend` ve `server` bloğu için TODO yorumları var.
 - `Dockerfile`  
-  `nginx:alpine` tabanlı bir image oluşturur, `nginx.conf` ve `start.sh` dosyalarını image içine kopyalar.
+  `nginx:1.28.3-alpine` tabanlı bir image oluşturur, `nginx.conf` ve `start.sh` dosyalarını image içine kopyalar.
 - `start.sh`  
   Container içinde iki adet backend HTTP sunucuyu başlatır (127.0.0.1:8081 ve 127.0.0.1:8082) ve NGINX’i foreground’da çalıştırır.
 - `check.sh`  
@@ -113,7 +113,7 @@ Senin asıl düzenleyeceğin dosya: `nginx.conf`.
 
    Script şunları yapar:
 
-   - `Dockerfile` kullanarak image’i build eder (örn. `nginxlings_http_lb_07`),
+   - `Dockerfile` kullanarak image’i build eder (`nginxlings/07_http_load_balancer:check`),
    - Bu image ile bir container başlatır,
    - Container içinde:
      - 127.0.0.1:8081 ve 127.0.0.1:8082 üzerinde iki backend HTTP sunucu açılır,
