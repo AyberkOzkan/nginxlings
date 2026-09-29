@@ -1,5 +1,5 @@
 FROM nginx:1.28.3-alpine
-RUN apk add --no-cache curl
+RUN printf 'zone-sizing-ok\n' > /usr/share/nginx/html/index.html
 
 COPY nginx.conf /etc/nginx/nginx.conf
 

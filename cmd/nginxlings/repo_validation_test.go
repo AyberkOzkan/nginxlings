@@ -420,6 +420,16 @@ func TestRepoExercisesStartUnsolved(t *testing.T) {
 			forbidden: []string{"Merhaba Nginxlings"},
 		},
 		{
+			name: "shared zone sizing config",
+			path: filepath.Join(root, "exercises", "16_shared_zone_sizing", "nginx.conf"),
+			required: []string{
+				"zone=req_zone:64k rate=1r/m;",
+				"try_files /index.html =404;",
+			},
+			// burst=0 is rejected by nginx -t, and return would bypass limit_req.
+			forbidden: []string{"burst=0", "return 200"},
+		},
+		{
 			name:      "install and verify Dockerfile",
 			path:      filepath.Join(root, "exercises", "05_install_verify", "Dockerfile"),
 			required:  []string{"TODO: install NGINX"},

@@ -14,7 +14,7 @@
   "13_include_modular_config": "`include` pastes the file in place, so put each `include` inside the block whose directives that file contains.",
   "14_multi_domain_static": "Send the same request with different `Host` headers: each `server_name` should land in its own `server` block with its own `root`.",
   "15_https_tls": "Both listeners need a `server` block; only the HTTPS one uses `ssl` on its `listen` line and points at the certificate and key already built into the image.",
-  "16_shared_zone_sizing": "The NGINX docs say a 1 MB zone keeps about 16 thousand 64-byte states; estimate how many distinct keys the check creates and size the zone to hold them.",
+  "16_shared_zone_sizing": "Each distinct key needs one 128-byte state on 64-bit systems; count the keys the check sends between the two requests of the limited client and size req_zone to hold them with headroom.",
   "17_verify_nginx_user": "Without a `user` directive the workers run as a default account; run `ps aux` inside the container to see which one, then set the account you want.",
   "18_osi_layers_usecases": "`stream` sits beside `http` at the top level, and its dynamic module must be loaded with `load_module` at the very top of nginx.conf."
 }

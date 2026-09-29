@@ -14,7 +14,7 @@
   "13_include_modular_config": "`include` dosyayı olduğu yere yapıştırır; bu yüzden her `include`'u, dosyanın içerdiği direktiflerin ait olduğu bloğun içine koy.",
   "14_multi_domain_static": "Aynı isteği farklı `Host` başlıklarıyla gönder: her `server_name`, kendi `root`'u olan ayrı bir `server` bloğuna düşmeli.",
   "15_https_tls": "İki dinleyicinin de bir `server` bloğuna ihtiyacı var; sadece HTTPS olanı `listen` satırında `ssl` kullanır ve imajda hazır bulunan sertifika ile anahtarı gösterir.",
-  "16_shared_zone_sizing": "NGINX belgelerine göre 1 MB'lık bir zone yaklaşık 16 bin adet 64 baytlık durum tutar; check'in kaç farklı anahtar ürettiğini tahmin et ve zone'u bunları alacak boyutta ayarla.",
+  "16_shared_zone_sizing": "64 bit sistemlerde her farklı anahtar 128 baytlık bir durum kaplar; check'in sınırlı istemcinin iki isteği arasında gönderdiği anahtarları say ve req_zone'u bunları pay bırakarak alacak boyutta ayarla.",
   "17_verify_nginx_user": "`user` direktifi yoksa worker'lar varsayılan bir hesapla çalışır; hangisi olduğunu görmek için konteyner içinde `ps aux` çalıştır, sonra istediğin hesabı ayarla.",
   "18_osi_layers_usecases": "`stream`, üst düzeyde `http`'nin yanında durur; dinamik modülü nginx.conf'un en başında `load_module` ile yüklenmelidir."
 }
