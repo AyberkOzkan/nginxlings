@@ -1,4 +1,4 @@
-# 02 – Config Layout & Default Paths
+# 02 – Config Layout and Default Paths
 
 ## Goal
 

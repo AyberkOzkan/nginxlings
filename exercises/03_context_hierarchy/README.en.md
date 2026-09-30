@@ -1,4 +1,4 @@
-# 03 – Context Hierarchy (main / http / server / location)
+# 03 – Context Hierarchy (main/http/server/location)
 
 ## Goal
 

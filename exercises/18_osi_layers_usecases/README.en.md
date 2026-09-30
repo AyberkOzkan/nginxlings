@@ -1,4 +1,4 @@
-# 18 – OSI Layers & Use-Case Mapping (Theory + Mini Lab)
+# 18 – OSI Layers and Use-Case Mapping
 
 ## Goal
 

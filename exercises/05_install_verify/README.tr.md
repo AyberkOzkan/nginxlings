@@ -2,24 +2,24 @@
 
 ## Amaç
 
-Bu egzersizde NGINX'i dağıtımın paket deposundan bir container image'ına
-kuracak, sonra kurulumu yeni bir sunucuda yapacağın gibi doğrulayacaksın: hangi
-sürüm, nasıl derlenmiş, hangi paketten gelmiş ve HTTP sunuyor mu.
+Bu egzersizde NGINX'i dağıtımın paket deposundan bir konteyner imajına (container
+image) kuracak, sonra kurulumu yeni bir sunucuda yapacağın gibi doğrulayacaksın:
+hangi sürüm, nasıl derlenmiş, hangi paketten gelmiş ve HTTP sunuyor mu.
 
 ---
 
-## Arka plan – paketler ve image'lar
+## Arka plan – paketler ve imajlar
 
-- Debian'ın paket aracı `apt-get`'tir. Yeni bir `debian:*-slim` image'ı **paket
+- Debian'ın paket aracı `apt-get`'tir. Yeni bir `debian:*-slim` imajı **paket
   dizini olmadan** gelir; dizin indirilmeden hiçbir paket bulunamaz.
-- `docker build` sırasında hiçbir soruya cevap verilemez. `apt-get`'in kendi onay
+- `docker build` sırasında hiçbir soruya yanıt verilemez. `apt-get`'in kendi onay
   sorusuna otomatik "evet" diyen bir seçeneği vardır;
   `DEBIAN_FRONTEND=noninteractive` ortam değişkeni de debconf'a yapılandırma
   diyaloğu açmamasını söyler.
-- Her `RUN` talimatı bir image katmanı olur ve Docker katmanları önbelleğe alır.
-  Dizini yenilemek ile paket kurmak ayrı `RUN` talimatlarında olursa, sonraki bir
-  build eski önbellekteki dizini yeni bir kurulum satırıyla kullanabilir. Bu
-  yüzden ikisi genellikle tek bir `RUN` içinde `&&` ile zincirlenir.
+- Her `RUN` talimatı bir imaj katmanı olur ve Docker katmanları önbelleğe (cache)
+  alır. Dizini yenilemek ile paket kurmak ayrı `RUN` talimatlarında olursa, sonraki
+  bir oluşturma işlemi (build) eski önbellekteki dizini yeni bir kurulum satırıyla
+  kullanabilir. Bu yüzden ikisi genellikle tek bir `RUN` içinde `&&` ile zincirlenir.
 - `/var/lib/apt/lists/` altına indirilen dizin çalışma zamanında gerekmez. Onu
   **aynı `RUN` içinde** silmek katmanı küçük tutar; sonraki bir `RUN` içinde
   silmek işe yaramaz, çünkü önceki katman onu hâlâ içerir.
@@ -33,25 +33,25 @@ sürüm, nasıl derlenmiş, hangi paketten gelmiş ve HTTP sunuyor mu.
 Buradaki "resmi depo", taban imajın zaten kullandığı Debian paket arşividir.
 nginx.org da daha yeni NGINX sürümleri içeren kendi paket deposunu yayınlar; onu
 eklemek için ek bir apt kaynağı ve imza anahtarı gerekir ve bu egzersiz onu
-kullanmaz. Check, `dpkg`'nin kurulu olarak gösterdiği her `nginx` paketini kabul
+kullanmaz. Kontrol, `dpkg`'nin kurulu olarak gösterdiği her `nginx` paketini kabul
 eder.
 
 Kaynak: [Installing NGINX Open Source](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/).
 
 ---
 
-## Lab ortamı
+## Laboratuvar ortamı
 
 - `Dockerfile`, `debian:12.15-slim` ile başlar. Kurulumun yeri bir `TODO` yorumuyla
-  işaretli; `EXPOSE 80` ve NGINX'i foreground'da çalıştıran `CMD` hazır.
-- Debian paketi 80 portunda cevap veren varsayılan bir site ile gelir; bu yüzden
+  işaretli; `EXPOSE 80` ve NGINX'i ön planda çalıştıran `CMD` hazır.
+- Debian paketi 80 portunda yanıt veren varsayılan bir site ile gelir; bu yüzden
   bu egzersizde kendi NGINX yapılandırmanı yazman gerekmez.
 
-Check (Nginxlings'te `c` veya Enter ya da `./check.sh`) image'i
-(`nginxlings/05_install_verify:check`) build eder, `nginx`'in `PATH` üzerinde
+Kontrol (Nginxlings'te `c` veya Enter ya da `./check.sh`) imajı
+(`nginxlings/05_install_verify:check`) oluşturur, `nginx`'in `PATH` üzerinde
 olduğunu doğrular, `nginx -v` ve `nginx -V` çalıştırır (`configure arguments:`
 satırını arar), `dpkg`'nin `nginx` paketini kurulu gösterdiğini doğrular, ardından
-80 portunu boş bir yerel porta açarak bir container başlatır ve `/` ister.
+80 portunu boş bir yerel porta açarak bir konteyner başlatır ve `/` ister.
 
 ---
 
@@ -70,27 +70,27 @@ ekle:
 
 ## Başarı kriterleri
 
-- Image build olmalı.
+- İmaj oluşmalı.
 - `nginx` `PATH` üzerinde olmalı; `nginx -v` ve `nginx -V` çalışmalı, `nginx -V`
   `configure arguments:` satırını göstermeli.
 - `dpkg -s nginx`, `Status: install ok installed` göstermeli.
-- Image'dan başlatılan bir container, 80 portunda `/` isteğine başarılı bir HTTP
-  cevabı vermeli.
+- İmajdan başlatılan bir konteyner, 80 portunda `/` isteğine başarılı bir HTTP
+  yanıtı vermeli.
 
 ---
 
 ## Takıldıysan
 
-Bunları sırayla dene, aralarda check'i yeniden çalıştır:
+Bunları sırayla dene, aralarda kontrolü yeniden çalıştır:
 
 - `E: Unable to locate package nginx`: paket dizini boş. Kurulumdan önce ne
   çalışmalı?
-- `Do you want to continue? [Y/n] Abort.`: kurulum, build sırasında hiç gelmeyecek
-  bir cevabı bekliyor.
-- Build çıktısında `debconf: unable to initialize frontend: Dialog`: yalnızca bir
-  uyarı, kurulum yine çalışır. Arka plan bölümündeki ortam değişkeni bu uyarıyı
+- `Do you want to continue? [Y/n] Abort.`: kurulum, imaj oluşturulurken hiç
+  gelmeyecek bir yanıtı bekliyor.
+- Oluşturma çıktısında `debconf: unable to initialize frontend: Dialog`: yalnızca
+  bir uyarı, kurulum yine çalışır. Arka plan bölümündeki ortam değişkeni bu uyarıyı
   susturur.
-- `The image has no nginx yet.`: build başarılı ama NGINX'i hiçbir şey kurmamış.
+- `The image has no nginx yet.`: imaj oluştu ama NGINX'i hiçbir şey kurmamış.
   `RUN` talimatın `TODO`'nun altında mı ve yorum satırı olarak kalmadı mı?
 
 ---
@@ -105,5 +105,5 @@ Bunları sırayla dene, aralarda check'i yeniden çalıştır:
 - Debian 12 hangi NGINX sürümünü sunar ve güncel sürümü nginx.org'dan kurmak için
   neyi değiştirirdin?
 - Debian paketi varsayılan siteyi nerede tutar ve bunu `nginx.conf` içindeki hangi
-  satır yükler? Diğer egzersizlerde kullanılan resmi `nginx` Docker image'ından
+  satır yükler? Diğer egzersizlerde kullanılan resmi `nginx` Docker imajından
   farkı ne?

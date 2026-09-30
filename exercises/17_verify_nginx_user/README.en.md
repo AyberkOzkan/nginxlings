@@ -1,4 +1,4 @@
-# 17 – Verify NGINX User & Processes
+# 17 – Verify NGINX User and Processes
 
 ## Goal
 

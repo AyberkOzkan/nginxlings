@@ -1,4 +1,4 @@
-# 02 – Config Layout ve Varsayılan Dizinler
+# 02 – Yapılandırma Düzeni ve Varsayılan Yollar
 
 ## Amaç
 
@@ -11,24 +11,24 @@ edeceğini öğreneceksin.
 
 ## Arka plan – yapılandırma nerede durur
 
-- **Ana dosya** (çoğu Linux sistemde `/etc/nginx/nginx.conf`), main context'i
-  (`user`, `worker_processes`, `error_log`, `pid`), `events {}` bloğunu ve her site
-  için ortak ayarların bulunduğu `http {}` bloğunu tutar.
-- **Server tanımları** genellikle ana dosyanın `http {}` içinde `include` ile
+- **Ana dosya** (çoğu Linux sistemde `/etc/nginx/nginx.conf`), ana bağlamı (main
+  context; `user`, `worker_processes`, `error_log`, `pid`), `events {}` bloğunu ve
+  her site için ortak ayarların bulunduğu `http {}` bloğunu tutar.
+- **Sunucu tanımları** genellikle ana dosyanın `http {}` içinde `include` ile
   yüklediği ayrı dosyalarda durur. İki yaygın düzen:
   - `/etc/nginx/conf.d/*.conf`: eşleşen her dosya yüklenir (nginx.org paketleri ve
-    resmi Docker image'ı).
+    resmi Docker imajı (image)).
   - `sites-available/` + `sites-enabled/`: bütün siteler ilk dizinde tutulur,
     yalnızca ikinciye bağlantısı verilenler yüklenir (Debian ve Ubuntu paketleri).
 - `nginx -V`, bir kurulumun ana dosyasını nerede beklediğini gösterir
   (`--conf-path=`). `-c <dosya>` başka bir dosya seçer, `-p <dizin>` ise
-  `logs/error.log` gibi göreli yolların çözüleceği prefix'i belirler. Göreli bir
+  `logs/error.log` gibi göreli yolların çözüleceği öneki (prefix) belirler. Göreli bir
   `include` ana dosyanın bulunduğu dizine göre çözülür.
 - `nginx -t` yapılandırmayı test eder. `nginx -T` test eder ve NGINX'in yüklediği
   her şeyi, her dosyanın önüne bir `# configuration file ...:` başlığı koyarak
   yazdırır.
 
-Genel bir örnek (bu lab'dakinden farklı dizin ve adlar):
+Genel bir örnek (bu laboratuvardakinden farklı dizin ve adlar):
 
     http {
         include /etc/nginx/vhosts/*.conf;
@@ -46,7 +46,7 @@ Kaynak: [Beginner's Guide](https://nginx.org/en/docs/beginners_guide.html),
 
 ---
 
-## Lab ortamı
+## Laboratuvar ortamı
 
 Bu egzersiz NGINX'i Docker'da değil, doğrudan makinende çalıştırır ve `/etc/nginx`
 düzenini bu dizinin içinde taklit eder:
@@ -60,9 +60,9 @@ düzenini bu dizinin içinde taklit eder:
     nginx -t -c nginx.conf -p .
     nginx -T -c nginx.conf -p .
 
-Check (Nginxlings'te `c` veya Enter ya da `./check.sh`) bu dizini prefix alarak
+Kontrol (Nginxlings'te `c` veya Enter ya da `./check.sh`) bu dizini önek alarak
 `nginx -t` çalıştırır, `nginx -T` çıktısını okur (yorum satırları dikkate alınmaz),
-include'un etkin olduğunu ve `conf.d/default.conf`'un etkin bir `server` bloğuyla
+`include`'un etkin olduğunu ve `conf.d/default.conf`'un etkin bir `server` bloğuyla
 yüklendiğini doğrular, bu bloğun `listen` portunu okur, NGINX'i başlatır ve
 `http://127.0.0.1:<port>/` ister.
 
@@ -73,15 +73,15 @@ yüklendiğini doğrular, bu bloğun `listen` portunu okur, NGINX'i başlatır v
 1. `nginx.conf` içinde, `http {}` içinde, `conf.d/` dizinindeki her `.conf`
    dosyasını yükle.
 2. `conf.d/default.conf` içinde, senin seçtiğin boş bir portu (örneğin 8081)
-   dinleyen, server adı olarak `localhost` kullanan ve her isteğe sonunda satır
-   sonu olan `config-layout-ok` ile cevap veren bir `server` bloğu tanımla.
+   dinleyen, sunucu adı olarak `localhost` kullanan ve her isteğe sonunda satır
+   sonu olan `config-layout-ok` ile yanıt veren bir `server` bloğu tanımla.
 
 ---
 
 ## Başarı kriterleri
 
 - `nginx -t` yapılandırmayı kabul etmeli.
-- `nginx -T`, `conf.d/*.conf` için etkin bir include'u ve etkin bir `server` bloğu
+- `nginx -T`, `conf.d/*.conf` için etkin bir `include`'u ve etkin bir `server` bloğu
   ile `listen` portu içeren `conf.d/default.conf` içeriğini göstermeli.
 - Bu porta yapılan istek HTTP 200 ile `config-layout-ok` dönmeli.
 
@@ -89,20 +89,20 @@ yüklendiğini doğrular, bu bloğun `listen` portunu okur, NGINX'i başlatır v
 
 ## Takıldıysan
 
-Bunları sırayla dene, aralarda check'i yeniden çalıştır:
+Bunları sırayla dene, aralarda kontrolü yeniden çalıştır:
 
-- `nginx.conf does not load the .conf files in conf.d/ yet`: include eksik, hâlâ
+- `nginx.conf does not load the .conf files in conf.d/ yet`: `include` eksik, hâlâ
   yorum satırı ya da başka bir yeri gösteriyor.
 - `NGINX rejected the configuration: "server" directive is not allowed here in
-  .../conf.d/default.conf`: include `http {}` dışında. `default.conf`'a değil,
-  include satırına bak.
+  .../conf.d/default.conf`: `include` `http {}` dışında. `default.conf`'a değil,
+  `include` satırına bak.
 - `No active 'server { ... }' block found in conf.d/default.conf`: dosya
   yüklenmiyor ya da `server` bloğu hâlâ yorum satırı.
 - `No active 'listen <port>;' directive found`: `server` bloğunun bir porta
   ihtiyacı var.
 - `Port ... is already in use by ...`: o portu başka bir program kullanıyor. Başka
   boş bir port seç.
-- `The response ... does not contain 'config-layout-ok'`: `location /`'un ne cevap
+- `The response ... does not contain 'config-layout-ok'`: `location /`'un ne yanıt
   verdiğine bak.
 
 ---
@@ -113,6 +113,6 @@ Bunları sırayla dene, aralarda check'i yeniden çalıştır:
   kendisi nasıl söyleyebilir?
 - `conf.d/*.conf` düzeni ile `sites-available/` + `sites-enabled/` düzeni arasındaki
   fark nedir? Senin makinen hangisini kullanıyor?
-- Bu lab'da `-c` ve `-p` neyi değiştirir ve `logs/error.log` hangi dosyaya
+- Bu laboratuvarda `-c` ve `-p` neyi değiştirir ve `logs/error.log` hangi dosyaya
   yazılır?
-- `nginx -T` çıktısında hangi dosyaların include edildiğini nasıl anlarsın?
+- `nginx -T` çıktısında hangi dosyaların dahil edildiğini (`include`) nasıl anlarsın?

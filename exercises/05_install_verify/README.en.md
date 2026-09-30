@@ -1,4 +1,4 @@
-# 05 – Install & Verify from Official Repo
+# 05 – Install and Verify from Official Repository
 
 ## Goal
 

@@ -1,4 +1,4 @@
-# 11 – Zone Synchronization & API (zone_sync)
+# 11 – Zone Synchronization and API (zone_sync)
 
 ## Goal
 

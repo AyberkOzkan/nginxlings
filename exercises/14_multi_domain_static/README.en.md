@@ -1,4 +1,4 @@
-# 14 – Multiple Domains, Static Sites
+# 14 – Multiple Domains and Static Sites
 
 ## Goal
 

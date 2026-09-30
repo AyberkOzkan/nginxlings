@@ -1,4 +1,4 @@
-# 13 – Include & Modular Config Design
+# 13 – Include and Modular Config Design
 
 ## Goal
 

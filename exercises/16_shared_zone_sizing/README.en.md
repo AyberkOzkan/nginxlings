@@ -1,4 +1,4 @@
-# 16 – Shared Memory Zone Sizing & Limits
+# 16 – Shared Memory Zone Sizing and Limits
 
 ## Goal
 

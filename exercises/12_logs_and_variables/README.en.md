@@ -1,4 +1,4 @@
-# 12 – Logs & Variables
+# 12 – Logs and Variables
 
 ## Goal
 

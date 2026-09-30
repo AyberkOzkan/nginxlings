@@ -1,4 +1,4 @@
-# 04 – Worker User & Permissions
+# 04 – Worker User and Permissions
 
 ## Goal
 

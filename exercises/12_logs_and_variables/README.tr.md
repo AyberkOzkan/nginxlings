@@ -1,25 +1,26 @@
-# 12 – Logs & Variables
+# 12 – Günlükler ve Değişkenler
 
 ## Amaç
 
-Bu egzersizde kendi access log formatını tanımlayacak, onu NGINX değişkenleriyle
-dolduracak ve log'u container'ın standart çıktısına göndereceksin.
+Bu egzersizde kendi erişim günlüğü biçimini (access log format) tanımlayacak, onu
+NGINX değişkenleriyle dolduracak ve günlüğü konteynerin (container) standart çıktısına
+göndereceksin.
 
 Pratik edeceklerin:
 
-- `log_format` ve ait olduğu context,
-- adı verilmiş bir formatla `access_log`,
+- `log_format` ve ait olduğu bağlam (context),
+- adı verilmiş bir biçimle `access_log`,
 - sık kullanılan istek değişkenleri ve değerlerinin nereden geldiği.
 
 ---
 
-## Arka plan – log formatları ve değişkenler
+## Arka plan – günlük biçimleri ve değişkenler
 
-`log_format <ad> '<metin>';`, `http` context'inde adlandırılmış bir format tanımlar.
+`log_format <ad> '<metin>';`, `http` bağlamında adlandırılmış bir biçim tanımlar.
 Metin düz yazıyı değişkenlerle karıştırır; her istek, her değişkenin yerine değerinin
-yazıldığı bir satır üretir. `access_log <path> <format>;` log'u o formatla açar.
+yazıldığı bir satır üretir. `access_log <yol> <biçim>;` günlüğü o biçimle açar.
 
-Genel bir örnek (bu lab'dakinden farklı ad, değişken ve dosya):
+Genel bir örnek (bu laboratuvardakinden farklı ad, değişken ve dosya):
 
     log_format timing '$remote_addr [$time_local] "$request" rt=$request_time';
 
@@ -29,35 +30,37 @@ Genel bir örnek (bu lab'dakinden farklı ad, değişken ve dosya):
 
 Bilinmesi gerekenler:
 
-- Bir format, onu kullanan `access_log`'dan önce tanımlanmalıdır; ad, yapılandırma
+- Bir biçim, onu kullanan `access_log`'dan önce tanımlanmalıdır; ad, yapılandırma
   okunurken aranır.
-- Format adı verilmeyen `access_log` önceden tanımlı `combined` formatını kullanır.
-  Hiç `access_log` olmasa bile NGINX, derlendiği path'e `combined` formatında log
+- Biçim adı verilmeyen `access_log` önceden tanımlı `combined` biçimini kullanır.
+  Hiç `access_log` olmasa bile NGINX, derlendiği yola `combined` biçiminde günlük
   yazar.
-- İç context'teki `access_log off;` orada log'u kapatır.
-- Göreli bir log path'i, egzersiz 01'deki `root` gibi NGINX prefix'ine göre çözülür.
-- Bazı değişkenler: `$remote_addr` bağlantının istemci adresi, `$status` cevabın
-  durum kodu, `$request` isteğin tam satırıdır (method, URI, protokol).
-  `$http_<ad>` herhangi bir istek başlığını okur: ad küçük harfle, tireler alt
-  çizgiyle yazılır.
-- Container içinde `/dev/stdout`'a yazılan log'lar `docker logs` içinde görünür.
+- İç bağlamdaki `access_log off;` orada günlüğü kapatır.
+- Göreli bir günlük yolu, egzersiz 01'deki `root` gibi NGINX önekine (prefix) göre
+  çözülür.
+- Bazı değişkenler: `$remote_addr` bağlantının istemci adresi, `$status` yanıtın
+  durum kodu, `$request` isteğin tam satırıdır (yöntem, URI, protokol).
+  `$http_<ad>` herhangi bir istek başlığını (header) okur: ad küçük harfle, tireler
+  alt çizgiyle yazılır.
+- Konteyner içinde `/dev/stdout`'a yazılan günlükler `docker logs` içinde görünür.
 
 Kaynak: [ngx_http_log_module](https://nginx.org/en/docs/http/ngx_http_log_module.html),
 [variables](https://nginx.org/en/docs/varindex.html).
 
 ---
 
-## Lab ortamı
+## Laboratuvar ortamı
 
-Her şey bu dizinden build edilen tek bir Docker container içinde çalışır:
+Her şey bu dizinden oluşturulan (build) tek bir Docker konteyneri içinde çalışır:
 
-- `Dockerfile`, image'i `nginx:1.28.3-alpine` üzerine senin `nginx.conf`'unla kurar.
-- `nginx.conf` senin dosyan. Server'ı 8080 portunda `/` için `200` döner; TODO
-  yorumları format ve access log için gerekenleri listeler.
+- `Dockerfile`, imajı (image) `nginx:1.28.3-alpine` üzerine senin `nginx.conf`'unla
+  kurar.
+- `nginx.conf` senin dosyan. `server`'ı 8080 portunda `/` için `200` döner; TODO
+  yorumları biçim ve erişim günlüğü için gerekenleri listeler.
 
-Check (Nginxlings'te `c` veya Enter ya da `./check.sh`) image'i
-(`nginxlings/12_logs_and_variables:check`) build eder, aktif yapılandırmayı
-`nginx -T` ile okur, container'ın 8080 portunu `http://127.0.0.1:18120/` adresine
+Kontrol (Nginxlings'te `c` veya Enter ya da `./check.sh`) imajı
+(`nginxlings/12_logs_and_variables:check`) oluşturur, aktif yapılandırmayı
+`nginx -T` ile okur, konteynerin 8080 portunu `http://127.0.0.1:18120/` adresine
 açar, `nginxlings-test-agent/1.0` User-Agent'ı ile beş istek gönderir ve bunları
 `docker logs` içinde arar.
 
@@ -68,9 +71,9 @@ açar, `nginxlings-test-agent/1.0` User-Agent'ı ile beş istek gönderir ve bun
 `nginx.conf` dosyasını düzenle:
 
 1. `http` içinde en az `$remote_addr`, `$status`, `$request` ve `$http_user_agent`
-   içeren **main** adında bir log formatı tanımla.
-2. Access log'u `main` formatında **/dev/stdout**'a yaz.
-3. 8080 portunda `/` için `200` dönen server'ı koru.
+   içeren **main** adında bir günlük biçimi tanımla.
+2. Erişim günlüğünü `main` biçiminde **/dev/stdout**'a yaz.
+3. 8080 portunda `/` için `200` dönen `server`'ı koru.
 
 ---
 
@@ -85,27 +88,27 @@ açar, `nginxlings-test-agent/1.0` User-Agent'ı ile beş istek gönderir ve bun
 
 ## Takıldıysan
 
-Bunları sırayla dene, aralarda check'i yeniden çalıştır:
+Bunları sırayla dene, aralarda kontrolü yeniden çalıştır:
 
 - `No active 'log_format main ...;' found`: başlangıç durumu bu.
-- `log_format main does not include $...`: formatta mesajda adı geçen değişken
+- `log_format main does not include $...`: biçimde mesajda adı geçen değişken
   eksik.
-- `No active access_log uses the main format yet`: format adı verilmeyen bir
+- `No active access_log uses the main format yet`: biçim adı verilmeyen bir
   `access_log` `main` değil `combined` yazar.
-- `unknown log format "main"`: ad bir yerde yanlış yazılmış, format onu kullanan
+- `unknown log format "main"`: ad bir yerde yanlış yazılmış, biçim onu kullanan
   `access_log`'dan sonra tanımlanmış ya da `http` içinde değil.
 - `open() "/etc/nginx/logs/access.log" failed (2: No such file or directory)`: göreli
-  bir path `/etc/nginx` prefix'ine göre çözülmüş.
-- `No access log line contains the test User-Agent`: log `/dev/stdout`'a mı
-  yazılıyor? Server içinde log kapatılmış mı?
+  bir yol `/etc/nginx` önekine göre çözülmüş.
+- `No access log line contains the test User-Agent`: günlük `/dev/stdout`'a mı
+  yazılıyor? `server` içinde günlük kapatılmış mı?
 
 ---
 
 ## Pekiştirme soruları
 
-- Bu image'da `access_log /var/log/nginx/access.log main;` de check'ten geçer. Bu
+- Bu imajda `access_log /var/log/nginx/access.log main;` de kontrolden geçer. Bu
   satırlar neden `docker logs`'a ulaşır?
-- `index.html` üzerinden cevaplanan `GET /?a=1` isteği için `$request`,
+- `index.html` üzerinden yanıtlanan `GET /?a=1` isteği için `$request`,
   `$request_uri` ve `$uri` ne içerir?
-- Bir load balancer'ın arkasında `$remote_addr` ne gösterir ve NGINX'in bunun yerine
-  asıl istemci adresini log'lamasını hangi modül sağlar?
+- Bir yük dengeleyicinin (load balancer) arkasında `$remote_addr` ne gösterir ve
+  NGINX'in bunun yerine asıl istemci adresini günlüğe yazmasını hangi modül sağlar?
