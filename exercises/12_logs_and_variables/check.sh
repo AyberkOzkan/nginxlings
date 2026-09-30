@@ -44,7 +44,7 @@ for var in remote_addr status request http_user_agent; do
   grep -qE "\\\$\\{?${var}([^a-z_]|$)" "${FORMAT}" || fail "log_format main does not include \$${var}."
 done
 if ! grep -qE '^[[:space:]]*access_log[[:space:]]+[^;[:space:]]+[[:space:]]+main([[:space:]][^;]*)?;' "${ACTIVE}"; then
-  fail "No active 'access_log ... main;' directive found. Use: access_log /dev/stdout main;"
+  fail "No active access_log uses the main format yet. Without a format name, access_log writes the predefined combined format."
 fi
 
 echo "[4/6] Starting container ${CONTAINER_NAME} (host ${HOST_PORT} -> container 8080)..."
@@ -78,7 +78,7 @@ done
 if [[ -z "${MATCHED}" ]]; then
   echo "Sample logs (last 120 lines):"
   printf '%s\n' "${LOGS}" | tail -n 120
-  fail "No access log line contains the test User-Agent. Make sure access_log /dev/stdout uses a log_format that includes \$http_user_agent."
+  fail "No access log line contains the test User-Agent. Is the main format written to /dev/stdout?"
 fi
 
 if ! grep -q "GET /" <<<"${MATCHED}"; then

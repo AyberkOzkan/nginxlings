@@ -679,6 +679,15 @@ func TestRepoExercisesStartUnsolved(t *testing.T) {
 			},
 		},
 		{
+			name: "logs and variables config",
+			path: filepath.Join(root, "exercises", "12_logs_and_variables", "nginx.conf"),
+			required: []string{
+				`TODO: define a log format named "main"`,
+				`TODO: write the access log in the "main" format to /dev/stdout`,
+			},
+			forbidden: []string{"log_format main '", "access_log /dev/stdout main;"},
+		},
+		{
 			name:      "NGINX worker user config",
 			path:      filepath.Join(root, "exercises", "17_verify_nginx_user", "nginx.conf"),
 			required:  []string{"TODO: configure NGINX workers to run as the nginx user"},

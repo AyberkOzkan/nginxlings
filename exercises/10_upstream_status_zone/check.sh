@@ -74,11 +74,11 @@ if ! CONF_OUTPUT="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_
 fi
 CONF="$(printf '%s\n' "${CONF_OUTPUT}" | grep -v '^[[:space:]]*#' || true)"
 if ! grep -qE '^[[:space:]]*zone[[:space:]]+up_mem[[:space:]]+64k[[:space:]]*;' <<<"${CONF}"; then
-  fail "Missing: zone up_mem 64k; inside the upstream block."
+  fail "No shared memory zone named up_mem with a size of 64k in the upstream block yet."
 fi
 # shellcheck disable=SC2016 # the pattern is a regex, not a shell expansion
 if ! grep -qE '^[[:space:]]*add_header[[:space:]]+X-Upstream[[:space:]]+\$upstream_addr([[:space:]]|;)' <<<"${CONF}"; then
-  fail "Missing: add_header X-Upstream \$upstream_addr always;"
+  fail "No active X-Upstream response header set to \$upstream_addr yet."
 fi
 
 echo "[4/7] Creating Docker network ${NET_NAME}..."
