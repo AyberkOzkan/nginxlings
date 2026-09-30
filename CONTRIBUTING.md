@@ -28,6 +28,8 @@ Use this checklist when adding an exercise:
 8. Pin Docker base image patch versions consistently with existing exercises, and pin images that a check runs directly by digest (see Container Images).
 9. If the exercise introduces a new asset file type, add its glob to `.goreleaser.yml` and inspect a snapshot archive.
 10. Do not commit logs, generated certificates, PID files, check response bodies, or other runtime artifacts.
+11. Make each README title equal the exercise's list name in that language (`NN - Name` becomes `# NN – Name`); a repository test enforces it.
+12. Add the solution to your solutions directory, never to the repository, and run the exercise tests described in `tests/TESTING.md`. If the starting files could be mistaken for a solution, add an entry to `tests/repo/starting_state_test.go`.
 
 Exercise checks should remain understandable on failure and must not require Docker, NGINX, curl, or Python merely to run the Go unit test suite.
 
@@ -38,10 +40,11 @@ Exercise checks should remain understandable on failure and must not require Doc
 - `i18n/exercises/<language>.json` and `i18n/hints/<language>.json` files must contain exactly the manifest exercise IDs.
 - Missing runtime translations still fall back safely, but repository validation requires complete checked-in translations.
 - Keep translated README documents structurally aligned when adding or removing sections.
+- Turkish text is fully Turkish: a technical term appears once with its English form in parentheses, then in Turkish only. Follow `docs/glossary.tr.md` for terms and titles.
 
 ## Validation
 
-Run all checks before opening a pull request:
+`tests/TESTING.md` describes every test layer, the release checks, and how to add tests. Run all checks before opening a pull request:
 
 ```sh
 gofmt -w .
