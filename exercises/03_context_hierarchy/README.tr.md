@@ -2,132 +2,122 @@
 
 ## Amaç
 
-Bu egzersizde, NGINX konfigürasyon dosyasındaki **context hiyerarşisini** anlamayı
-ve hatalı yerleştirilmiş direktifleri doğru seviyeye taşımayı öğreneceksin.
+Bu egzersizde direktifleri yanlış context'lerde duran bir `nginx.conf`'u, her birini
+`nginx -t` mesajlarıyla bularak onaracaksın.
 
-Özellikle şu zinciri pekiştiriyoruz:
+Pratik edeceklerin:
 
-- `main` (dosyanın en üst seviyesi)
-- `http`
-- `server`
-- `location`
-
-Egzersizde bazı direktifler **bilerek yanlış context içine** yazılmış durumda olacak.
-Görev: Otomatik kontrol sırasında görünen hata/ipuçlarını kullanarak,
-bu direktifleri doğru context hiyerarşisine yerleştirmek.
+- `main` > `http` > `server` > `location` iç içe yapısı,
+- `"..." directive is not allowed here` mesajını ve gösterdiği satır numarasını
+  okumak,
+- bir direktifin hangi context'e ait olduğuna karar vermek.
 
 ---
 
-## Arkaplan – Context hiyerarşisi
+## Arka plan – context'ler
 
-NGINX konfigürasyonunda context, blokların içine yazdığın direktiflerin
-hangi scope içinde geçerli olduğunu belirler.
+Bir NGINX yapılandırması, **context** denen blokların oluşturduğu bir ağaçtır. Her
+direktif yalnızca belirli context'lerde geçerlidir ve bir blok direktifi yeni bir
+context açar:
 
-- **main context**  
-  Dosyanın en üst seviyesi. Genelde şunlar burada olur:
+    # main: NGINX'in tamamı için ayarlar
+    worker_processes 2;
 
-    user ...
-    worker_processes ...
-    error_log ...
-    pid ...
-
-
-- **http context**  
+    events {
+        # bağlantı işleme
+    }
 
     http {
-        # HTTP ile ilgili genel ayarlar
-        sendfile on;
-        keepalive_timeout 65;
+        # tüm HTTP trafiği için ayarlar
+        keepalive_timeout 30;
 
         server {
-            ...
+            # tek bir sanal sunucu: adres, port, adlar
+            listen 9090;
+            server_name docs.example;
+
+            location /api/ {
+                # URI'si /api/ ile başlayan istekler
+            }
         }
     }
 
+Bilinmesi gerekenler:
 
-- **server context**  
+- Her direktifin dokümantasyonunda nerede kullanılabileceğini listeleyen bir
+  **Context:** satırı vardır. `nginx -t` buna uyar ve ilk hatalı satırı gösterir:
+  `"listen" directive is not allowed here in .../nginx.conf:31`.
+- `http` ve `events` `main`'e, `server` `http`'ye, `location` ise `server`'a (ya da
+  başka bir `location`'a) aittir.
+- Dıştaki bir context'teki ayar, içtekiler kendileri ayarlamadıkça onlara da geçer:
+  `server` içindeki bir `root`, o server'ın location'larına da uygulanır.
+- `nginx -t` ilk hatada durur. Her düzeltmeden sonra yanlış yerdeki bir sonraki
+  direktif ortaya çıkar.
 
-    server {
-        listen 8080;
-        server_name localhost;
-        root /var/www/html;
-
-        location / {
-            ...
-        }
-    }
-
-
-- **location context**  
-
-    location /images/ {
-        # URI eşleşmesine göre davranış
-    }
-
-Bazı direktifler sadece belirli context’lerde kullanılabilir. Örneğin:
-
-- `user`, `worker_processes` → sadece main seviyesinde anlamlıdır.
-- `sendfile`, `keepalive_timeout` → HTTP seviyesinde kullanılır.
-- `listen`, `server_name`, `root` → genellikle `server` içinde görülür.
-- URI eşleşmesine bağlı detaylar → `location` içinde tanımlanır.
-
-Bu egzersizde, bilerek yanlış yere konmuş direktifler olacak ve bunlar
-otomatik kontrol sırasında hata/uyarı üretecek.
+Kaynak: [Beginner's guide – configuration file structure](https://nginx.org/en/docs/beginners_guide.html#conf_structure),
+[ngx_http_core_module](https://nginx.org/en/docs/http/ngx_http_core_module.html).
 
 ---
 
-## Bu egzersizde ne yapıyorsun?
+## Lab ortamı
 
-Bu dizindeki `nginx.conf` dosyası:
+Bu egzersiz makinende kurulu NGINX'i kullanır:
 
-- Temel context hiyerarşisini içerir,
-- Ancak bazı direktifler kasıtlı olarak yanlış context’e yerleştirilmiştir.
+- `nginx.conf` senin dosyan. Üst kısmı (`main`, `events`, `http`) geçerli;
+  `INTENTIONALLY BROKEN CONTEXT SECTION` ile işaretli bölüm ise değil.
+- `logs/error.log` gibi göreli path'ler bu dizine göre çözülür.
 
-Senin görevin:
+Check (Nginxlings'te `c` veya Enter ya da `./check.sh`)
+`nginx -t -c nginx.conf -p <bu dizin>` çalıştırır, NGINX'i foreground'da başlatır,
+`http://127.0.0.1:8080/` ister ve gövdesinde `context-hierarchy-ok` bulunan bir
+`200` bekler. 8080 portu boş olmalı.
 
-1. `c` veya Enter ile kontrolü çalıştırmak.
-2. Status satırında ve gerekiyorsa detaylarda gösterilen ipuçlarına bakmak:
-   - Örneğin “directive X is not allowed here” gibi mesajlar,
-   - Hangi direktifin yanlış context’te olduğunu ima eder.
-3. `nginx.conf` içindeki blok yapısını ve direktiflerin konumlarını,
-   context hiyerarşisini bozmadan mantıklı hale getirmek.
+---
 
-Burada önemli olan:
+## Görev
 
-- `http` bloğunun **main** seviyesinde olması,
-- `server` bloklarının **http** içinde yer alması,
-- `location` bloklarının **server** içinde yer alması,
-- Context’e uygun olmayan direktiflerin bulunduğu seviyeden alınarak
-  mantıksal olarak ait oldukları seviyeye taşınmasıdır.
+`nginx.conf` dosyasını şöyle düzenle:
+
+1. `listen 8080;` ve `server_name localhost;` `server` bloğuna ait olsun.
+2. `location /` ile birlikte `server` bloğu `http`'nin içinde yer alsın.
+3. `location /` `return`'ünü korusun; `/` yine `context-hierarchy-ok` dönsün.
 
 ---
 
 ## Başarı kriterleri
 
-Bu egzersiz **başarılı** sayılması için:
-
-
-- Yapılandırma syntax açısından geçerli olmalı,
-- Context hiyerarşisi bozuk olmamalı,
-- Hatalı context’e yerleştirilmiş direktifler düzeltilmiş olmalı.
-- `server` ve `location` blokları doğru context içinde yer almalı.
-- Context ile ilgili hata mesajları (örneğin “is not allowed here”) artık görünmemeli.
-- Egzersiz listesinde bu adım ✓ (tamamlandı) olarak işaretlenmeli.
+- `nginx -t` yapılandırmayı kabul etmeli.
+- `http://127.0.0.1:8080/` `200` dönmeli.
+- Gövde `context-hierarchy-ok` içermeli.
 
 ---
 
-## İpuçları
+## Takıldıysan
 
-- Hata/uyarı mesajlarında genellikle hangi direktifin, hangi satırda
-  yanlış context’te olduğu açıkça belirtilir.
-- Bir direktifin nerede durması gerektiğinden emin değilsen:
-  - Önce mantıksal olarak düşün: Bu ayar tüm HTTP trafiğini mi etkiliyor,
-    sadece belli bir sanal sunucuyu mu, yoksa belli bir path’i mi?
-  - Genel kural:  
-    - Tüm NGINX için → main  
-    - HTTP katmanı için → http  
-    - Belirli host/port kombinasyonu için → server  
-    - URI/path özel davranışı için → location
-- Aynı tipte bir direktifi (örneğin `listen`) farklı context’lerde görüyorsan,
-  büyük ihtimalle yanlış yerde olanı vardır.
+Bunları sırayla dene, aralarda check'i yeniden çalıştır:
 
+- `"listen" directive is not allowed here in ...:31`: başlangıç durumu bu. `listen`
+  hangi bloğu tanımlar?
+- `"server" directive is not allowed here`: `server` bloğu hâlâ `http`'nin dışında.
+- `"location" directive is not allowed here`: bir `location` doğrudan `http`
+  içinde. Onu hangi blok sarmalı?
+- `"sendfile" directive is not allowed here` veya
+  `"worker_processes" directive is not allowed here`: bir direktif desteklemediği
+  bir context'e taşınmış. Dokümantasyondaki **Context:** satırına bak.
+- `NGINX did not answer on http://127.0.0.1:8080/`: yapılandırma geçerli ama 8080'i
+  dinleyen bir `server` yok. `listen 8080;` taşırken kayboldu mu?
+- `got 403`: `location /` içindeki `return` gitmiş; NGINX `root`'tan dosya sunmaya
+  çalışıyor ve bu dizinde `index.html` yok.
+
+---
+
+## Pekiştirme soruları
+
+- Hiç `listen` direktifi olmayan bir `server` yine bağlantı kabul eder. Hangi
+  portta, ve cevap neden NGINX'in root olarak başlayıp başlamamasına bağlı?
+- `sendfile` `http`, `server` ve `location` içinde kullanılabilir. `http`'de
+  `sendfile on;`, bir location'da `sendfile off;` yazıyorsa diğer location'lara
+  hangisi uygulanır?
+- Bir `server`'da `add_header X-A ...;`, location'larından birinde
+  `add_header X-B ...;` var. O location'a gelen istek hangi başlıkları alır, başka
+  bir location'a gelen istek hangilerini alır?
