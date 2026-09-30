@@ -687,3 +687,30 @@ func newUpdateModelFromRoot(t *testing.T, root, lang string) model {
 	}
 	return m
 }
+
+// TestUpdateHandlesEachRuneOfACombinedKeyMessage covers keys that reach the
+// program in one read, for example while a key is held during a redraw.
+// Bubble Tea then sends one message with several runes ("sss").
+func TestUpdateHandlesEachRuneOfACombinedKeyMessage(t *testing.T) {
+	root := newCLIAppRoot(t)
+	for _, id := range []string{"01_static_server", "02_config_layout", "03_context_hierarchy", "04_worker_user"} {
+		createExercise(t, root, id)
+	}
+	m := newUpdateModelFromRoot(t, root, "en")
+	m.state = defaultState()
+	m.paths.StateFile = filepath.Join(t.TempDir(), "state.json")
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("sss")})
+	if got := updated.(model).cursor; got != 3 {
+		t.Fatalf("cursor after \"sss\" = %d, want 3", got)
+	}
+	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("ww")})
+	if got := updated.(model).cursor; got != 1 {
+		t.Fatalf("cursor after \"ww\" = %d, want 1", got)
+	}
+
+	pasted, _ := updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("ss"), Paste: true})
+	if got := pasted.(model).cursor; got != 1 {
+		t.Fatalf("cursor after a pasted \"ss\" = %d, want 1: a paste is not a key press", got)
+	}
+}

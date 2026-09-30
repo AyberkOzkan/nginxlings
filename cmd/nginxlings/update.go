@@ -174,6 +174,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.resetMarquee()
 
 	case tea.KeyMsg:
+		// Runes that arrive in one read come as one message, for example
+		// "sss" when a key is held while the view redraws. Handle them as
+		// separate presses; a paste stays one message.
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 1 && !msg.Paste {
+			return m.updateEachRune(msg)
+		}
 		key := msg.String()
 
 		// ctrl+c her durumda çıkar, reset onayı beklenirken bile
@@ -409,4 +415,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// updateEachRune applies a multi-rune key message one rune at a time and
+// batches the commands the single presses return.
+func (m model) updateEachRune(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var current tea.Model = m
+	cmds := make([]tea.Cmd, 0, len(msg.Runes))
+	for _, r := range msg.Runes {
+		var cmd tea.Cmd
+		current, cmd = current.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}, Alt: msg.Alt})
+		cmds = append(cmds, cmd)
+	}
+	return current, tea.Batch(cmds...)
 }

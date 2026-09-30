@@ -28,9 +28,19 @@ var ExerciseIDPattern = regexp.MustCompile(`^[0-9]{2}_[a-z0-9_]+$`)
 // file's location so it works from any test package directory.
 func RepoRoot(t testing.TB) string {
 	t.Helper()
+	root := RepoRootPath()
+	if root == "" {
+		t.Fatal("cannot locate testutil source file")
+	}
+	return root
+}
+
+// RepoRootPath is RepoRoot for callers without a testing.TB, such as
+// TestMain. It returns "" when the source location is unknown.
+func RepoRootPath() string {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
-		t.Fatal("cannot locate testutil source file")
+		return ""
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 }
