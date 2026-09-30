@@ -33,7 +33,8 @@ fi
 temp_file ACTIVE
 grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
 for n in 1 2; do
-  grep -qE "^[[:space:]]*server_name[[:space:]]+([^;]*[[:space:]])?site${n}\.local[[:space:]]*;" "${ACTIVE}" ||
+  # server_name may follow "{" or ";" on the same line and list other names.
+  grep -qE "(^|[{;])[[:space:]]*server_name[[:space:]]+([^;]*[[:space:]])?site${n}\.local([[:space:]][^;]*)?;" "${ACTIVE}" ||
     fail "No active server block with 'server_name site${n}.local;' yet."
 done
 
