@@ -44,7 +44,7 @@ if ! EFFECTIVE="$("${DOCKER_BIN}" exec "${CONTAINER_NAME}" nginx -T 2>&1)"; then
   fail "Could not run nginx -T inside the container."
 fi
 # Comment-safe; "user nginx;" and "user nginx nginx;" are both valid.
-if ! grep -v '^[[:space:]]*#' <<<"${EFFECTIVE}" |
+if ! active_config <<<"${EFFECTIVE}" |
   grep -qE '^[[:space:]]*user[[:space:]]+nginx([[:space:]]+nginx)?[[:space:]]*;'; then
   fail "No active user directive for the nginx account yet: set it in the main context, outside events {} and http {}."
 fi

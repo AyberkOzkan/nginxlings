@@ -29,12 +29,11 @@ temp_file DUMP
 if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
   fail_nginx_rejected "${DUMP}"
 fi
-# Effective configuration without comment lines.
+# Effective configuration: no comments, one directive per line.
 temp_file ACTIVE
-grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
+active_config "${DUMP}" >"${ACTIVE}"
 for n in 1 2; do
-  # server_name may follow "{" or ";" on the same line and list other names.
-  grep -qE "(^|[{;])[[:space:]]*server_name[[:space:]]+([^;]*[[:space:]])?site${n}\.local([[:space:]][^;]*)?;" "${ACTIVE}" ||
+  grep -qE "^[[:space:]]*server_name[[:space:]]+([^;]*[[:space:]])?site${n}\.local([[:space:]][^;]*)?;" "${ACTIVE}" ||
     fail "No active server block with 'server_name site${n}.local;' yet."
 done
 

@@ -47,7 +47,7 @@ if ! CONF_OUTPUT="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_
   printf '%s\n' "${CONF_OUTPUT}"
   fail "nginx -T failed inside the image."
 fi
-CONF="$(printf '%s\n' "${CONF_OUTPUT}" | grep -v '^[[:space:]]*#' || true)"
+CONF="$(active_config <<<"${CONF_OUTPUT}")"
 if ! grep -qE '^[[:space:]]*stream[[:space:]]*\{' <<<"${CONF}"; then
   fail "No active top-level stream {} block found. Layer 4 proxying needs stream, not http."
 fi

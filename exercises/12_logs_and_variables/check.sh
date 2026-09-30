@@ -30,9 +30,9 @@ temp_file DUMP
 if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
   fail_nginx_rejected "${DUMP}"
 fi
-# Effective configuration without comment lines.
+# Effective configuration: no comments, one directive per line.
 temp_file ACTIVE
-grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
+active_config "${DUMP}" >"${ACTIVE}"
 
 # The official image already logs the built-in "combined" format to stdout,
 # so the log lines alone do not prove that the learner's format is used.

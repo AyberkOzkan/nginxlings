@@ -39,7 +39,7 @@ fi
 # Effective configuration without comment lines; these give quick, specific
 # hints before the behaviour checks below.
 temp_file ACTIVE
-grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
+active_config "${DUMP}" >"${ACTIVE}"
 grep -qE '^[[:space:]]*load_module[[:space:]]+[^;]*ngx_stream_module\.so' "${ACTIVE}" ||
   fail "The stream module is not loaded yet: add load_module at the top of nginx.conf (the README names the module file)."
 grep -qE '^[[:space:]]*stream[[:space:]]*\{' "${ACTIVE}" ||

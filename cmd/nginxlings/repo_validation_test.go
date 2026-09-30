@@ -474,10 +474,11 @@ func TestRepoCheckScriptsUseSharedLibrary(t *testing.T) {
 	// The library owns traps, temporary files, and error handling; checks wait
 	// for readiness by polling instead of sleeping for whole seconds.
 	forbidden := map[string]string{
-		"DOCKER_BUILDKIT=0": "use docker_build from the library",
-		"mktemp":            "use temp_file from the library",
-		"trap ":             "use on_exit from the library",
-		"fail() {":          "use fail from the library",
+		"DOCKER_BUILDKIT=0":        "use docker_build from the library",
+		"mktemp":                   "use temp_file from the library",
+		"trap ":                    "use on_exit from the library",
+		"fail() {":                 "use fail from the library",
+		`grep -v '^[[:space:]]*#'`: "use active_config from the library, which also splits one-line blocks",
 	}
 	wholeSecondSleep := regexp.MustCompile(`(?m)^[^#\n]*\bsleep[ \t]+[0-9]+([ \t;]|$)`)
 

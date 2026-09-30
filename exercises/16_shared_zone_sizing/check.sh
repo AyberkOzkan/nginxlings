@@ -47,9 +47,9 @@ temp_file DUMP
 if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
   fail_nginx_rejected "${DUMP}"
 fi
-# Effective configuration without comment lines.
+# Effective configuration: no comments, one directive per line.
 temp_file ACTIVE
-grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
+active_config "${DUMP}" >"${ACTIVE}"
 
 zone_line="$(grep -E '^[[:space:]]*limit_req_zone[[:space:]]' "${ACTIVE}" | grep -E 'zone=req_zone:' | head -n 1 || true)"
 [[ -n "${zone_line}" ]] || fail "No limit_req_zone directive with zone=req_zone:<size> found in nginx.conf."

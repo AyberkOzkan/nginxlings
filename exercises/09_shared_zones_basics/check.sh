@@ -35,7 +35,7 @@ if ! CONF_OUTPUT="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_
   printf '%s\n' "${CONF_OUTPUT}"
   fail "nginx -T failed inside the image."
 fi
-CONF="$(printf '%s\n' "${CONF_OUTPUT}" | grep -v '^[[:space:]]*#' || true)"
+CONF="$(active_config <<<"${CONF_OUTPUT}")"
 ZONE_LINES="$(grep -E '^[[:space:]]*limit_req_zone[[:space:]]' <<<"${CONF}" || true)"
 [[ -n "${ZONE_LINES}" ]] || fail "No active limit_req_zone yet: define the shared memory zone in the http block."
 REQ_ZONE="$(grep -E 'zone=req_zone:64k([[:space:];]|$)' <<<"${ZONE_LINES}" || true)"

@@ -175,6 +175,72 @@ wait_tcp() {
 }
 
 # ---------------------------------------------------------------------------
+# Configuration text
+# ---------------------------------------------------------------------------
+
+# active_config [FILE] prints nginx -T output (FILE, or stdin) without
+# comments and with every directive, "{" and "}" on a line of its own, so a
+# check can match '^[[:space:]]*directive' even when the learner wrote a whole
+# block on one line. Quoted strings, escaped characters and ${variable} stay
+# intact. Lines are never joined, so NGINX's own status lines stay apart from
+# the directives; a directive the learner splits over several lines therefore
+# stays split. It uses only POSIX awk, because learners may have mawk or BusyBox.
+active_config() {
+  awk '
+    {
+      line = $0
+      n = length(line)
+      for (i = 1; i <= n; i++) {
+        c = substr(line, i, 1)
+        if (quote != "") {
+          out = out c
+          if (c == "\\" && i < n) {
+            i++
+            out = out substr(line, i, 1)
+          } else if (c == quote) {
+            quote = ""
+          }
+          continue
+        }
+        if (c == "#") {
+          break
+        }
+        if (c == "\\" && i < n) {
+          out = out c substr(line, i + 1, 1)
+          i++
+        } else if (c == "\"" || c == "\047") {
+          quote = c
+          out = out c
+        } else if (c == "{" && substr(out, length(out), 1) == "$") {
+          in_var = 1
+          out = out c
+        } else if (c == "}" && in_var) {
+          in_var = 0
+          out = out c
+        } else if (c == ";" || c == "{" || c == "}") {
+          print out c
+          out = ""
+        } else {
+          out = out c
+        }
+      }
+      if (quote != "") {
+        out = out "\n"
+      } else if (out ~ /[^ \t]/) {
+        print out
+        out = ""
+      } else {
+        out = ""
+      }
+    }
+    END {
+      if (out ~ /[^ \t\n]/) {
+        printf "%s\n", out
+      }
+    }' "${1:--}"
+}
+
+# ---------------------------------------------------------------------------
 # Host NGINX
 # ---------------------------------------------------------------------------
 

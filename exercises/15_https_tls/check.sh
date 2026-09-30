@@ -30,9 +30,9 @@ temp_file DUMP
 if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
   fail_nginx_rejected "${DUMP}"
 fi
-# Effective configuration without comment lines.
+# Effective configuration: no comments, one directive per line.
 temp_file ACTIVE
-grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
+active_config "${DUMP}" >"${ACTIVE}"
 grep -qE '^[[:space:]]*listen[[:space:]]+([^;]*:)?80[[:space:];]' "${ACTIVE}" ||
   fail "No active 'listen 80;' yet. Add the HTTP server block that redirects to HTTPS."
 grep -qE '^[[:space:]]*listen[[:space:]]+([^;]*:)?443[[:space:]]+([^;]*[[:space:]])?ssl[[:space:];]' "${ACTIVE}" ||

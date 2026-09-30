@@ -26,9 +26,9 @@ if ! "${NGINX_BIN}" -T -c "${CONF}" -p "${EX_DIR}" >"${DUMP}" 2>&1; then
   fail "nginx -T failed."
 fi
 
-# Effective configuration without comment lines.
+# Effective configuration: no comments, one directive per line.
 temp_file ACTIVE
-grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
+active_config "${DUMP}" >"${ACTIVE}"
 if ! grep -qE '^[[:space:]]*include[[:space:]]+([^;[:space:]]*/)?conf\.d/\*\.conf[[:space:]]*;' "${ACTIVE}"; then
   fail "nginx.conf does not load the .conf files in conf.d/ yet; the include belongs in the http block."
 fi
@@ -38,7 +38,7 @@ temp_file DEFAULT_ACTIVE
 awk -v file="${DEFAULT_CONF}" '
   /^# configuration file / { on = ($0 == "# configuration file " file ":"); next }
   on { print }
-' "${DUMP}" | grep -v '^[[:space:]]*#' >"${DEFAULT_ACTIVE}" || true
+' "${DUMP}" | active_config >"${DEFAULT_ACTIVE}"
 if ! grep -qE '^[[:space:]]*server[[:space:]]*\{' "${DEFAULT_ACTIVE}"; then
   fail "No active 'server { ... }' block found in conf.d/default.conf (is it loaded by the include, and not commented out?)."
 fi

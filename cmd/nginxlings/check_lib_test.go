@@ -130,6 +130,58 @@ nginx: configuration file /tmp/ex/nginx.conf test failed`,
 	}
 }
 
+func TestCheckLibActiveConfigPutsEachDirectiveOnItsOwnLine(t *testing.T) {
+	tests := []struct {
+		name, input, want string
+	}{
+		{
+			name:  "one-line blocks",
+			input: "http { server { listen 8080; server_name a.local b.local; root /srv; } }",
+			want:  "http {\n server {\n listen 8080;\n server_name a.local b.local;\n root /srv;\n }\n }\n",
+		},
+		{
+			name:  "comments",
+			input: "# configuration file /etc/nginx/nginx.conf:\nuser nginx; # workers\n    #user root;\nevents {}",
+			want:  "user nginx;\nevents {\n}\n",
+		},
+		{
+			name:  "quoted strings keep separators and comment marks",
+			input: `log_format main '$remote_addr "$request" #1 {x};'; return 200 "a;b{c}\"d\";e";`,
+			want:  "log_format main '$remote_addr \"$request\" #1 {x};';\n return 200 \"a;b{c}\\\"d\\\";e\";\n",
+		},
+		{
+			name:  "variables in braces",
+			input: `set $x ${uri}-a; add_header X-A "${host}";`,
+			want:  "set $x ${uri}-a;\n add_header X-A \"${host}\";\n",
+		},
+		{
+			name:  "status lines pass through",
+			input: "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nstream { }",
+			want:  "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nstream {\n }\n",
+		},
+		{
+			name:  "quoted string over two lines",
+			input: "log_format main '$a\n    $b';",
+			want:  "log_format main '$a\n    $b';\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := runLibScript(t, "active_config <<'EOF'\n"+tt.input+"\nEOF")
+			if run.exitCode != 0 || run.output != tt.want {
+				t.Fatalf("exit=%d output:\n%q\nwant:\n%q", run.exitCode, run.output, tt.want)
+			}
+		})
+	}
+
+	t.Run("file argument", func(t *testing.T) {
+		run := runLibScript(t, `active_config <(printf 'a 1; b 2;\n')`)
+		if want := "a 1;\n b 2;\n"; run.exitCode != 0 || run.output != want {
+			t.Fatalf("exit=%d output=%q, want %q", run.exitCode, run.output, want)
+		}
+	})
+}
+
 func TestCheckLibDockerBuildNamesTheFailingStep(t *testing.T) {
 	tests := []struct {
 		name, log, want string

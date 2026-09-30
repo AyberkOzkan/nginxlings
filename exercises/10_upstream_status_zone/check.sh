@@ -72,7 +72,7 @@ if ! CONF_OUTPUT="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_
   printf '%s\n' "${CONF_OUTPUT}"
   fail "nginx -T failed inside the image."
 fi
-CONF="$(printf '%s\n' "${CONF_OUTPUT}" | grep -v '^[[:space:]]*#' || true)"
+CONF="$(active_config <<<"${CONF_OUTPUT}")"
 if ! grep -qE '^[[:space:]]*zone[[:space:]]+up_mem[[:space:]]+64k[[:space:]]*;' <<<"${CONF}"; then
   fail "No shared memory zone named up_mem with a size of 64k in the upstream block yet."
 fi

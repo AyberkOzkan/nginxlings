@@ -46,9 +46,9 @@ temp_file DUMP
 if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
   fail_nginx_rejected "${DUMP}"
 fi
-# Effective configuration without comment lines.
+# Effective configuration: no comments, one directive per line.
 temp_file ACTIVE
-grep -v '^[[:space:]]*#' "${DUMP}" >"${ACTIVE}" || true
+active_config "${DUMP}" >"${ACTIVE}"
 # Relative paths are resolved against /etc/nginx, so both spellings are fine.
 if ! grep -qE '^[[:space:]]*include[[:space:]]+(/etc/nginx/)?conf\.d/\*\.conf[[:space:]]*;' "${ACTIVE}"; then
   fail "nginx.conf does not load the .conf files in /etc/nginx/conf.d/ yet; the include belongs in http {}."
