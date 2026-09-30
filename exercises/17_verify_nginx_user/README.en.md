@@ -87,7 +87,7 @@ Work through these one at a time, re-running the check in between:
 - Which account would the workers run as in this image if you removed the
   `user` directive, and where can you see why?
 - Why does the master process stay root while the workers do not?
-- What happens to the `user` directive when NGINX is started by a normal user,
-  as in exercise 04?
+- Which process opens the listening socket on port 8080, and how can a worker
+  that does not run as root still accept connections on it?
 - How many worker processes do you see in `ps aux`, and which directive
   controls that number?

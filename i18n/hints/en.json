@@ -2,7 +2,7 @@
   "01_static_server": "With `-p`, a relative `root` is resolved against the exercise directory, and `index` must name a file that exists there.",
   "02_config_layout": "`nginx -T` prints every file that was actually loaded; if your server block is missing from it, the `include` line is not active.",
   "03_context_hierarchy": "Read the first `[emerg]` line from `nginx -t` and ask which enclosing block that directive belongs in: `http`, `server`, or `location`.",
-  "04_worker_user": "`user` must name the account that runs Nginxlings (see `id -un`), and `root` must point at this exercise's own `html/` directory instead of a distro path.",
+  "04_worker_user": "Files are opened by the workers, not the master: compare the worker account in the check output with the owner and group that the Dockerfile's `chown` sets, and put `user` in the main context.",
   "05_install_verify": "The image starts without NGINX: install the distribution package in a `RUN` step so that `nginx -v` works inside the container.",
   "06_reverse_proxy": "The empty `location /` serves local files; give it a directive that forwards the request to the backend on 127.0.0.1:8080.",
   "07_http_load_balancer": "Define an `upstream` that lists both backends and send `location /` to it; the `upstream=` field in the container logs shows who answered each request.",

@@ -327,6 +327,32 @@ func TestRepoExerciseReadmeHeadingParity(t *testing.T) {
 	}
 }
 
+func TestRepoExercise04CheckMatchesDockerfilePermissions(t *testing.T) {
+	root := repoRoot(t)
+	exerciseRoot := filepath.Join(root, "exercises", "04_worker_user")
+
+	dockerfilePath := filepath.Join(exerciseRoot, "Dockerfile")
+	dockerfile, err := os.ReadFile(dockerfilePath)
+	if err != nil {
+		t.Fatalf("%s: %v", dockerfilePath, err)
+	}
+	for _, required := range []string{
+		"chown -R webapp:webapp /srv/site",
+		"chmod 0750 /srv/site",
+		"chmod 0640 /srv/site/index.html",
+	} {
+		assertContains(t, dockerfilePath, string(dockerfile), required)
+	}
+
+	checkPath := filepath.Join(exerciseRoot, checkScriptName)
+	check, err := os.ReadFile(checkPath)
+	if err != nil {
+		t.Fatalf("%s: %v", checkPath, err)
+	}
+	assertContains(t, checkPath, string(check),
+		`EXPECTED_PERMS=$'/srv/site webapp:webapp 750\n/srv/site/index.html webapp:webapp 640'`)
+}
+
 func TestRepoExercise10DocsMatchDockerTopology(t *testing.T) {
 	root := repoRoot(t)
 	exerciseRoot := filepath.Join(root, "exercises", "10_upstream_status_zone")
@@ -606,6 +632,15 @@ func TestRepoExercisesStartUnsolved(t *testing.T) {
 			},
 			// burst=0 is rejected by nginx -t, and return would bypass limit_req.
 			forbidden: []string{"burst=0", "return 200"},
+		},
+		{
+			name: "worker user config",
+			path: filepath.Join(root, "exercises", "04_worker_user", "nginx.conf"),
+			required: []string{
+				"TODO: the workers must be able to read the site",
+				"user www-data;",
+			},
+			forbidden: []string{"user webapp", "user nginx webapp", "user root"},
 		},
 		{
 			name:      "install and verify Dockerfile",

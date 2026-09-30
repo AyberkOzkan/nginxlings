@@ -2,7 +2,7 @@
   "01_static_server": "`-p` kullanıldığında göreli bir `root`, egzersiz dizinine göre çözülür; `index` ise orada gerçekten var olan bir dosyayı göstermelidir.",
   "02_config_layout": "`nginx -T` gerçekten yüklenen her dosyayı yazdırır; server bloğun orada görünmüyorsa `include` satırı etkin değildir.",
   "03_context_hierarchy": "`nginx -t` çıktısındaki ilk `[emerg]` satırını oku ve o direktifin hangi bloğun içinde olması gerektiğini düşün: `http`, `server` ya da `location`.",
-  "04_worker_user": "`user`, Nginxlings'i çalıştıran hesabı göstermeli (`id -un` ile bakabilirsin); `root` ise bir dağıtım yolu yerine bu egzersizin kendi `html/` dizinini göstermeli.",
+  "04_worker_user": "Dosyaları master değil worker'lar açar: check çıktısındaki worker hesabını, Dockerfile'daki `chown`'un verdiği sahip ve grupla karşılaştır; `user`'ı main context'e yaz.",
   "05_install_verify": "İmaj NGINX olmadan başlıyor: `nginx -v` konteyner içinde çalışsın diye dağıtım paketini bir `RUN` adımında kur.",
   "06_reverse_proxy": "Boş `location /` yerel dosyaları sunar; ona isteği 127.0.0.1:8080 üzerindeki backend'e ileten bir direktif ver.",
   "07_http_load_balancer": "İki backend'i listeleyen bir `upstream` tanımla ve `location /` isteklerini ona gönder; konteyner loglarındaki `upstream=` alanı her isteğe kimin cevap verdiğini gösterir.",

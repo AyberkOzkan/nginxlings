@@ -2,189 +2,131 @@
 
 ## Goal
 
-In this exercise you will practice how the `user` directive affects which Unix
-account NGINX worker processes run as, and why file ownership of the web root
-matters.
+In this exercise you will make NGINX serve a site whose files only one account may
+read. You will find out which account the workers run as, why that decides between
+`200` and `403`, and how the `user` directive changes it.
 
-We focus on:
+You will practise:
 
-- The `user` directive in the **main** (top-level) context.
-- The difference between the NGINX master process and worker processes.
-- Making sure the web root is owned by the same user that NGINX runs as.
-
-Press `c` or `Enter` for this exercise in Nginxlings; an automated check will
-validate your configuration and file permissions.
+- the `user` directive and the context it belongs to,
+- reading owner, group and mode bits to predict who can open a file,
+- finding the cause of a `403 Forbidden` in the error log.
 
 ---
 
-## Background – worker user
+## Background – which account opens the files
 
-When NGINX is started as **root** in a typical Linux system:
+NGINX starts one **master process** and several **worker processes**. The master
+reads the configuration and opens the listening sockets; the workers handle the
+requests and open the files they serve. File access is therefore checked against
+the **worker's** account, not the master's. (Exercise 17 looks at the process model
+in more detail.)
 
-- The *master process* keeps running as `root`.
-- The master then starts worker processes and **drops privileges** for them
-  using the `user` directive:
+The `user` directive, in the **main** context, names that account and optionally
+its group:
 
-    user nginx;
-    # or
-    user www-data www-data;
+    user www-data;
+    user app appgroup;
 
-- The workers then handle client traffic as that less-privileged user.
+Without a group, NGINX uses the group with the same name as the account. The account
+must exist on the system (in `/etc/passwd`), otherwise `nginx -t` fails. Without a
+`user` directive, NGINX uses the account it was built with.
 
-Some notes:
+To serve `/var/www/blog/index.html`, a worker needs **execute** (`x`) on every
+directory in the path and **read** (`r`) on the file. Unix looks at the owner bits
+if the process runs as the owner, otherwise at the group bits if the process is in
+the file's group, otherwise at the "other" bits. A generic example:
 
-- The `user` directive is only valid in the **main** context (top level of
-  `nginx.conf`), not inside `http`, `server` or `location`.
-- Typical accounts are `nginx`, `www-data` or a custom account created for
-  your web service.
-- File permissions of the web root must allow that user to read (and sometimes
-  write) the files it serves.
+    $ ls -ld /var/www/blog /var/www/blog/index.html
+    drwxr-x---  2 blog blog 4096 Jan  1 10:00 /var/www/blog
+    -rw-r-----  1 blog blog   12 Jan  1 10:00 /var/www/blog/index.html
 
-In unprivileged environments (when you start NGINX as a normal user), the
-`user` directive may be ignored by NGINX, but the configuration syntax is the
-same and still worth practicing.
+Here the owner `blog` may enter the directory and read the file, members of the
+group `blog` may do the same, and every other account can do neither.
 
----
+Things worth knowing:
 
-## What you do in this exercise
+- When a worker may not open a file, NGINX answers `403 Forbidden` and writes the
+  reason, including `(13: Permission denied)`, to the error log.
+- Running the workers as `root` makes every permission problem disappear, which is
+  exactly why it is not a fix: any bug in a worker would run with full privileges.
+- `user` only has an effect when the master runs as root. Otherwise NGINX ignores
+  it with a warning. That is why this lab runs in a container, where the master is
+  root.
 
-You work only inside this directory:
-
-    04_worker_user/
-
-The idea is:
-
-1. Configure NGINX so that:
-   - There is a `user` directive in the **main** context that uses the same
-     Unix user as the one running Nginxlings.
-   - There is an HTTP server that serves files from an `html/` directory
-     inside this folder.
-2. Make sure the `html/` directory and its `index.html` file are **owned by
-   the same user**.
-
-The checker will determine the current Unix user with:
-
-    id -un
-    id -gn
-
-and expect your `user` directive to match.
+Reference: [user](https://nginx.org/en/docs/ngx_core_module.html#user),
+[Beginner's guide](https://nginx.org/en/docs/beginners_guide.html).
 
 ---
 
-## What you need to prepare
+## Lab environment
 
-In the `04_worker_user` directory:
+Everything runs inside one Docker container built from this directory:
 
-1. **Main config file**
+- `Dockerfile` builds the image on `nginx:1.28.3-alpine`. It creates a dedicated
+  account and the site **/srv/site** with one `index.html`, owned by that account and
+  closed to others. **Keep the Dockerfile as it is**; the check verifies the owner
+  and mode of both paths.
+- `nginx.conf` is your file. It serves `/srv/site` on port 8080 and starts with a
+  `user` line copied from a Debian server.
 
-    Create or edit `nginx.conf` in this directory. It should have, at minimum:
-
-    - A `user` directive in the **main** context, using your current user
-      (the same user you see in `whoami`):
-
-        user youruser;
-        # or with a group:
-        user youruser yourgroup;
-
-      The checker will accept:
-
-      - `user <current_user>;`
-      - `user <current_user> <current_group>;`
-
-    - A basic `events` block:
-
-        events {
-            worker_connections 1024;
-        }
-
-    - An `http` block with a simple server, for example:
-
-        http {
-            server {
-                listen 8082;
-                server_name localhost;
-
-                # Web root inside this exercise folder
-                root html;
-                index index.html;
-
-                location / {
-                }
-            }
-        }
-
-    You are free to add logging, gzip, etc., as long as the syntax remains
-    valid and `nginx -t` passes.
-
-2. **Web root directory and file**
-
-    Create an `html/` directory in this folder and an `index.html` file inside
-    it, for example:
-
-        html/
-          index.html
-
-    The content of `index.html` is up to you; the checker only cares that it
-    exists and that the ownership is correct.
-
-3. **File ownership**
-
-    Make sure that:
-
-    - The `html/` directory is owned by the same user as the one running this
-      exercise.
-    - The `html/index.html` file is also owned by that user.
-
-    You can inspect ownership with:
-
-        ls -ld html
-        ls -l html/index.html
-
-    And, if needed, adjust it with `chown`, for example:
-
-        chown youruser:yourgroup html html/index.html
-
-    (In some environments you may need `sudo` for this.)
+The check (`c` or Enter in Nginxlings, or `./check.sh`) builds the image
+(`nginxlings/04_worker_user:check`), runs `nginx -t`, compares the owner and mode
+of `/srv/site` and `/srv/site/index.html` with the Dockerfile's, publishes container
+port 8080 on `http://127.0.0.1:18040/`, lists the worker processes with
+`ps -o user,args` and requests `/`.
 
 ---
 
-## What the checker validates
+## Task
 
-When you press `c` or `Enter` in Nginxlings, the script `check.sh` in this
-directory will run and validate:
+Edit only `nginx.conf`:
 
-1. **Configuration syntax**
-
-    - `nginx.conf` exists in this directory.
-    - `nginx -t -c nginx.conf -p .` succeeds (syntax and basic layout are OK).
-
-2. **`user` directive**
-
-    - In `nginx.conf` there is a `user` directive in the main context that
-      matches the current Unix user (and optionally its primary group).
-    - Accepted forms:
-
-        user <current_user>;
-        user <current_user> <current_group>;
-
-3. **Web root and ownership**
-
-    - There is an `html/` directory in this folder.
-    - There is an `html/index.html` file.
-    - Both `html/` and `html/index.html` are owned by the current user.
-
-If all these checks pass, the exercise will be marked as completed (✓) in the
-Nginxlings TUI.
+1. Make the workers run as an account that exists in this image and can read
+   `/srv/site/index.html`.
+2. The workers must not run as `root`.
+3. Keep the server block: port 8080, `root /srv/site`.
 
 ---
 
-## Tips
+## Success criteria
 
-- Remember that the `user` directive belongs at the **top level** of
-  `nginx.conf`, not inside `http {}`.
-- If the checker complains about ownership, verify with `ls -l` who owns the
-  files and use `chown` if necessary.
-- On systems where you start NGINX as a normal user, worker processes may
-  already run as that user. The purpose here is to get used to the `user`
-  directive and the relationship between worker user and file permissions.
+- The image builds and `nginx -t` accepts the configuration.
+- `/srv/site` and `/srv/site/index.html` keep the owner, group and mode that the
+  Dockerfile sets.
+- At least one worker process runs, and none of them runs as `root`.
+- `/` answers `200` with the page from `/srv/site/index.html`.
 
+---
+
+## If you are stuck
+
+Work through these one at a time, re-running the check in between:
+
+- `getpwnam("www-data") failed`: this is the starting state. `www-data` is the web
+  server account on Debian and Ubuntu. Which accounts exist in this Alpine image?
+- `"user" directive is not allowed here`: the directive is inside a block. Which
+  context is left?
+- `403 Forbidden: the workers cannot read /srv/site` and the error log shows
+  `is forbidden (13: Permission denied)`: compare the worker account that the
+  check prints with the owner and group of the files. The `chown` and `chmod`
+  lines of the Dockerfile show them. To look yourself, build an image
+  (`docker build -t ex04-debug .`) and run
+  `docker run --rm ex04-debug ls -ld /srv/site /srv/site/index.html`.
+- `The workers run as root`: root can read anything, so this proves nothing about
+  the permissions. Choose an unprivileged account.
+- `The owner or mode of /srv/site changed`: the Dockerfile was edited. Restore it
+  and solve the task in `nginx.conf`.
+
+---
+
+## Review questions
+
+- More than one `user` line passes this check. Find one that relies on the owner
+  bits and one that relies on the group bits. Which would you choose, and why?
+- Why does a directory need `x` and not only `r`? What would a worker in the
+  file's group get if `/srv/site` had mode `0740`?
+- What happens to the `user` directive if the container is started with
+  `docker run --user 101 ...`? What else fails in that case?
+- Without touching `nginx.conf` or the file modes, how could a deployment give the
+  default `nginx` account read access to `/srv/site`?

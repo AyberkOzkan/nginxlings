@@ -87,6 +87,6 @@ Bunları sırayla dene, aralarda check'i yeniden çalıştır:
 - `user` direktifini kaldırsaydın bu image'da worker'lar hangi hesapla çalışırdı
   ve bunun sebebini nerede görürsün?
 - Master process neden root olarak kalır da worker'lar kalmaz?
-- 04. egzersizdeki gibi NGINX normal bir kullanıcı tarafından başlatıldığında
-  `user` direktifine ne olur?
+- 8080 portundaki dinleyen soketi hangi süreç açar ve root olarak çalışmayan bir
+  worker bu soketten nasıl bağlantı kabul edebilir?
 - `ps aux`'ta kaç worker process görüyorsun ve bu sayıyı hangi direktif belirler?
