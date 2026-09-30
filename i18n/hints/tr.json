@@ -6,7 +6,7 @@
   "05_install_verify": "İmaj NGINX olmadan başlıyor: `nginx -v` konteyner içinde çalışsın diye dağıtım paketini bir `RUN` adımında kur.",
   "06_reverse_proxy": "Boş `location /` yerel dosyaları sunar; ona isteği 127.0.0.1:8080 üzerindeki backend'e ileten bir direktif ver.",
   "07_http_load_balancer": "İki backend'i listeleyen bir `upstream` tanımla ve `location /` isteklerini ona gönder; konteyner loglarındaki `upstream=` alanı her isteğe kimin cevap verdiğini gösterir.",
-  "08_stream_load_balancer": "Layer 4'te `location` blokları yoktur: `http`'nin içine değil yanına üst düzey bir `stream {}` tanımla ve `server`'ın tamamını upstream'e adıyla devret.",
+  "08_stream_load_balancer": "Layer 4'te `location` blokları yoktur: başlangıçtaki `http {}` bloğunu üst düzey bir `stream {}` bloğuna çevir (`http`'nin içine yazma) ve `server`'ın tamamını upstream'e adıyla devret.",
   "09_shared_zones_basics": "Zone, `http` içinde bir ad ve boyutla bir kez tanımlanır; bir `server` ya da `location` içindeki `limit_req` onu adıyla kullanana kadar hiçbir şey yapmaz.",
   "10_upstream_status_zone": "Upstream'e bir `zone` ver, sonra her server'a `resolve` ekle; böylece Docker DNS adları başlangıçta değil çalışma sırasında çözülür.",
   "11_zone_sync_api": "Birebir eşleşen bir `location =` paketteki JSON dosyasını sunabilir; MIME eşlemesi olmadığı için Content-Type'ı `default_type` ile kendin belirlemelisin.",

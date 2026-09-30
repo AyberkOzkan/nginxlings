@@ -6,7 +6,7 @@
   "05_install_verify": "The image starts without NGINX: install the distribution package in a `RUN` step so that `nginx -v` works inside the container.",
   "06_reverse_proxy": "The empty `location /` serves local files; give it a directive that forwards the request to the backend on 127.0.0.1:8080.",
   "07_http_load_balancer": "Define an `upstream` that lists both backends and send `location /` to it; the `upstream=` field in the container logs shows who answered each request.",
-  "08_stream_load_balancer": "Layer 4 has no `location` blocks: define a top-level `stream {}` next to `http`, not inside it, and hand the whole `server` to the upstream by name.",
+  "08_stream_load_balancer": "Layer 4 has no `location` blocks: turn the starter's `http {}` into a top-level `stream {}` (never nest it inside `http`) and hand the whole `server` to the upstream by name.",
   "09_shared_zones_basics": "A zone is declared once in `http` with a name and a size, and does nothing until a `limit_req` in a `server` or `location` refers to it by name.",
   "10_upstream_status_zone": "Give the upstream a `zone`, then add `resolve` to each server so the Docker DNS names are looked up at runtime instead of at startup.",
   "11_zone_sync_api": "An exact-match `location =` can serve the bundled JSON file; without a MIME map you must set the Content-Type yourself with `default_type`.",
