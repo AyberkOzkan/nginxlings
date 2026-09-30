@@ -17,12 +17,10 @@ Pratik edeceklerin:
 
 Aynı NGINX programı, yapılandırmasına göre farklı roller oynar:
 
-| Yapılandırma | Rol | Katman |
-| --- | --- | --- |
-| Dosya sunan `root` / `index` | web sunucusu | L7 |
-| `http` içinde `upstream` + `proxy_pass http://...` | reverse proxy, L7 load balancer | L7 |
-| Upstream cevaplarını saklayan `proxy_cache` | önbellek (cache) | L7 |
-| `stream` içinde `upstream` + `proxy_pass ad` | L4 load balancer | L4 |
+- Dosya sunan `root` / `index`: **web sunucusu** (L7)
+- `http` içinde `upstream` + `proxy_pass http://...`: **reverse proxy, L7 load balancer** (L7)
+- Upstream cevaplarını saklayan `proxy_cache`: **önbellek (cache)** (L7)
+- `stream` içinde `upstream` + `proxy_pass ad`: **L4 load balancer** (L4)
 
 **Layer 7**'de NGINX HTTP'yi çözümler: method, URI, başlıklar, host, cookie'ler.
 Path'e göre yönlendirebilir, başlık ekleyebilir, cevapları önbelleğe alabilir.

@@ -18,12 +18,10 @@ You will practise:
 
 The same NGINX binary plays different roles depending on its configuration:
 
-| Configuration | Role | Layer |
-| --- | --- | --- |
-| `root` / `index` serving files | web server | L7 |
-| `upstream` + `proxy_pass http://...` in `http` | reverse proxy, L7 load balancer | L7 |
-| `proxy_cache` storing upstream responses | cache | L7 |
-| `upstream` + `proxy_pass name` in `stream` | L4 load balancer | L4 |
+- `root` / `index` serving files: **web server** (L7)
+- `upstream` + `proxy_pass http://...` in `http`: **reverse proxy, L7 load balancer** (L7)
+- `proxy_cache` storing upstream responses: **cache** (L7)
+- `upstream` + `proxy_pass name` in `stream`: **L4 load balancer** (L4)
 
 At **Layer 7** NGINX parses HTTP: method, URI, headers, host, cookies. It can route
 by path, add headers and cache responses. That is why an upstream in `http {}` is
