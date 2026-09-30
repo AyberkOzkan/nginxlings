@@ -1,4 +1,6 @@
-package main
+// Package checklib tests exercises/lib/check-lib.sh by running it with bash
+// and fake binaries.
+package checklib
 
 import (
 	"context"
@@ -15,6 +17,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"nginxlings/tests/testutil"
 )
 
 // These tests run exercises/lib/check-lib.sh with bash and fake binaries.
@@ -27,12 +31,12 @@ type libRun struct {
 }
 
 func (r libRun) lastLine() string {
-	return lastLine(r.output)
+	return testutil.LastLine(r.output)
 }
 
 func checkLibPath(t *testing.T) string {
 	t.Helper()
-	path, err := filepath.Abs(filepath.Join(repoRoot(t), "exercises", exerciseLibDir, "check-lib.sh"))
+	path, err := filepath.Abs(filepath.Join(testutil.RepoRoot(t), "exercises", testutil.LibDir, "check-lib.sh"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +269,7 @@ while :; do sleep 0.05; done`, signalMarker, ready)))
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	waitForFile(t, ready)
+	testutil.WaitForFile(t, ready)
 	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		t.Fatal(err)
 	}
