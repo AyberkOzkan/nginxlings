@@ -6,7 +6,7 @@ The project currently includes 18 exercises under `exercises/`.
 
 ## Requirements
 
-- Go 1.25 or newer (only to build or run from source)
+- Go 1.26 or newer (only to build or run from source)
 - A POSIX-like shell environment
 - `bash`
 - `curl`
