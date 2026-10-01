@@ -76,6 +76,9 @@ type model struct {
 	// confirmResetFiles waits for y/n before the selected exercise's
 	// starting files are restored.
 	confirmResetFiles bool
+
+	// setup is the last setup check, nil until the first one finishes.
+	setup *setupReport
 }
 
 // panelMode selects the content of the right panel.
@@ -85,6 +88,8 @@ const (
 	panelInstructions panelMode = iota
 	panelCheckOutput
 	panelHint
+	panelSetup
+	panelKeys
 )
 
 /* ---------- Yardımcı fonksiyonlar ---------- */

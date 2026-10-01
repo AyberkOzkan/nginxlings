@@ -13,6 +13,7 @@ type Styles struct {
 	Box                   lipgloss.Style
 	StatusBar             lipgloss.Style
 	Help                  lipgloss.Style
+	Warning               lipgloss.Style
 }
 
 // DefaultStyles: koyu tema terminal için varsayılan görünüm.
@@ -51,6 +52,11 @@ func DefaultStyles() Styles {
 
 	s.Help = lipgloss.NewStyle().
 		Faint(true).
+		Padding(0, 1)
+
+	s.Warning = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("214")). // turuncu
+		Bold(true).
 		Padding(0, 1)
 
 	return s

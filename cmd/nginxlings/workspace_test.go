@@ -261,7 +261,7 @@ func workspaceModel(t *testing.T) (model, string) {
 	writeFile(t, filepath.Join(root, "exercises", "01_static", "README.en.md"), "# 01 – Static\n")
 	writeFile(t, filepath.Join(root, "exercises", "01_static", "README.tr.md"), "# 01 – Statik\n")
 	writeFile(t, filepath.Join(root, "exercises", "01_static", "nginx.conf"), "starting conf\n")
-	if err := os.WriteFile(filepath.Join(root, "exercises", "01_static", "check.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "exercises", "01_static", "check.sh"), []byte("#!/bin/sh\nrequire_docker\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	workspace := filepath.Join(t.TempDir(), "nginxlings")

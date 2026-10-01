@@ -100,6 +100,26 @@ func TestTUIHintTogglesWithInstructions(t *testing.T) {
 	s.waitForFrame(100, 30, en)
 }
 
+// TestTUIKeysAndSetupPanels opens the full key list with ? and the setup
+// check with d; each key returns to the instructions.
+func TestTUIKeysAndSetupPanels(t *testing.T) {
+	en := textsFor(t, "en")
+	s := start(t, options{cols: 100, rows: 30})
+	s.waitForFrame(100, 30, en)
+
+	s.press("?")
+	s.waitForText(uiText(t, "en", "keys_title"))
+	s.waitForText(uiText(t, "en", "status_showing_keys"))
+	s.press("?")
+	s.waitForText(uiText(t, "en", "status_showing_instructions"))
+
+	s.press("d")
+	s.waitForText(uiText(t, "en", "doctor_title"))
+	s.press("d")
+	s.waitForText(uiText(t, "en", "status_showing_instructions"))
+	s.waitForFrame(100, 30, en)
+}
+
 func TestTUILanguageSwitchTranslatesTheScreen(t *testing.T) {
 	s := start(t, options{cols: 100, rows: 30, lang: "en"})
 	s.waitForFrame(100, 30, textsFor(t, "en"))

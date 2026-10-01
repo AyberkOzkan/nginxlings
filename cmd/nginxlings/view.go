@@ -383,7 +383,7 @@ func (m *model) renderMarkdown(raw string) string {
 /* ---------- Status and key help ---------- */
 
 func (m model) helpText() string {
-	return m.ui("help", "W/S select · c/Enter check · Tab view · h hint · o open folder · e reset files · l language · r reset progress · q quit · ↑/↓ PgUp/PgDn ←/→ scroll")
+	return m.ui("help", "W/S select · c check · Tab view · h hint · o folder · ? all keys · q quit")
 }
 
 // statusText is the status message behind the ready or running label.
@@ -422,6 +422,10 @@ func (m model) statusRows(maxRows int) []string {
 	progressLabel := fmt.Sprintf("%d/%d", completed, total)
 	progressSegment := m.styles.Help.Render(progressLabel)
 	langSegment := m.styles.Help.Render(fmt.Sprintf("%s: %s", m.ui("lang_label", "Lang"), m.currentLangLabel()))
+	// A failed setup check stays in sight until it is fixed.
+	if m.setup != nil && len(m.setup.problems) > 0 {
+		langSegment += m.styles.Warning.Render(fmt.Sprintf("! %s: %d", m.ui("setup_label", "Setup"), len(m.setup.problems)))
+	}
 	statusText := m.statusText()
 
 	var rows []string
@@ -462,6 +466,10 @@ func (m model) View() string {
 		instTitle = m.ui("check_output_title", "Last Check Output")
 	case panelHint:
 		instTitle = m.ui("hint_title", "Hint")
+	case panelSetup:
+		instTitle = m.ui("doctor_title", "Setup check")
+	case panelKeys:
+		instTitle = m.ui("keys_title", "Keys")
 	}
 	if layout.compact {
 		lines := make([]string, 0, 3)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -19,6 +20,7 @@ const (
 	modeVersion
 	modeList
 	modeCheck
+	modeDoctor
 )
 
 type cliOptions struct {
@@ -56,6 +58,8 @@ func runCLI(args []string, stdout, stderr io.Writer, runner checkRunner, startTU
 		return runList(opts, stdout, stderr)
 	case modeCheck:
 		return runCheckCommand(opts, stdout, stderr, runner)
+	case modeDoctor:
+		return runDoctor(opts, stdout, stderr)
 	default:
 		if err := startTUI(opts); err != nil {
 			fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -73,6 +77,7 @@ func parseCLI(args []string, output io.Writer) (cliOptions, error) {
 	help := fs.Bool("help", false, "show help")
 	versionFlag := fs.Bool("version", false, "show version")
 	list := fs.Bool("list", false, "list exercises")
+	doctor := fs.Bool("doctor", false, "check that the exercises can run")
 	fs.StringVar(&opts.checkID, "check", "", "run one exercise check without TUI")
 	fs.StringVar(&opts.lang, "lang", "", "initial language code")
 	fs.StringVar(&opts.root, "root", "", "asset root containing exercises/ and i18n/")
@@ -103,6 +108,12 @@ func parseCLI(args []string, output io.Writer) (cliOptions, error) {
 		}
 		opts.mode = modeCheck
 	}
+	if *doctor {
+		if opts.mode != modeTUI {
+			return opts, fmt.Errorf("--doctor cannot be combined with --list or --check")
+		}
+		opts.mode = modeDoctor
+	}
 
 	return opts, nil
 }
@@ -117,6 +128,8 @@ Flags:
   --lang <code>   Set initial TUI language, for example "en" or "tr".
   --list          List exercises and exit.
   --check <id>    Run one exercise check without starting the TUI.
+  --doctor        Check that the tools the exercises need are installed and
+                  that Docker answers, and say how to fix what is missing.
   --root <path>   Asset root containing exercises/ and i18n/.
   --state <path>  State file path.
   --workspace <path>
@@ -166,6 +179,41 @@ func runCheckCommand(opts cliOptions, stdout, stderr io.Writer, runner checkRunn
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "Check failed for %s: %v\n", opts.checkID, err)
+		return 1
+	}
+	return 0
+}
+
+// runDoctor prints the setup check and fails when something is missing.
+func runDoctor(opts cliOptions, stdout, stderr io.Writer) int {
+	assetRoot, err := ResolveAssetRootWithOptions(opts.root)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	exercises, err := LoadExercises(assetRoot)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	lang := opts.lang
+	if lang == "" {
+		lang = "en"
+	}
+	if err := validateLangCode(assetRoot, lang); err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 2
+	}
+	i18n, _ := LoadI18n(assetRoot)
+	t := func(key, fallback string) string {
+		if i18n == nil {
+			return fallback
+		}
+		return i18n.T(lang, key, fallback)
+	}
+	report := runSetupCheck(context.Background(), exercises, newSetupEnv())
+	fmt.Fprint(stdout, setupText(setupReportLines(report, t)))
+	if len(report.problems) > 0 {
 		return 1
 	}
 	return 0

@@ -58,6 +58,7 @@ from the starting files.
 | The frame check itself rejects damaged screens | `TestFrameCheckRejectsDamagedScreens` |
 | `s`/`w` move the selection; keys typed faster than a redraw are all counted | `TestTUINavigationCountsEveryKeyPress` |
 | `h` opens and closes the hint | `TestTUIHintTogglesWithInstructions` |
+| `?` lists every key and `d` opens the setup check; each returns to the instructions | `TestTUIKeysAndSetupPanels` |
 | `l` switches the language of titles, list names and the README | `TestTUILanguageSwitchTranslatesTheScreen` |
 | PgDn/PgUp scroll the instructions | `TestTUIScrollMovesTheInstructions` |
 | `c` runs a passing and a failing check; output panel, `Tab`, list marks, progress and the saved state follow | `TestTUICheckFlowShowsResultAndProgress` |

@@ -59,6 +59,7 @@ dosyalarından farklı olan dosyalar bulunur.
 | Çerçeve denetimi bozulmuş ekranları reddetmeli | `TestFrameCheckRejectsDamagedScreens` |
 | `s`/`w` seçimi taşır; yeniden çizimden hızlı basılan tuşların hepsi sayılır | `TestTUINavigationCountsEveryKeyPress` |
 | `h` ipucunu açar ve kapatır | `TestTUIHintTogglesWithInstructions` |
+| `?` tüm tuşları listeler, `d` kurulum kontrolünü açar; ikisi de talimatlara döner | `TestTUIKeysAndSetupPanels` |
 | `l` başlıkların, liste adlarının ve README'nin dilini değiştirir | `TestTUILanguageSwitchTranslatesTheScreen` |
 | PgDn/PgUp talimatları kaydırır | `TestTUIScrollMovesTheInstructions` |
 | `c` başarılı ve başarısız bir kontrol çalıştırır; çıktı paneli, `Tab`, liste işaretleri, ilerleme ve kaydedilen durum buna uyar | `TestTUICheckFlowShowsResultAndProgress` |

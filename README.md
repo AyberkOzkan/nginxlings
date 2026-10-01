@@ -40,6 +40,8 @@ Inside the TUI:
 - `tab`: toggle between instructions and the last check output, which opens at
   its end where the result is
 - `h`: show the selected exercise's hint (press again to return)
+- `d`: setup check: what the exercises still need and how to fix it
+- `?`: list every key in the right panel
 - `o`: open the selected exercise's folder in the file manager
 - `e`: restore the selected exercise's starting files (installed package only; asks first)
 - `l`: switch language
@@ -59,6 +61,13 @@ List exercises in the same stable order used by the TUI:
 
 ```sh
 go run ./cmd/nginxlings --list
+```
+
+Check that the tools the exercises need are installed and that Docker answers; each problem comes with the command that fixes it, and the exit code is 1 while something is missing:
+
+```sh
+go run ./cmd/nginxlings --doctor
+go run ./cmd/nginxlings --doctor --lang tr
 ```
 
 Run one exercise check without starting the TUI:

@@ -220,7 +220,52 @@ func displayPath(path string) string {
 /* ---------- Bubble Tea Update ---------- */
 
 func (m model) Init() tea.Cmd {
-	return m.spinner.Tick
+	return tea.Batch(m.spinner.Tick, m.setupCheckCmd())
+}
+
+type setupCheckMsg struct {
+	report setupReport
+}
+
+type setupFixDoneMsg struct {
+	err error
+}
+
+// newSetupEnv is what the TUI's setup check reads; tests replace it.
+var newSetupEnv = systemSetupEnv
+
+// runFix hands the terminal to a fix command, so sudo can ask for the
+// password, and reports when it ends. Tests replace it.
+var runFix = func(argv []string) tea.Cmd {
+	return tea.ExecProcess(exec.Command(argv[0], argv[1:]...), func(err error) tea.Msg {
+		return setupFixDoneMsg{err: err}
+	})
+}
+
+// setupCheckCmd checks in the background what the exercises need.
+func (m model) setupCheckCmd() tea.Cmd {
+	exercises := append([]Exercise(nil), m.exercises...)
+	return func() tea.Msg {
+		return setupCheckMsg{report: runSetupCheck(context.Background(), exercises, newSetupEnv())}
+	}
+}
+
+// showKeys switches the right panel to the list of every key.
+func (m *model) showKeys() {
+	m.panel = panelKeys
+	m.readme.SetContent(m.renderMarkdown(m.ui("keys_markdown", "- **?**: show or hide this list\n- **q**: quit")))
+	m.readme.GotoTop()
+}
+
+// showSetup switches the right panel to the last setup check.
+func (m *model) showSetup() {
+	m.panel = panelSetup
+	content := m.ui("status_setup_checking", "Checking the setup...")
+	if m.setup != nil {
+		content = m.renderMarkdown(setupMarkdown(setupReportLines(*m.setup, m.ui), m.ui))
+	}
+	m.readme.SetContent(content)
+	m.readme.GotoTop()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -281,6 +326,10 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showCheckOutput()
 		case panel == panelHint:
 			m.showHint()
+		case panel == panelSetup:
+			m.showSetup()
+		case panel == panelKeys:
+			m.showKeys()
 		}
 		switch {
 		case atEnd:
@@ -447,6 +496,47 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.status = m.uif("status_reset_files_confirm", "Restore the starting files of %s? Your changes to this exercise will be lost. (y/n)", m.selectedExerciseName())
 			}
 
+		// Tüm tuşların listesi
+		case "?":
+			if m.panel == panelKeys {
+				m.panel = panelInstructions
+				m.readme.SetContent(m.instructionsContent)
+				m.readme.GotoTop()
+				m.status = m.ui("status_showing_instructions", "Showing exercise instructions.")
+				break
+			}
+			m.showKeys()
+			m.status = m.ui("status_showing_keys", "Showing all keys. Press ? or Tab to return.")
+
+		// Kurulum kontrolü: aç/kapat; her açılışta yeniden kontrol et
+		case "d", "D":
+			if m.panel == panelSetup {
+				m.panel = panelInstructions
+				m.readme.SetContent(m.instructionsContent)
+				m.readme.GotoTop()
+				m.status = m.ui("status_showing_instructions", "Showing exercise instructions.")
+				return m, nil
+			}
+			m.showSetup()
+			m.status = m.ui("status_showing_setup", "Showing the setup check. Press d or Tab to return.")
+			return m, m.setupCheckCmd()
+
+		// Kurulum panelindeki ilk düzeltmeyi çalıştır
+		case "f", "F":
+			if m.panel != panelSetup {
+				break
+			}
+			var fix []string
+			if m.setup != nil {
+				fix, _ = m.setup.firstFix()
+			}
+			if fix == nil {
+				m.status = m.ui("status_setup_nothing_to_fix", "There is no command to run.")
+				break
+			}
+			m.status = m.uif("status_setup_running_fix", "Running %s", shellCommand(fix))
+			return m, runFix(fix)
+
 		// Egzersiz klasörünü dosya yöneticisinde aç
 		case "o", "O":
 			m.status = m.openExerciseFolder()
@@ -529,6 +619,31 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
+
+	case setupCheckMsg:
+		report := msg.report
+		m.setup = &report
+		problems := len(report.problems)
+		switch {
+		case m.panel == panelSetup:
+			m.showSetup()
+			if problems == 0 {
+				m.status = m.ui("status_setup_ok", "Everything the exercises need is ready.")
+			} else {
+				m.status = m.uif("status_setup_remaining", "Setup problems left: %d.", problems)
+			}
+		case problems > 0 && m.status == m.initialStatusText():
+			m.status = m.uif("status_setup_problems", "Setup needs attention (%d). Press d to see what to do.", problems)
+		}
+		return m, nil
+
+	case setupFixDoneMsg:
+		if msg.err != nil {
+			m.status = m.uif("status_setup_fix_failed", "The command did not finish: %v", msg.err)
+		} else {
+			m.status = m.ui("status_setup_fix_done", "Done. Checking the setup again...")
+		}
+		return m, m.setupCheckCmd()
 
 	case spinner.TickMsg:
 		if m.loading {
