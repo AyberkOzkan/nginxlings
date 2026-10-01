@@ -356,7 +356,7 @@ func (m *model) renderMarkdown(raw string) string {
 		}
 	}
 
-	out, err := mdRenderer.Render(raw)
+	out, err := mdRenderer.Render(joinListLineBreaks(raw))
 	if err != nil {
 		return raw
 	}
