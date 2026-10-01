@@ -96,7 +96,9 @@ Inside the TUI:
 When tmux is installed (the packages install it), `nginxlings` starts in a tmux
 session of its own: the app on top and a shell in the selected exercise's
 folder at the bottom, so editing files and running commands needs no second
-terminal window. The line between them names the keys. The session uses its own
+terminal window. Double lines frame the terminal: the one above names the keys,
+the one below shows the terminal's folder, and their text turns orange while
+the terminal has the keyboard. The session uses its own
 tmux server and configuration, so your tmux setup is not touched, and it ends
 when you quit nginxlings or close the window. The mouse works in tmux there: to
 select text with it, hold `Shift` while dragging.

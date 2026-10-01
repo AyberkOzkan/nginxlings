@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -37,9 +38,20 @@ set -g default-terminal "screen-256color"
 # Closing the terminal window detaches its client: end the session then.
 set-hook -g client-detached kill-session
 set -g history-limit 5000
-set -g pane-border-status top
-set -g pane-border-format " #{pane_title} "
-set -g pane-active-border-style "fg=colour214"
+# Double lines frame the terminal in the colour of nginxlings' panels. The
+# line above it is the bottom line of nginxlings' pane and names the keys
+# (nginxlings' pane title); the line below it shows the terminal's folder.
+# Their text turns orange while the terminal has the keyboard.
+set -g pane-border-lines double
+# The lines appear with the terminal pane and go when it closes, so a lone
+# nginxlings pane has no empty line below it.
+set -g pane-border-status off
+set-hook -g after-split-window 'set -w pane-border-status bottom'
+set-hook -g pane-exited 'if -F "#{==:#{window_panes},1}" "set -w pane-border-status off"'
+set-hook -g after-kill-pane 'if -F "#{==:#{window_panes},1}" "set -w pane-border-status off"'
+set -g pane-border-style "fg=colour60"
+set -g pane-active-border-style "fg=colour60"
+set -g pane-border-format "#{?#{==:#{pane_index},0},#{?#{>:#{window_panes},1},#{?pane_active,#[fg=colour103],#[fg=colour214]#[bold]} #{pane_title} ,},#{?pane_active,#[fg=colour214]#[bold],#[fg=colour103]} #{s|^{{HOME}}|~|:pane_current_path} }"
 # F2 moves between nginxlings and the terminal. Alt+Up and Alt+Down make the
 # terminal taller or shorter; dragging the line above it works too.
 bind -n F2 select-pane -t :.+
@@ -94,11 +106,26 @@ func planTmux(opts cliOptions, env tmuxEnv, exe string, args []string, config st
 		inner += " " + shellQuote(arg)
 	}
 	session := fmt.Sprintf("nginxlings-%d", os.Getpid())
+	// -u: nginxlings draws with UTF-8 even where the locale does not say
+	// UTF-8; tmux would otherwise print its box lines and Turkish letters as _.
 	return tmuxLaunch{
-		create: []string{tmux, "-L", tmuxSocket, "-f", config, "new-session", "-d", "-s", session,
+		create: []string{tmux, "-u", "-L", tmuxSocket, "-f", config, "new-session", "-d", "-s", session,
 			"-x", fmt.Sprint(env.width), "-y", fmt.Sprint(env.height), inner},
-		attach: []string{tmux, "-L", tmuxSocket, "attach-session", "-t", session},
+		attach: []string{tmux, "-u", "-L", tmuxSocket, "attach-session", "-t", session},
 	}, true
+}
+
+// plainHome matches a home directory that can go into the tmux format as it
+// is; another one is shown in full instead of as ~.
+var plainHome = regexp.MustCompile(`^/[A-Za-z0-9/_.-]+$`)
+
+// renderTmuxConfig fills the learner's home directory into the
+// configuration, so the terminal's folder reads ~/nginxlings/...
+func renderTmuxConfig(home string) string {
+	if !plainHome.MatchString(home) {
+		home = "/nonexistent-home"
+	}
+	return strings.ReplaceAll(tmuxConfig, "{{HOME}}", strings.TrimRight(home, "/"))
 }
 
 // writeTmuxConfig writes the session configuration into the state directory.
@@ -106,8 +133,9 @@ func writeTmuxConfig(dir string) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
+	home, _ := os.UserHomeDir()
 	path := filepath.Join(dir, "tmux.conf")
-	return path, os.WriteFile(path, []byte(tmuxConfig), 0o644)
+	return path, os.WriteFile(path, []byte(renderTmuxConfig(home)), 0o644)
 }
 
 // shellQuote quotes s for a POSIX shell.
@@ -134,7 +162,7 @@ type shellDoneMsg struct{}
 
 // openTerminalPane splits the window and starts a shell in dir below
 // nginxlings. focus moves the cursor into it.
-func openTerminalPane(dir string, height int, focus bool, title string) tea.Cmd {
+func openTerminalPane(dir string, height int, focus bool) tea.Cmd {
 	return func() tea.Msg {
 		rows := max(5, height*30/100)
 		args := []string{"split-window", "-v", "-l", fmt.Sprint(rows), "-c", dir, "-P", "-F", "#{pane_id}"}
@@ -145,7 +173,6 @@ func openTerminalPane(dir string, height int, focus bool, title string) tea.Cmd 
 		if err != nil {
 			return terminalPaneMsg{err: fmt.Errorf("%v: %s", err, pane)}
 		}
-		_, _ = runTmux("select-pane", "-t", pane, "-T", title)
 		return terminalPaneMsg{pane: pane}
 	}
 }

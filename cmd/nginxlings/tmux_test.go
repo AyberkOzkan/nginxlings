@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -33,12 +34,12 @@ func TestPlanTmuxStartsItsOwnSessionOnlyWhenItCan(t *testing.T) {
 		t.Fatal("planTmux() refused a terminal with tmux")
 	}
 	session := fmt.Sprintf("nginxlings-%d", os.Getpid())
-	wantCreate := []string{"/usr/bin/tmux", "-L", "nginxlings", "-f", "/state/tmux.conf", "new-session", "-d", "-s", session,
+	wantCreate := []string{"/usr/bin/tmux", "-u", "-L", "nginxlings", "-f", "/state/tmux.conf", "new-session", "-d", "-s", session,
 		"-x", "100", "-y", "30", "NGINXLINGS_TMUX=1 exec '/usr/bin/nginxlings' '--lang' 'tr'"}
 	if strings.Join(launch.create, "|") != strings.Join(wantCreate, "|") {
 		t.Fatalf("create = %q\nwant     %q", launch.create, wantCreate)
 	}
-	if want := []string{"/usr/bin/tmux", "-L", "nginxlings", "attach-session", "-t", session}; strings.Join(launch.attach, "|") != strings.Join(want, "|") {
+	if want := []string{"/usr/bin/tmux", "-u", "-L", "nginxlings", "attach-session", "-t", session}; strings.Join(launch.attach, "|") != strings.Join(want, "|") {
 		t.Fatalf("attach = %q, want %q", launch.attach, want)
 	}
 
@@ -70,6 +71,16 @@ func TestPlanTmuxStartsItsOwnSessionOnlyWhenItCan(t *testing.T) {
 		if _, ok := planTmux(opts, env, "/usr/bin/nginxlings", nil, "/state/tmux.conf"); ok {
 			t.Errorf("%s: planTmux() started tmux", name)
 		}
+	}
+}
+
+func TestRenderTmuxConfigShortensTheHomeDirectory(t *testing.T) {
+	if got := renderTmuxConfig("/home/learner/"); !strings.Contains(got, "#{s|^/home/learner|~|:pane_current_path}") || strings.Contains(got, "{{HOME}}") {
+		t.Fatalf("config does not shorten /home/learner:\n%s", got)
+	}
+	// A home the format cannot hold as it is stays in full.
+	if got := renderTmuxConfig("/home/a|b"); strings.Contains(got, "a|b") || !strings.Contains(got, "^/nonexistent-home|") {
+		t.Fatal("an unusual home directory went into the format")
 	}
 }
 
@@ -109,8 +120,20 @@ func TestTmuxConfigLoads(t *testing.T) {
 	if got := tmux("show-options", "-g", "status"); strings.TrimSpace(got) != "status off" {
 		t.Fatalf("status option = %q: the configuration was not applied", got)
 	}
+	if got := tmux("show-options", "-g", "pane-border-lines"); strings.TrimSpace(got) != "pane-border-lines double" {
+		t.Fatalf("pane-border-lines = %q, want double", got)
+	}
 	if got := tmux("show-hooks", "-g"); !strings.Contains(got, "kill-session") {
 		t.Fatalf("hooks = %q, want the client-detached kill-session hook", got)
+	}
+	// The framing lines come with the terminal pane and go with it.
+	tmux("split-window", "-v", "-l", "6", "sleep 1")
+	if got := tmux("show-options", "-wv", "-t", "probe", "pane-border-status"); strings.TrimSpace(got) != "bottom" {
+		t.Fatalf("pane-border-status with a terminal = %q, want bottom", got)
+	}
+	time.Sleep(1500 * time.Millisecond)
+	if got := tmux("show-options", "-wv", "-t", "probe", "pane-border-status"); strings.TrimSpace(got) != "off" {
+		t.Fatalf("pane-border-status after the terminal exited = %q, want off", got)
 	}
 	// A session created in the background must survive until a client
 	// attaches; destroy-unattached would remove it at once.

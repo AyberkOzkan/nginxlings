@@ -231,13 +231,13 @@ func (m model) selectedDir() string {
 }
 
 // openTerminal opens the shell pane below the app in the selected folder.
+// The line between them shows the app pane's title, which names the keys.
 func (m model) openTerminal(focus bool) tea.Cmd {
 	title := m.ui("terminal_pane_title", "Terminal · F2: switch · Alt+↑/↓: resize")
-	appTitle := m.ui("app_pane_title", "nginxlings · F2: terminal")
-	open := openTerminalPane(m.selectedDir(), m.height, focus, title)
+	open := openTerminalPane(m.selectedDir(), m.height, focus)
 	return func() tea.Msg {
 		if pane := os.Getenv("TMUX_PANE"); pane != "" {
-			_, _ = runTmux("select-pane", "-t", pane, "-T", appTitle)
+			_, _ = runTmux("select-pane", "-t", pane, "-T", title)
 		}
 		return open()
 	}
@@ -263,19 +263,16 @@ func (m model) terminalToSelected() tea.Cmd {
 	}
 }
 
-// retitleTerminal translates the pane titles after a language switch.
+// retitleTerminal translates the line above the terminal after a language
+// switch.
 func (m model) retitleTerminal() tea.Cmd {
-	if m.terminalPane == "" {
+	own := os.Getenv("TMUX_PANE")
+	if m.terminalPane == "" || own == "" {
 		return nil
 	}
-	pane := m.terminalPane
 	title := m.ui("terminal_pane_title", "Terminal · F2: switch · Alt+↑/↓: resize")
-	appTitle := m.ui("app_pane_title", "nginxlings · F2: terminal")
 	return func() tea.Msg {
-		_, _ = runTmux("select-pane", "-t", pane, "-T", title)
-		if own := os.Getenv("TMUX_PANE"); own != "" {
-			_, _ = runTmux("select-pane", "-t", own, "-T", appTitle)
-		}
+		_, _ = runTmux("select-pane", "-t", own, "-T", title)
 		return nil
 	}
 }
