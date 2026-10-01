@@ -206,6 +206,44 @@ func TestTUILongCheckResultStaysReadable(t *testing.T) {
 	})
 }
 
+// TestTUIWorkspaceResetRestoresStartingFiles runs with a workspace, as an
+// installed package does: the folder row names it, and e then y restores the
+// starting files of the selected exercise.
+func TestTUIWorkspaceResetRestoresStartingFiles(t *testing.T) {
+	en := textsFor(t, "en")
+	workspace := filepath.Join(t.TempDir(), "nginxlings")
+	s := start(t, options{cols: 100, rows: 30, root: fakeRoot(t), workspace: workspace})
+	s.waitForFrame(100, 30, en)
+	s.waitForText(uiText(t, "en", "files_label") + ": ")
+	s.waitForText("/01_pass")
+
+	script := filepath.Join(workspace, "01_pass", "check.sh")
+	started, err := os.ReadFile(script)
+	if err != nil {
+		t.Fatalf("the workspace was not created: %v", err)
+	}
+	readme := filepath.Join(workspace, "01_pass", "README.en.md")
+	if err := os.WriteFile(readme, []byte("# changed by the learner\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	notes := filepath.Join(workspace, "01_pass", "notes.txt")
+	if err := os.WriteFile(notes, []byte("scratch\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s.press("e")
+	s.waitForText("(y/n)")
+	s.press("y")
+	s.waitForText(uiText(t, "en", "status_reset_files_done"))
+	if _, err := os.Stat(notes); !os.IsNotExist(err) {
+		t.Fatalf("a learner file survived the reset: %v", err)
+	}
+	if now, _ := os.ReadFile(script); string(now) != string(started) {
+		t.Fatalf("check.sh = %q after reset, want %q", now, started)
+	}
+	s.waitForFrame(100, 30, en)
+}
+
 func TestTUIResetClearsProgress(t *testing.T) {
 	en := textsFor(t, "en")
 	s := start(t, options{cols: 100, rows: 30, root: fakeRoot(t)})

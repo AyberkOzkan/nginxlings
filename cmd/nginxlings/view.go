@@ -43,7 +43,7 @@ const (
 	// is too narrow for them. The extra rows come out of the instructions,
 	// which keep at least minReadmeRows rows.
 	maxStatusRows = 4
-	maxHelpRows   = 3
+	maxHelpRows   = 4
 	minReadmeRows = 6
 )
 
@@ -177,6 +177,23 @@ func truncateCells(s string, width int) string {
 		return s
 	}
 	return strings.TrimRight(clipCells(s, width-1), " ") + ellipsis
+}
+
+// truncateCellsLeft keeps the end of s that fits in width, marking the cut
+// start with an ellipsis.
+func truncateCellsLeft(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+	runes := []rune(s)
+	start := len(runes)
+	for start > 0 && lipgloss.Width(string(runes[start-1:]))+1 <= width {
+		start--
+	}
+	return ellipsis + string(runes[start:])
 }
 
 // wrapText word-wraps s into at most maxRows rows no wider than width, with
@@ -366,7 +383,7 @@ func (m *model) renderMarkdown(raw string) string {
 /* ---------- Status and key help ---------- */
 
 func (m model) helpText() string {
-	return m.ui("help", "W/S select · c/Enter check · Tab view · h hint · l language · r reset · q quit · ↑/↓ PgUp/PgDn ←/→ scroll")
+	return m.ui("help", "W/S select · c/Enter check · Tab view · h hint · o open folder · e reset files · l language · r reset progress · q quit · ↑/↓ PgUp/PgDn ←/→ scroll")
 }
 
 // statusText is the status message behind the ready or running label.
@@ -548,7 +565,15 @@ func (m model) View() string {
 
 	// Sağ panel
 	var rightBuilder strings.Builder
-	rightBuilder.WriteString(m.styles.Title.Width(layout.rightInnerWidth).Render(truncateCells(instTitle, layout.rightInnerWidth)) + "\n\n")
+	rightBuilder.WriteString(m.styles.Title.Width(layout.rightInnerWidth).Render(truncateCells(instTitle, layout.rightInnerWidth)) + "\n")
+	// The row under the title says where the selected exercise's files are.
+	if len(m.exercises) > 0 && m.cursor >= 0 && m.cursor < len(m.exercises) {
+		label := m.ui("files_label", "Files") + ": "
+		// A long path loses its start, so the exercise's own folder stays visible.
+		folder := label + truncateCellsLeft(displayPath(m.exercises[m.cursor].Path), layout.rightInnerWidth-lipgloss.Width(label))
+		rightBuilder.WriteString(m.styles.Help.Padding(0).Render(truncateCells(folder, layout.rightInnerWidth)))
+	}
+	rightBuilder.WriteString("\n")
 	// The footer can change height without an Update, for example in tests
 	// that render a model directly, so the viewport takes the height here.
 	readme := m.readme

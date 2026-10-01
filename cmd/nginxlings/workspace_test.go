@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestResolveAppPathsUsesTheShareDirOfAnInstalledPackage(t *testing.T) {
@@ -245,5 +247,128 @@ func TestResetExerciseRestoresTheStartingFiles(t *testing.T) {
 
 	if err := ResetExercise(template, workspace, "../etc"); err == nil {
 		t.Fatal("ResetExercise accepted an invalid id")
+	}
+}
+
+// workspaceModel returns a TUI model whose exercises live in a synced
+// workspace copied from a one-exercise template.
+func workspaceModel(t *testing.T) (model, string) {
+	t.Helper()
+	root := newCLIAppRoot(t)
+	if err := os.MkdirAll(filepath.Join(root, "exercises", "01_static"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(root, "exercises", "01_static", "README.en.md"), "# 01 – Static\n")
+	writeFile(t, filepath.Join(root, "exercises", "01_static", "README.tr.md"), "# 01 – Statik\n")
+	writeFile(t, filepath.Join(root, "exercises", "01_static", "nginx.conf"), "starting conf\n")
+	if err := os.WriteFile(filepath.Join(root, "exercises", "01_static", "check.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	workspace := filepath.Join(t.TempDir(), "nginxlings")
+	paths := AppPaths{AssetRoot: root, Workspace: workspace, StateFile: filepath.Join(t.TempDir(), "state.json")}
+	if err := syncWorkspace(paths); err != nil {
+		t.Fatal(err)
+	}
+	m := initialModelWithOptions(paths, "en")
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	return updated.(model), workspace
+}
+
+func pressKeys(m model, keys string) model {
+	for _, r := range keys {
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(model)
+	}
+	return m
+}
+
+func TestUpdateResetFilesRestoresTheExerciseAfterConfirmation(t *testing.T) {
+	m, workspace := workspaceModel(t)
+	conf := filepath.Join(workspace, "01_static", "nginx.conf")
+	if err := os.WriteFile(conf, []byte("my attempt\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m.exercises[0].Completed = true
+	m.state.Completed["01_static"] = true
+
+	m = pressKeys(m, "en")
+	if data, _ := os.ReadFile(conf); string(data) != "my attempt\n" {
+		t.Fatalf("n did not cancel: nginx.conf = %q", data)
+	}
+
+	m = pressKeys(m, "e")
+	if !strings.Contains(m.status, "(y/n)") {
+		t.Fatalf("status = %q, want a confirmation question", m.status)
+	}
+	m = pressKeys(m, "y")
+	if data, _ := os.ReadFile(conf); string(data) != "starting conf\n" {
+		t.Fatalf("nginx.conf = %q, want the starting file", data)
+	}
+	if m.exercises[0].Completed || m.state.Completed["01_static"] {
+		t.Fatal("the reset exercise is still marked completed")
+	}
+	if m.status != "Starting files restored." {
+		t.Fatalf("status = %q", m.status)
+	}
+}
+
+func TestUpdateResetFilesNeedsAWorkspace(t *testing.T) {
+	m, _ := workspaceModel(t)
+	m.paths.Workspace = ""
+	m = pressKeys(m, "e")
+	if m.confirmResetFiles || !strings.Contains(m.status, "no starting files") {
+		t.Fatalf("confirm = %v, status = %q, want the in-place explanation", m.confirmResetFiles, m.status)
+	}
+}
+
+func TestUpdateOpenFolderReportsWhereTheFilesAre(t *testing.T) {
+	m, workspace := workspaceModel(t)
+	var opened string
+	defer func(orig func(string) error) { openFolder = orig }(openFolder)
+	openFolder = func(dir string) error { opened = dir; return nil }
+
+	m = pressKeys(m, "o")
+	want := filepath.Join(workspace, "01_static")
+	if opened != want || !strings.Contains(m.status, displayPath(want)) {
+		t.Fatalf("opened %q, status %q, want %q", opened, m.status, want)
+	}
+
+	openFolder = func(string) error { return os.ErrNotExist }
+	m = pressKeys(m, "o")
+	if !strings.Contains(m.status, "No file manager") || !strings.Contains(m.status, displayPath(want)) {
+		t.Fatalf("status = %q, want the folder path after a failed open", m.status)
+	}
+}
+
+func TestViewShowsTheSelectedExerciseFolder(t *testing.T) {
+	m, workspace := workspaceModel(t)
+	view := m.View()
+	if !strings.Contains(view, "Files: …") || !strings.Contains(view, "/nginxlings/01_static │") {
+		t.Fatalf("view does not show the end of the exercise folder %s:\n%s", displayPath(filepath.Join(workspace, "01_static")), view)
+	}
+	if got := renderedRows(view); got != 30 {
+		t.Fatalf("rendered rows = %d, want 30", got)
+	}
+}
+
+func TestTruncateCellsLeftKeepsTheEnd(t *testing.T) {
+	if got := truncateCellsLeft("/home/learner/nginxlings/01_static_server", 20); got != "…gs/01_static_server" {
+		t.Fatalf("truncateCellsLeft() = %q", got)
+	}
+	if got := truncateCellsLeft("~/nginxlings/01", 20); got != "~/nginxlings/01" {
+		t.Fatalf("truncateCellsLeft() = %q, want unchanged", got)
+	}
+}
+
+func TestDisplayPathShortensTheHomeDirectory(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip(err)
+	}
+	if got := displayPath(filepath.Join(home, "nginxlings", "01_static")); got != "~/nginxlings/01_static" {
+		t.Fatalf("displayPath() = %q", got)
+	}
+	if got := displayPath("/srv/elsewhere"); got != "/srv/elsewhere" {
+		t.Fatalf("displayPath() = %q", got)
 	}
 }

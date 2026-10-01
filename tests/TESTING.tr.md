@@ -63,13 +63,14 @@ dosyalarından farklı olan dosyalar bulunur.
 | PgDn/PgUp talimatları kaydırır | `TestTUIScrollMovesTheInstructions` |
 | `c` başarılı ve başarısız bir kontrol çalıştırır; çıktı paneli, `Tab`, liste işaretleri, ilerleme ve kaydedilen durum buna uyar | `TestTUICheckFlowShowsResultAndProgress` |
 | 80x24'te uzun bir kontrol çıktısı sonundan açılır, uzun bir sonuç durum satırlarına sarılır | `TestTUILongCheckResultStaysReadable` |
+| Çalışma klasörüyle açılınca klasör satırı onu gösterir; `e` ve ardından `y` egzersizin başlangıç dosyalarını geri yükler | `TestTUIWorkspaceResetRestoresStartingFiles` |
 | `r` onay ister; `n` iptal eder, `y` ilerlemeyi sıfırlar | `TestTUIResetClearsProgress` |
 | Yeniden başlatma son seçilen egzersizi geri getirir | `TestTUIRestartRestoresTheSelectedExercise` |
 
 Geçerli bir çerçeve şu demektir: ilk satırda başlık; panellerin altında önce
 durum satırları, ardından son satıra kadar tuş yardımı satırları, aralarında boş
 satır olmadan (talimatlara 6 satır kaldığı sürece durum en fazla 4, tuş yardımı en
-fazla 3 satıra sarılır); sağ kenarı son sütuna ulaşan iki kapalı panel;
+fazla 4 satıra sarılır); sağ kenarı son sütuna ulaşan iki kapalı panel;
 80 sütundan itibaren yan yana, daha darda alt alta paneller; terminal 9 satırdan
 kısa ya da 80 sütundan dar ve 14 satırdan kısaysa kenarsız en fazla üç satır.
 

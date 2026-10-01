@@ -2,7 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -143,6 +149,74 @@ func (m *model) resetProgress() tea.Cmd {
 	return m.resetMarquee()
 }
 
+// resetExerciseFiles restores the selected exercise's starting files. The
+// exercise is no longer completed, since its check fails again.
+func (m *model) resetExerciseFiles() {
+	ex := m.exercises[m.cursor]
+	if err := ResetExercise(filepath.Join(m.paths.AssetRoot, "exercises"), m.paths.Workspace, ex.ID); err != nil {
+		m.status = m.uif("status_reset_files_failed", "Starting files could not be restored: %v", err)
+		return
+	}
+	m.exercises[m.cursor].Completed = false
+	delete(m.checkOutputs, ex.ID)
+	m.loadReadmeForCurrent()
+	m.status = m.ui("status_reset_files_done", "Starting files restored.")
+	if m.state != nil && m.state.Completed[ex.ID] {
+		delete(m.state.Completed, ex.ID)
+		if err := m.state.Save(m.paths.StateFile); err != nil {
+			m.status = m.uif("status_state_save_failed", "Progress could not be saved: %v", err)
+		}
+	}
+}
+
+// openFolder shows dir in the desktop file manager without waiting for it.
+// Tests replace it.
+var openFolder = func(dir string) error {
+	if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
+		return errors.New("no graphical session")
+	}
+	opener, err := exec.LookPath("xdg-open")
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(opener, dir)
+	// Its own process group keeps the file manager open after nginxlings quits.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go cmd.Wait()
+	return nil
+}
+
+// openExerciseFolder opens the selected exercise's folder and returns the
+// status that says where the files are.
+func (m model) openExerciseFolder() string {
+	if len(m.exercises) == 0 || m.cursor < 0 || m.cursor >= len(m.exercises) {
+		return m.ui("status_no_exercises", "No exercises found.")
+	}
+	dir := m.exercises[m.cursor].Path
+	if err := openFolder(dir); err != nil {
+		return m.uif("status_folder_open_failed", "No file manager could be opened. The files are in %s", displayPath(dir))
+	}
+	return m.uif("status_folder_opened", "Opened %s in the file manager.", displayPath(dir))
+}
+
+// displayPath shortens a path under the home directory to ~/...
+func displayPath(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return path
+	}
+	if path == home {
+		return "~"
+	}
+	if rel, ok := strings.CutPrefix(path, home+string(filepath.Separator)); ok {
+		return "~/" + filepath.ToSlash(rel)
+	}
+	return path
+}
+
 /* ---------- Bubble Tea Update ---------- */
 
 func (m model) Init() tea.Cmd {
@@ -231,15 +305,20 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Reset onayı açıksa sadece y/n/esc handle et
-		if m.confirmReset {
+		if m.confirmReset || m.confirmResetFiles {
 			switch key {
 			case "y", "Y":
-				m.confirmReset = false
+				files := m.confirmResetFiles
+				m.confirmReset, m.confirmResetFiles = false, false
+				if files {
+					m.resetExerciseFiles()
+					return m, nil
+				}
 				return m, m.resetProgress()
 
 			case "n", "N", "esc":
 				m.status = m.ui("status_reset_canceled", "Reset canceled.")
-				m.confirmReset = false
+				m.confirmReset, m.confirmResetFiles = false, false
 				return m, nil
 			}
 			// Farklı tuşsa görmezden gel
@@ -353,6 +432,24 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, m.resetMarquee()
 			}
+
+		// Seçili egzersizin başlangıç dosyalarını geri yükle
+		case "e", "E":
+			switch {
+			case m.loading:
+				m.status = m.ui("status_reset_files_blocked", "Wait for the running check to finish before restoring files.")
+			case m.paths.Workspace == "":
+				m.status = m.ui("status_reset_files_unavailable", "These exercises are edited where they ship, so there are no starting files to restore.")
+			case len(m.exercises) == 0:
+				m.status = m.ui("status_no_exercises", "No exercises found.")
+			default:
+				m.confirmResetFiles = true
+				m.status = m.uif("status_reset_files_confirm", "Restore the starting files of %s? Your changes to this exercise will be lost. (y/n)", m.selectedExerciseName())
+			}
+
+		// Egzersiz klasörünü dosya yöneticisinde aç
+		case "o", "O":
+			m.status = m.openExerciseFolder()
 
 		// Progress reset
 		case "r", "R":

@@ -13,7 +13,7 @@
   "status_no_check_output": "No check output yet.",
   "ready_label": "[READY]",
   "working_label": "[RUNNING]",
-  "help": "W/S select · c/Enter check · Tab view · h hint · l language · r reset · q quit · ↑/↓ PgUp/PgDn ←/→ scroll",
+  "help": "W/S select · c/Enter check · Tab view · h hint · o open folder · e reset files · l language · r reset progress · q quit · ↑/↓ PgUp/PgDn ←/→ scroll",
   "lang_label": "Lang",
   "status_loading": "Loading Nginxlings...",
   "status_state_load_failed": "Progress could not be loaded: %v",
@@ -27,5 +27,13 @@
   "status_reset_blocked": "Wait for the running check to finish before resetting progress.",
   "hint_title": "Hint",
   "status_showing_hint": "Showing the hint. Press h or Tab to return to the instructions.",
-  "list_more": "%d more"
+  "list_more": "%d more",
+  "files_label": "Files",
+  "status_reset_files_confirm": "Restore the starting files of %s? Your changes to this exercise will be lost. (y/n)",
+  "status_reset_files_done": "Starting files restored.",
+  "status_reset_files_failed": "Starting files could not be restored: %v",
+  "status_reset_files_unavailable": "These exercises are edited where they ship, so there are no starting files to restore.",
+  "status_reset_files_blocked": "Wait for the running check to finish before restoring files.",
+  "status_folder_opened": "Opened %s in the file manager.",
+  "status_folder_open_failed": "No file manager could be opened. The files are in %s"
 }

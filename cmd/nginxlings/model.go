@@ -73,6 +73,9 @@ type model struct {
 
 	// Reset onayı için
 	confirmReset bool
+	// confirmResetFiles waits for y/n before the selected exercise's
+	// starting files are restored.
+	confirmResetFiles bool
 }
 
 // panelMode selects the content of the right panel.

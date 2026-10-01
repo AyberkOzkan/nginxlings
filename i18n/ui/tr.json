@@ -13,7 +13,7 @@
   "status_no_check_output": "Henüz kontrol çıktısı yok.",
   "ready_label": "[HAZIR]",
   "working_label": "[ÇALIŞIYOR]",
-  "help": "W/S seç · c/Enter kontrol · Tab görünüm · h ipucu · l dil · r sıfırla · q çık · ↑/↓ PgUp/PgDn ←/→ kaydır",
+  "help": "W/S seç · c/Enter kontrol · Tab görünüm · h ipucu · o klasörü aç · e dosyaları sıfırla · l dil · r ilerlemeyi sıfırla · q çık · ↑/↓ PgUp/PgDn ←/→ kaydır",
   "lang_label": "Dil",
   "status_loading": "Nginxlings yükleniyor...",
   "status_state_load_failed": "İlerleme yüklenemedi: %v",
@@ -27,5 +27,13 @@
   "status_reset_blocked": "İlerlemeyi sıfırlamadan önce çalışan kontrolün bitmesini bekle.",
   "hint_title": "İpucu",
   "status_showing_hint": "İpucu gösteriliyor. Talimatlara dönmek için h veya Tab'a bas.",
-  "list_more": "%d tane daha"
+  "list_more": "%d tane daha",
+  "files_label": "Dosyalar",
+  "status_reset_files_confirm": "%s için başlangıç dosyaları geri yüklensin mi? Bu egzersizdeki değişikliklerin silinecek. (y/n)",
+  "status_reset_files_done": "Başlangıç dosyaları geri yüklendi.",
+  "status_reset_files_failed": "Başlangıç dosyaları geri yüklenemedi: %v",
+  "status_reset_files_unavailable": "Bu egzersizler bulundukları yerde düzenleniyor; geri yüklenecek başlangıç dosyaları yok.",
+  "status_reset_files_blocked": "Dosyaları geri yüklemeden önce çalışan kontrolün bitmesini bekle.",
+  "status_folder_opened": "%s dosya yöneticisinde açıldı.",
+  "status_folder_open_failed": "Dosya yöneticisi açılamadı. Dosyalar şurada: %s"
 }

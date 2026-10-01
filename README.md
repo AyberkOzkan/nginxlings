@@ -40,6 +40,8 @@ Inside the TUI:
 - `tab`: toggle between instructions and the last check output, which opens at
   its end where the result is
 - `h`: show the selected exercise's hint (press again to return)
+- `o`: open the selected exercise's folder in the file manager
+- `e`: restore the selected exercise's starting files (installed package only; asks first)
 - `l`: switch language
 - `r`: reset progress
 - `q`: quit

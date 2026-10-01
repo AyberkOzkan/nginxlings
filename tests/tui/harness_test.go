@@ -80,6 +80,8 @@ type options struct {
 	root string
 	// stateFile is reused across sessions when set.
 	stateFile string
+	// workspace, when set, is the learner's exercise folder (--workspace).
+	workspace string
 }
 
 func start(t *testing.T, opt options) *session {
@@ -93,7 +95,11 @@ func start(t *testing.T, opt options) *session {
 	if opt.lang == "" {
 		opt.lang = "en"
 	}
-	cmd := exec.Command(binPath, "--root", opt.root, "--state", opt.stateFile, "--lang", opt.lang)
+	args := []string{"--root", opt.root, "--state", opt.stateFile, "--lang", opt.lang}
+	if opt.workspace != "" {
+		args = append(args, "--workspace", opt.workspace)
+	}
+	cmd := exec.Command(binPath, args...)
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(opt.cols), Rows: uint16(opt.rows)})
 	if err != nil {
