@@ -244,7 +244,14 @@ active_config() {
 # Host NGINX
 # ---------------------------------------------------------------------------
 
-NGINX_BIN="${NGINX_BIN:-nginx}"
+# Debian and Ubuntu install nginx in /usr/sbin, which a regular user's PATH
+# may not contain.
+if [[ -z "${NGINX_BIN:-}" ]]; then
+  NGINX_BIN=nginx
+  if ! command -v nginx >/dev/null 2>&1 && [[ -x /usr/sbin/nginx ]]; then
+    NGINX_BIN=/usr/sbin/nginx
+  fi
+fi
 NGINX_PID=""
 NGINX_STDERR=""
 

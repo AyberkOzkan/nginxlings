@@ -16,6 +16,52 @@ import (
 )
 
 const checkScriptName = "check.sh"
+
+// sbinDirs hold programs such as nginx that Debian keeps out of a regular
+// user's PATH.
+var sbinDirs = []string{"/usr/local/sbin", "/usr/sbin", "/sbin"}
+
+// withSbinPath returns env with the sbin directories appended to PATH, so a
+// check finds nginx wherever the distribution installed it.
+func withSbinPath(env []string) []string {
+	out := make([]string, 0, len(env)+1)
+	path := ""
+	for _, kv := range env {
+		if value, ok := strings.CutPrefix(kv, "PATH="); ok {
+			path = value
+			continue
+		}
+		out = append(out, kv)
+	}
+	have := make(map[string]bool)
+	for _, dir := range filepath.SplitList(path) {
+		have[dir] = true
+	}
+	for _, dir := range sbinDirs {
+		if !have[dir] {
+			if path != "" {
+				path += string(os.PathListSeparator)
+			}
+			path += dir
+		}
+	}
+	return append(out, "PATH="+path)
+}
+
+// lookPathWithSbin finds cmd on PATH or in the sbin directories.
+func lookPathWithSbin(cmd string) (string, error) {
+	if path, err := exec.LookPath(cmd); err == nil {
+		return path, nil
+	}
+	for _, dir := range sbinDirs {
+		path := filepath.Join(dir, cmd)
+		if info, err := os.Stat(path); err == nil && !info.IsDir() && info.Mode().Perm()&0o111 != 0 {
+			return path, nil
+		}
+	}
+	return exec.LookPath(cmd)
+}
+
 const defaultCheckTimeout = 10 * time.Minute
 const checkTerminationGrace = 2 * time.Second
 
@@ -38,6 +84,7 @@ func runExerciseCheckContext(ctx context.Context, ex Exercise) (string, error) {
 
 	cmd := exec.Command("./" + checkScriptName)
 	cmd.Dir = ex.Path
+	cmd.Env = withSbinPath(os.Environ())
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	var buf bytes.Buffer

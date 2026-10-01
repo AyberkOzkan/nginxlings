@@ -66,7 +66,7 @@ func systemSetupEnv() setupEnv {
 		name = u.Username
 	}
 	return setupEnv{
-		lookPath:    exec.LookPath,
+		lookPath:    lookPathWithSbin,
 		dockerInfo:  runDockerInfo,
 		dockerGroup: dockerGroupMembership,
 		osRelease:   readOSRelease("/etc/os-release"),
@@ -180,7 +180,7 @@ func checkDocker(ctx context.Context, env setupEnv) (setupProblem, bool) {
 		problem.fix = startDockerCommand(env.lookPath)
 	default:
 		problem.kind = problemDockerOther
-		problem.detail = firstLine(out)
+		problem.detail = errorLine(out)
 		if problem.detail == "" {
 			problem.detail = err.Error()
 		}
@@ -188,8 +188,12 @@ func checkDocker(ctx context.Context, env setupEnv) (setupProblem, bool) {
 	return problem, false
 }
 
+// runDockerInfo runs `docker info` like the checks do. Podman's docker
+// command answers it too, but has no ServerVersion field, so no --format is
+// used. Older Docker clients print the daemon error on stdout and only
+// "errors pretty printing info" on stderr, so both are returned.
 func runDockerInfo(ctx context.Context) (string, error) {
-	out, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{.ServerVersion}}").CombinedOutput()
+	out, err := exec.CommandContext(ctx, "docker", "info").CombinedOutput()
 	if ctx.Err() != nil {
 		return "docker info did not answer in time", ctx.Err()
 	}
@@ -303,12 +307,24 @@ func readOSRelease(path string) map[string]string {
 	return values
 }
 
-func firstLine(s string) string {
-	s = strings.TrimSpace(s)
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		s = s[:i]
+// errorLine returns the line of Docker's output that names the error, or
+// else its first line, skipping the note Podman's docker command prints on
+// every run.
+func errorLine(s string) string {
+	first := ""
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "Emulate Docker CLI using podman") {
+			continue
+		}
+		if first == "" {
+			first = line
+		}
+		if strings.Contains(strings.ToLower(line), "error") {
+			return line
+		}
 	}
-	return strings.TrimSpace(s)
+	return first
 }
 
 // exerciseRanges writes exercise numbers compactly: 04, 05, 07, 08, 09

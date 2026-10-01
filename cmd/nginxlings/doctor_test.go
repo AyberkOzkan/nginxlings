@@ -131,7 +131,8 @@ func TestRunSetupCheckExplainsEachProblem(t *testing.T) {
 		{"added but not logged in again", fakeSetupEnv("", "Got permission denied", denied, true, false), problemDockerRelogin, "", "02"},
 		{"daemon stopped", fakeSetupEnv("", "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?", denied, true, true), problemDockerStopped, "sudo systemctl enable --now docker", "02"},
 		{"daemon stopped (Docker 29)", fakeSetupEnv("", "failed to connect to the docker API at unix:///var/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /var/run/docker.sock: connect: no such file or directory", denied, true, true), problemDockerStopped, "sudo systemctl enable --now docker", "02"},
-		{"other", fakeSetupEnv("", "error during connect: boom\nmore", denied, true, true), problemDockerOther, "", "02"},
+		{"daemon stopped (old Debian client)", fakeSetupEnv("", "Client:\n Version: 20.10.24+dfsg1\n\nServer:\nERROR: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?\nerrors pretty printing info\n", denied, true, true), problemDockerStopped, "sudo systemctl enable --now docker", "02"},
+		{"other", fakeSetupEnv("", "Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.\nClient: x\nerror during connect: boom\nmore", denied, true, true), problemDockerOther, "", "02"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -212,3 +212,16 @@ func writeCheckScript(t *testing.T, dir, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestWithSbinPathAddsMissingSbinDirectories(t *testing.T) {
+	env := withSbinPath([]string{"HOME=/home/learner", "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin"})
+	if env[0] != "HOME=/home/learner" {
+		t.Fatalf("env = %v, want other variables kept", env)
+	}
+	if got := env[len(env)-1]; got != "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/usr/local/sbin:/sbin" {
+		t.Fatalf("PATH = %q", got)
+	}
+	if got := withSbinPath(nil); len(got) != 1 || got[0] != "PATH=/usr/local/sbin:/usr/sbin:/sbin" {
+		t.Fatalf("withSbinPath(nil) = %v", got)
+	}
+}
