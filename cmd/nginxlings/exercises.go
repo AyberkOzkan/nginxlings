@@ -26,11 +26,14 @@ type exerciseManifestEntry struct {
 	DefaultName string `json:"default_name"`
 }
 
-// LoadExercises discovers exercises from the filesystem and validates the
-// minimum files the TUI and check runner need.
+// LoadExercises discovers the exercises under baseDir/exercises.
 func LoadExercises(baseDir string) ([]Exercise, error) {
-	exRoot := filepath.Join(baseDir, "exercises")
+	return LoadExercisesFrom(filepath.Join(baseDir, "exercises"))
+}
 
+// LoadExercisesFrom discovers exercises in exRoot and validates the minimum
+// files the TUI and check runner need.
+func LoadExercisesFrom(exRoot string) ([]Exercise, error) {
 	entries, err := os.ReadDir(exRoot)
 	if err != nil {
 		return nil, fmt.Errorf("exercises directory cannot be read: %w", err)

@@ -160,11 +160,14 @@ func (m *model) initialStatusText() string {
 // newTUIModel resolves paths, rejects an unknown --lang value, and builds the
 // initial TUI model.
 func newTUIModel(opts cliOptions) (model, error) {
-	paths, err := ResolveAppPathsWithOptions(opts.root, opts.state)
+	paths, err := ResolveAppPathsWithOptions(opts.root, opts.state, opts.workspace)
 	if err != nil {
 		return model{}, err
 	}
 	if err := validateLangCode(paths.AssetRoot, opts.lang); err != nil {
+		return model{}, err
+	}
+	if err := syncWorkspace(paths); err != nil {
 		return model{}, err
 	}
 	return initialModelWithOptions(paths, opts.lang), nil
@@ -205,7 +208,7 @@ func initialModelWithOptions(paths AppPaths, initialLang string) model {
 		m.status = m.uif("status_state_load_failed", "Progress could not be loaded: %v", stateErr)
 	}
 
-	exercises, exercisesErr := LoadExercises(paths.AssetRoot)
+	exercises, exercisesErr := LoadExercisesFrom(paths.ExercisesDir())
 	if exercisesErr != nil && m.status == "" {
 		m.status = m.uif("status_exercises_load_failed", "Exercises could not be loaded: %v", exercisesErr)
 	}

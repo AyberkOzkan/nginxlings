@@ -22,11 +22,12 @@ const (
 )
 
 type cliOptions struct {
-	mode    appMode
-	lang    string
-	root    string
-	state   string
-	checkID string
+	mode      appMode
+	lang      string
+	root      string
+	state     string
+	workspace string
+	checkID   string
 }
 
 type checkRunner func(Exercise) (string, error)
@@ -76,6 +77,7 @@ func parseCLI(args []string, output io.Writer) (cliOptions, error) {
 	fs.StringVar(&opts.lang, "lang", "", "initial language code")
 	fs.StringVar(&opts.root, "root", "", "asset root containing exercises/ and i18n/")
 	fs.StringVar(&opts.state, "state", "", "state file path")
+	fs.StringVar(&opts.workspace, "workspace", "", "folder with your own copy of the exercises")
 
 	if err := fs.Parse(args); err != nil {
 		return opts, err
@@ -117,9 +119,13 @@ Flags:
   --check <id>    Run one exercise check without starting the TUI.
   --root <path>   Asset root containing exercises/ and i18n/.
   --state <path>  State file path.
+  --workspace <path>
+                  Folder with your own copy of the exercises. An installed
+                  package uses ~/nginxlings by default.
 
 Environment:
   NGINXLINGS_ASSET_ROOT  Default asset root when --root is not set.
+  NGINXLINGS_WORKSPACE   Default exercise folder when --workspace is not set.
   NGINXLINGS_STATE_FILE  Default state file when --state is not set.
   NGINXLINGS_STATE_ROOT  Default directory for state.json.
 `)
@@ -139,7 +145,7 @@ func runList(opts cliOptions, stdout, stderr io.Writer) int {
 }
 
 func runCheckCommand(opts cliOptions, stdout, stderr io.Writer, runner checkRunner) int {
-	exercises, err := loadCLIExercises(opts.root)
+	exercises, err := loadWorkspaceExercises(opts)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
@@ -165,6 +171,7 @@ func runCheckCommand(opts cliOptions, stdout, stderr io.Writer, runner checkRunn
 	return 0
 }
 
+// loadCLIExercises loads the shipped exercises without touching a workspace.
 func loadCLIExercises(root string) ([]Exercise, error) {
 	assetRoot, err := ResolveAssetRootWithOptions(root)
 	if err != nil {
@@ -173,7 +180,20 @@ func loadCLIExercises(root string) ([]Exercise, error) {
 	return LoadExercises(assetRoot)
 }
 
-func envOverlay(root, state string) func(string) string {
+// loadWorkspaceExercises loads the exercises the learner works on, updating
+// their workspace first.
+func loadWorkspaceExercises(opts cliOptions) ([]Exercise, error) {
+	paths, err := ResolveExercisePathsWithOptions(opts.root, opts.workspace)
+	if err != nil {
+		return nil, err
+	}
+	if err := syncWorkspace(paths); err != nil {
+		return nil, err
+	}
+	return LoadExercisesFrom(paths.ExercisesDir())
+}
+
+func envOverlay(root, state, workspace string) func(string) string {
 	return func(key string) string {
 		switch key {
 		case envAssetRoot:
@@ -183,6 +203,10 @@ func envOverlay(root, state string) func(string) string {
 		case envStateFile:
 			if state != "" {
 				return state
+			}
+		case envWorkspace:
+			if workspace != "" {
+				return workspace
 			}
 		}
 		return os.Getenv(key)
