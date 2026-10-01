@@ -12,6 +12,7 @@ kapsadığı adımları listeler. İngilizcesi `TESTING.md` dosyasındadır.
 | Kontrol kütüphanesi | `tests/checklib` | `exercises/lib/check-lib.sh`, bash ve sahte programlarla | Go, bash | ~1 sn | evet |
 | Arayüz (TUI) | `tests/tui` | Derlenmiş programın sahte terminalde (pseudo-terminal) çalışması, ekranın bir terminal öykünücüsüyle (emulator) okunması | Go, Linux pty | ~3 sn | evet |
 | Egzersizler | `tests/exercises` | Her egzersizin gerçek `check.sh` betiği: başlangıç dosyaları başarısız, çözüm başarılı | Docker, ana makinede (host) NGINX, çözümler | ~90 sn | hayır (atlanır) |
+| Paketler | `tests/packages` | Derlenmiş .deb, .rpm ve Arch paketleri ile `install.sh`, dokuz dağıtım imajında: bağımlılıklar, `~/nginxlings`, root ve sıradan kullanıcıyla ana makinede çalışan bir NGINX kontrolü, kurulum kontrolü | Docker, ağ, derlenmiş paketler | ~5 dk | hayır (atlanır) |
 
 Birim testleri kodun yanında kalır; çünkü Go'da dışa açılmamış kodu sınayan
 testler aynı pakette olmak zorundadır. `tests/` altındaki her şey depoya ve
@@ -47,6 +48,20 @@ kullanan servisler karışmaz.
 Çözümler asla depoya girmez. `NGINXLINGS_SOLUTIONS`, her egzersiz kimliği için
 bir alt dizin içeren bir dizini gösterir; bu alt dizinlerde yalnızca başlangıç
 dosyalarından farklı olan dosyalar bulunur.
+
+Paket testleri, GoReleaser'ın derlediğini (temiz bir kopyada `goreleaser release
+--snapshot --clean`, bkz. `docs/RELEASING.md`) Ubuntu, Debian, Fedora, Rocky,
+openSUSE, Arch, Alpine, Void ve bir kez daha `install.sh` ile Ubuntu imajlarına
+kurar:
+
+```sh
+NGINXLINGS_PACKAGES=$PWD/dist go test ./tests/packages -v -count=1 -timeout 40m
+```
+
+`NGINXLINGS_SOLUTIONS` ve `NGINXLINGS_PODMAN=1` de verilirse, Docker kullanan her
+egzersizi Rocky Linux'ta Podman'ın docker komutuyla, ayrıcalıklı (privileged) bir
+konteynerde de çalıştırır (yaklaşık 30 dakika). Egzersiz 10'un orada başarısız
+olması beklenir: Docker'ın 127.0.0.11 adresindeki gömülü DNS sunucusunu kullanır.
 
 ## Test adımları
 

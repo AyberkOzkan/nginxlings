@@ -51,10 +51,77 @@ func TestRepoReleaseTargetsLinuxWithoutNPMOrHomebrew(t *testing.T) {
 		}
 	}
 
-	if _, err := os.Stat(filepath.Join(root, "packaging")); err == nil {
-		t.Fatal("legacy npm/Homebrew packaging directory still exists")
-	} else if !os.IsNotExist(err) {
+	// packaging/ holds the Linux package files; npm and Homebrew stay out.
+	entries, err := os.ReadDir(filepath.Join(root, "packaging"))
+	if err != nil && !os.IsNotExist(err) {
 		t.Fatalf("inspect packaging directory: %v", err)
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "package.json" || name == "npm" || name == "homebrew" || strings.HasSuffix(name, ".rb") {
+			t.Fatalf("packaging/%s is npm or Homebrew packaging", name)
+		}
+	}
+}
+
+// TestRepoLinuxPackagesShipTheAppAndItsDependencies checks the nfpm section:
+// the package formats, the files an installed nginxlings needs, and that every
+// format depends on the commands the exercises run.
+func TestRepoLinuxPackagesShipTheAppAndItsDependencies(t *testing.T) {
+	root := testutil.RepoRoot(t)
+	data, err := os.ReadFile(filepath.Join(root, ".goreleaser.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := string(data)
+	nfpms, _, found := strings.Cut(config[strings.Index(config, "nfpms:"):], "\nchecksum:")
+	if !found || !strings.HasPrefix(nfpms, "nfpms:") {
+		t.Fatal(".goreleaser.yml has no nfpms section before checksum")
+	}
+	for _, want := range []string{
+		"      - deb\n", "      - rpm\n", "      - archlinux\n",
+		"    bindir: /usr/bin\n",
+		"      - src: exercises/\n        dst: /usr/share/nginxlings/exercises\n        type: tree\n",
+		"      - src: i18n/\n        dst: /usr/share/nginxlings/i18n\n        type: tree\n",
+		"dst: /usr/share/applications/nginxlings.desktop\n",
+		"dst: /usr/share/icons/hicolor/scalable/apps/nginxlings.svg\n",
+		"      postinstall: packaging/postinstall.sh\n",
+	} {
+		if !strings.Contains(nfpms, want) {
+			t.Errorf("nfpms section lacks %q", strings.TrimSpace(want))
+		}
+	}
+	// Each format names NGINX, curl, bash, Python and a Docker provider.
+	for format, docker := range map[string]string{"deb": "docker.io", "rpm": "/usr/bin/dockerd", "archlinux": "docker"} {
+		block, _, _ := strings.Cut(nfpms[strings.Index(nfpms, "      "+format+":\n"):], "\n      recommends:")
+		for _, dep := range []string{"bash", "curl", "nginx", "python", docker} {
+			if !strings.Contains(block, dep) {
+				t.Errorf("%s dependencies lack %s", format, dep)
+			}
+		}
+	}
+	for _, src := range []string{"packaging/nginxlings.desktop", "packaging/nginxlings.svg", "packaging/postinstall.sh", "install.sh"} {
+		if _, err := os.Stat(filepath.Join(root, src)); err != nil {
+			t.Errorf("%s: %v", src, err)
+		}
+	}
+}
+
+// TestRepoDesktopEntryOpensTheTUIInATerminal keeps the menu entry usable by
+// someone who never typed a command: it runs nginxlings in a terminal.
+func TestRepoDesktopEntryOpensTheTUIInATerminal(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(testutil.RepoRoot(t), "packaging", "nginxlings.desktop"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := string(data)
+	if !strings.HasPrefix(entry, "[Desktop Entry]\n") {
+		t.Fatal("the desktop file does not start with [Desktop Entry]")
+	}
+	for _, line := range []string{"Type=Application", "Name=Nginxlings", "Exec=nginxlings", "Icon=nginxlings", "Terminal=true", "Comment[tr]="} {
+		if !strings.Contains(entry, "\n"+line) {
+			t.Errorf("the desktop file lacks %q", line)
+		}
 	}
 }
 
@@ -69,7 +136,8 @@ func TestRepoReleaseArchiveIncludesEveryAsset(t *testing.T) {
 		patterns[i] = releaseGlobRegexp(glob)
 	}
 
-	assets := []string{"LICENSE", "README.md"}
+	// install.sh installs from the archive and needs the menu entry and icon.
+	assets := []string{"LICENSE", "README.md", "install.sh", "packaging/nginxlings.desktop", "packaging/nginxlings.svg"}
 	for _, dir := range []string{"exercises", "i18n"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
@@ -200,7 +268,7 @@ func TestRepoDocsMatchSupportedToolchainAndTargets(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, stale := range []string{"node --test", "packaging/", "dist/npm", "dist/homebrew", "four archives"} {
+		for _, stale := range []string{"node --test", "packaging/npm", "packaging/homebrew", "dist/npm", "dist/homebrew", "four archives"} {
 			if strings.Contains(string(data), stale) {
 				t.Fatalf("%s still references removed release tooling %q", doc, stale)
 			}

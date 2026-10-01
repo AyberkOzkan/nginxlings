@@ -12,6 +12,7 @@ layer covers. A Turkish version is in `TESTING.tr.md`.
 | Check library | `tests/checklib` | `exercises/lib/check-lib.sh` with bash and fake binaries | Go, bash | ~1 s | yes |
 | TUI | `tests/tui` | The built program in a pseudo-terminal, read through a terminal emulator | Go, Linux pty | ~3 s | yes |
 | Exercises | `tests/exercises` | Every exercise's real `check.sh`: starting files fail, the solution passes | Docker, host NGINX, solutions | ~90 s | no (skipped) |
+| Packages | `tests/packages` | The built .deb, .rpm and Arch packages and `install.sh` in nine distribution images: dependencies, `~/nginxlings`, a host-NGINX check as root and as a regular user, the setup check | Docker, network, built packages | ~5 min | no (skipped) |
 
 Unit tests stay next to the code because Go tests of unexported code must be in
 the same package. Everything under `tests/` treats the repository and the
@@ -46,6 +47,20 @@ so services on the machine's ports 8080 and 8081 do not interfere.
 Solutions are never committed. `NGINXLINGS_SOLUTIONS` points at a directory
 with one subdirectory per exercise ID that holds only the files that differ
 from the starting files.
+
+The package tests install what GoReleaser built (`goreleaser release --snapshot
+--clean` in a clean checkout, see `docs/RELEASING.md`) in Ubuntu, Debian,
+Fedora, Rocky, openSUSE, Arch, Alpine, Void and once more Ubuntu with
+`install.sh`:
+
+```sh
+NGINXLINGS_PACKAGES=$PWD/dist go test ./tests/packages -v -count=1 -timeout 40m
+```
+
+With `NGINXLINGS_SOLUTIONS` and `NGINXLINGS_PODMAN=1` as well, they also run
+every Docker exercise with Podman's docker command on Rocky Linux in a
+privileged container (about 30 minutes). Exercise 10 is expected to fail
+there: it uses Docker's embedded DNS on 127.0.0.11.
 
 ## Test steps
 

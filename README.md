@@ -4,7 +4,44 @@ Nginxlings is a terminal training app for learning NGINX through small, runnable
 
 The project currently includes 18 exercises under `exercises/`.
 
+A Turkish installation guide for learners is in `docs/INSTALL.tr.md`.
+
+## Install
+
+Download the file for your distribution from the latest GitHub Release. Most
+desktops install it on a double-click; the terminal command is given too.
+
+| Distribution | File | Command |
+| --- | --- | --- |
+| Ubuntu, Debian, Linux Mint, Pop!_OS | `nginxlings_<version>_amd64.deb` | `sudo apt install ./nginxlings_<version>_amd64.deb` |
+| Fedora, Rocky, AlmaLinux, RHEL | `nginxlings-<version>-1.x86_64.rpm` | `sudo dnf install ./nginxlings-<version>-1.x86_64.rpm` |
+| openSUSE | `nginxlings-<version>-1.x86_64.rpm` | `sudo zypper install --allow-unsigned-rpm ./nginxlings-<version>-1.x86_64.rpm` |
+| Arch, Manjaro | `nginxlings-<version>-1-x86_64.pkg.tar.zst` | `sudo pacman -U ./nginxlings-<version>-1-x86_64.pkg.tar.zst` |
+| Any other (Alpine, Void, ...) | `nginxlings_<version>_linux_amd64.tar.gz` | extract it, then `./install.sh` |
+
+ARM64 machines use the `arm64` / `aarch64` files. The package manager also
+installs what the exercises run: bash, curl, NGINX, Python 3 and Docker, and
+the package starts the Docker service. `install.sh` does the same with the
+distribution's package manager and installs nginxlings in `/usr/local`.
+
+Then open Nginxlings from the application menu, or type `nginxlings` in a
+terminal. On first start it copies the exercises to `~/nginxlings`, where you
+edit them; `o` opens the selected exercise's folder. If something is still
+missing, usually Docker access for your user, the status row shows
+`! Setup` and `d` explains the fix; `f` runs it.
+
+On Rocky, AlmaLinux and RHEL the package installs Podman's `docker` command
+instead of Docker. Every exercise runs with it except 10, which uses Docker's
+embedded DNS server on `127.0.0.11`; install Docker CE from Docker's
+repository for that one.
+
+To remove nginxlings, remove the package (`sudo apt remove nginxlings`,
+`sudo dnf remove nginxlings`, `sudo pacman -R nginxlings`) or run
+`./install.sh --uninstall`. Your work in `~/nginxlings` is kept.
+
 ## Requirements
+
+To build or run from source:
 
 - Go 1.26 or newer (only to build or run from source)
 - A POSIX-like shell environment
@@ -18,7 +55,9 @@ Some exercises install or run extra tools inside Docker images, such as `socat`,
 
 ## Supported Platforms
 
-The supported runtime and release target is Linux on AMD64 and ARM64.
+The supported runtime and release target is Linux on AMD64 and ARM64: packages
+for the Debian, Fedora/RHEL/openSUSE and Arch families, and `install.sh` for
+other distributions.
 
 Native macOS and Windows builds are not produced. Windows users may run a Linux release through WSL2 with Docker integration.
 
@@ -104,7 +143,9 @@ During development, run Nginxlings from the repository root:
 go run ./cmd/nginxlings
 ```
 
-The app looks for `exercises/` and `i18n/` from the current directory, parent directories, or `NGINXLINGS_ASSET_ROOT`. This keeps repository-root development working while allowing packaged layouts to provide assets next to the app.
+The app looks for `exercises/` and `i18n/` in `NGINXLINGS_ASSET_ROOT`, the current directory and its parents, the binary's directory and its parents, and finally `<prefix>/share/nginxlings` next to `<prefix>/bin/nginxlings`, where packages and `install.sh` put them. This keeps repository-root development working while installed copies find their assets from anywhere.
+
+When the assets come from `<prefix>/share/nginxlings`, the learner cannot edit them there, so the app copies the exercises to `~/nginxlings` and works on that copy. Every start updates it from the installed version: new exercises and files are added, check scripts, READMEs and the shared library are replaced, and other files are replaced only while the learner has not changed them. `--workspace <path>` or `NGINXLINGS_WORKSPACE` picks another folder and also turns the copy on for the repository or an extracted archive, which otherwise edit the exercises in place.
 
 Progress is stored in:
 
@@ -146,7 +187,7 @@ Container-based exercises use exercise-scoped labels, build temporary images nam
 
 ## Release Archives
 
-Tagged releases provide Linux archives for AMD64 and ARM64 through GitHub Releases. Extract the complete archive and keep `exercises/` and `i18n/` beside the `nginxlings` binary:
+Tagged releases provide Linux packages (see Install) and archives for AMD64 and ARM64 through GitHub Releases. To run from an archive without installing it, extract the complete archive and keep `exercises/` and `i18n/` beside the `nginxlings` binary:
 
 ```sh
 tar -xzf nginxlings_<version>_<os>_<arch>.tar.gz
@@ -190,7 +231,10 @@ cmd/nginxlings/   Bubble Tea TUI application
 exercises/        NGINX exercise directories
 exercises/lib/    Shared helpers sourced by every check.sh
 i18n/             UI texts, exercise titles, and hints per language
-docs/             Maintainer and release documentation
+packaging/        Menu entry, icon and post-install script of the Linux packages
+install.sh        Installer for distributions without a package
+docs/             Installation, maintainer and release documentation
+tests/            Black-box test suites (see tests/TESTING.md)
 ```
 
 ## Development Checks

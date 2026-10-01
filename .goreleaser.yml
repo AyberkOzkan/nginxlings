@@ -33,6 +33,9 @@ archives:
     files:
       - LICENSE
       - README.md
+      - install.sh
+      - packaging/nginxlings.desktop
+      - packaging/nginxlings.svg
       - exercises/**/*.md
       - exercises/**/*.sh
       - exercises/**/Dockerfile
@@ -43,6 +46,84 @@ archives:
       - exercises/**/*.json
       - i18n/langs.json
       - i18n/**/*.json
+
+# Linux packages: the binary in /usr/bin, the exercises and translations in
+# /usr/share/nginxlings, from where the app copies the exercises to the
+# learner's ~/nginxlings on first start. The package manager installs what
+# the exercises run: bash, curl, NGINX, Python and Docker.
+nfpms:
+  - id: packages
+    ids:
+      - nginxlings
+    package_name: nginxlings
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: Kenan Ayberk Özkan
+    maintainer: Kenan Ayberk Özkan <kenan.ayberk@hotmail.com>
+    homepage: https://github.com/AyberkOzkan/nginxlings
+    description: |-
+      Terminal training app for learning NGINX through small exercises.
+      Each exercise has instructions, a hint, and a check that runs NGINX
+      on this machine or in Docker and says what is still wrong.
+    license: AGPL-3.0-only
+    section: education
+    formats:
+      - deb
+      - rpm
+      - archlinux
+    bindir: /usr/bin
+    contents:
+      - src: exercises/
+        dst: /usr/share/nginxlings/exercises
+        type: tree
+      - src: i18n/
+        dst: /usr/share/nginxlings/i18n
+        type: tree
+      - src: packaging/nginxlings.desktop
+        dst: /usr/share/applications/nginxlings.desktop
+      - src: packaging/nginxlings.svg
+        dst: /usr/share/icons/hicolor/scalable/apps/nginxlings.svg
+      - src: LICENSE
+        dst: /usr/share/licenses/nginxlings/LICENSE
+    scripts:
+      postinstall: packaging/postinstall.sh
+    dependencies:
+      - bash
+      - curl
+      - nginx
+      - python3
+    overrides:
+      deb:
+        dependencies:
+          - bash
+          - curl
+          - nginx | nginx-core | nginx-light | nginx-full | nginx-extras
+          - python3
+          - docker.io | docker-ce | podman-docker
+        recommends:
+          - iproute2
+          - xdg-utils
+      rpm:
+        dependencies:
+          - bash
+          - curl
+          - nginx
+          - python3
+          # The Docker daemon: moby-engine on Fedora, docker on openSUSE,
+          # docker-ce from Docker's repository. RHEL-like systems ship Podman
+          # with a docker command instead.
+          - (/usr/bin/dockerd or podman-docker)
+        recommends:
+          - iproute
+          - xdg-utils
+      archlinux:
+        dependencies:
+          - bash
+          - curl
+          - nginx
+          - python
+          - docker
+    archlinux:
+      packager: Kenan Ayberk Özkan <kenan.ayberk@hotmail.com>
 
 checksum:
   name_template: checksums.txt
