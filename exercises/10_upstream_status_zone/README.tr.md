@@ -1,96 +1,157 @@
-# 10 – Upstream Shared Memory (zone up_mem)
+# 10 – Paylaşılan Bellekte Sunucu Grubu Durumu (zone up_mem)
 
 ## Amaç
 
-Bu egzersizde HTTP upstream durumunun shared memory’de tutulmasını sağlayan
-upstream `zone` kullanımını pratik edeceksin:
+Bu egzersizde üyeleri çalışma zamanında adlarıyla bulunan Docker konteynerleri
+(container) olan bir HTTP sunucu grubu (upstream) kuracak, durumunu paylaşılan bir
+bellek bölgesinde (shared memory zone) tutacak, her isteği hangi arka uç sunucunun
+(backend) yanıtladığını gösterecek ve bir arka uç sunucu durduğunda NGINX'in diğerine
+geçişini izleyeceksin.
 
-    zone up_mem 64k;
+Pratik edeceklerin:
 
-Yapacakların:
-
-- İki backend içeren bir `upstream` tanımlamak:
-
-      127.0.0.1:8081
-      127.0.0.1:8082
-
-- Upstream state bilgisini shared memory’de tutmak için:
-
-      zone up_mem 64k;
-
-  satırını kullanmak.
-
-- İstekleri bu upstream’e `proxy_pass` ile yönlendirmek.
-- Hangi backend’in yanıt verdiğini response header üzerinden göstermek:
-
-      X-Upstream: <ip:port>
-
-Doğrulama sırasında backend’lerden biri bilerek durdurulur. Bu durumdan sonra
-isteklerin “down” olan backend’e gitmemesi beklenir.
+- `upstream` bloğundaki `zone` direktifi,
+- `resolve` ve Docker'ın DNS sunucusuyla çalışma zamanında ad çözümleme,
+- `$upstream_addr` değerini bir yanıt başlığında (response header) göstermek,
+- reddedilen bir bağlantının NGINX'e sıradaki sunucuyu nasıl denettirdiği.
 
 ---
 
-## Ne değiştireceksin?
+## Arka plan – ortak durum, çalışma zamanında DNS ve yedeğe geçiş
 
-Düzenleyeceğin dosya:
+Bölge olmadan her işçi süreç (worker process) bir sunucu grubunun durumunun kendi
+kopyasını tutar: sırayla dağıtım (round-robin) sırası ve hata sayaçları. `upstream`
+bloğundaki `zone <ad> <boyut>;`, grubun yapılandırmasını ve durumunu paylaşılan
+belleğe taşır; böylece bütün işçi süreçler aynı durumu görür.
 
-    nginx.conf
+Bir sunucu grubundaki adlar normalde bir kez, yapılandırma yüklenirken çözülür.
+`server` satırındaki `resolve` parametresi, `http` bağlamındaki (context)
+`resolver`'ı kullanarak adı NGINX çalışırken yeniden çözer. Bulunan adresler bölgede
+saklanır; bu yüzden `resolve` yalnızca bölgesi olan bir sunucu grubunda çalışır. Açık
+kaynak NGINX `resolve`'u 1.27.3'ten beri destekler; bu imaj (image) 1.28.3 kullanır.
 
+Genel bir örnek (bu laboratuvardakinden farklı ad, adres ve boyutlar):
 
-Doğrulama script’i aynı Docker network içinde iki basit HTTP backend’i ayrı container olarak başlatır:
-- Backend A: 127.0.0.1:8081
-- Backend B: 127.0.0.1:8082
+    http {
+        resolver 10.0.0.2 valid=30s;
 
-Senin görevin, NGINX’i bu iki backend arasında load balance edecek şekilde
-yapılandırmak ve hangi backend’in seçildiğini görünür hale getirmektir.
+        upstream api_pool {
+            zone api_state 128k;
+            server api-a.internal:9000 resolve;
+            server api-b.internal:9000 resolve;
+        }
+
+        server {
+            listen 80;
+
+            location /api/ {
+                proxy_pass http://api_pool;
+            }
+        }
+    }
+
+Bilinmesi gerekenler:
+
+- Kullanıcı tanımlı bir Docker ağındaki konteyner içinde Docker'ın gömülü DNS
+  sunucusu `127.0.0.11` adresinde yanıt verir. NGINX konteyneri içindeki
+  `127.0.0.1` NGINX'in kendisidir, arka uç sunuculardan biri asla değildir.
+- `$upstream_addr`, yanıtı veren sunucunun adresini tutar. Yeniden denemeden sonra
+  denenen bütün adresleri virgülle ayırarak listeler.
+- `add_header` bir yanıt başlığı ekler. `always` parametresi olmadan yalnızca
+  başarılı ve yönlendirme yanıtlarına eklenir (200, 201, 204, 206, 301, 302, 303,
+  304, 307, 308).
+- Bir bağlantı reddedildiğinde varsayılan `proxy_next_upstream error timeout;`
+  isteği gruptaki sıradaki sunucuya verir.
+- Açık kaynak NGINX sunucu grubu durumunu bir API ya da durum sayfasıyla raporlamaz
+  (bu bir NGINX Plus özelliğidir); bu yüzden bu laboratuvar seçilen arka uç sunucuyu
+  bir yanıt başlığıyla görünür kılar.
+
+Kaynak: [ngx_http_upstream_module](https://nginx.org/en/docs/http/ngx_http_upstream_module.html)
+(`zone`, `server ... resolve`), [resolver](https://nginx.org/en/docs/http/ngx_http_core_module.html#resolver),
+[add_header](https://nginx.org/en/docs/http/ngx_http_headers_module.html#add_header).
 
 ---
 
-## Gereksinimler
+## Laboratuvar ortamı
 
-`nginx.conf` içinde şunlar olmalı:
+Kontrol, tek bir Docker ağında üç konteyner başlatır:
 
-1) Shared memory zone kullanan upstream:
+- **ex10_backend1:8081** ve **ex10_backend2:8082**: `backend=8081` ve `backend=8082`
+  yanıtı veren iki küçük BusyBox HTTP sunucusu.
+- `Dockerfile`'ın `nginx:1.28.3-alpine` üzerine senin `nginx.conf`'unla kurduğu,
+  `http://127.0.0.1:19100/` adresine açılan NGINX konteyneri.
 
-      upstream backend {
-          zone up_mem 64k;
-          server 127.0.0.1:8081;
-          server 127.0.0.1:8082;
-      }
+`nginx.conf` senin dosyan. Docker DNS için `resolver 127.0.0.11` satırı `http`
+içinde hazır; `upstream backend` bloğunda bir yer tutucu sunucu var; `location /`
+hâlâ yer tutucu metin döndürüyor.
 
-2) Upstream’e proxy yapan bir location:
+Kontrol (Nginxlings'te `c` veya Enter ya da `./check.sh`) imajı
+(`nginxlings/10_upstream_status_zone:check`) oluşturur (build) ve `nginx -t`'yi
+**arka uç konteynerleri henüz yokken** çalıştırır. Ardından her şeyi başlatır, 10
+istek gönderip `X-Upstream` başlığını okur, `ex10_backend2` içindeki HTTP sunucusunu
+durdurur (konteyner ayakta kalır, bu yüzden 8082'ye bağlantılar reddedilir) ve 12
+istek daha gönderir.
 
-      location / {
-          proxy_pass http://backend;
-      }
+---
 
-3) Seçilen upstream’i gösteren bir header:
+## Görev
 
-      add_header X-Upstream $upstream_addr always;
+`nginx.conf` dosyasını düzenle:
+
+1. `upstream backend` içine **up_mem** adında, **64k** boyutunda bir paylaşılan bellek
+   bölgesi ekle.
+2. Yer tutucu sunucuyu, ikisi de çalışma zamanında çözülen `ex10_backend1:8081` ve
+   `ex10_backend2:8082` ile değiştir.
+3. `location /`, metin döndürmek yerine istekleri `backend` sunucu grubuna iletsin.
+4. Değeri `$upstream_addr` olan bir **X-Upstream** yanıt başlığı ekle.
+5. `resolver` satırını koru.
 
 ---
 
 ## Başarı kriterleri
 
-Otomatik doğrulama başarılı sayılması için:
-
-- Image build olmalı ve `nginx -t` hatasız geçmeli.
-- İlk aşamada iki backend’e de istek gittiği görülmeli (dağıtım gözlenmeli).
-- 8082 backend’i durdurulduktan sonra:
-
-    - İstekler 8081 üzerinden cevaplanmaya devam etmeli.
-    - Header bazen retry zinciri şeklinde görünebilir:
-
-        X-Upstream: <addr>:8082, <addr>:8081
-
-    Bu normaldir; önce 8082 denenip sonra 8081’e retry edildiğini gösterir.
-    - Sadece 8082 görünen (8081 içermeyen) bir upstream değeri görülmemeli.
-
+- İmaj oluşturulmalı ve `nginx -t` yapılandırmayı kabul etmeli.
+- Aktif yapılandırmada 64k'lık `up_mem` bölgesi ve `$upstream_addr` değerli
+  `X-Upstream` başlığı bulunmalı.
+- Durdurmadan önce 10 isteğin `X-Upstream` değerlerinde hem 8081 hem 8082
+  görünmeli.
+- Durdurmadan sonra 12 isteğin tamamı 8081 üzerinden `200` dönmeli.
+  `<addr>:8082, <addr>:8081` gibi bir yeniden deneme zinciri sorun değildir.
 
 ---
 
-## İpuçları
+## Takıldıysan
 
-- `zone` direktifi mutlaka `upstream` bloğunun içinde olmalı.
-- Header’ı, proxy yaptığın `location` içinde eklemek en doğru yaklaşımdır.
-- `max_fails` / `fail_timeout` ayarları failover davranışını daha belirgin yapabilir.
+Bunları sırayla dene, aralarda kontrolü yeniden çalıştır:
+
+- `No shared memory zone named up_mem with a size of 64k`: başlangıç durumu bu. Ad
+  ve boyut birebir aynı olmalı.
+- `resolving names at run time requires upstream "backend" ... to be in shared
+  memory`: `resolve` var ama bölge yok.
+- `host not found in upstream "ex10_backend1:8081"`: ad, yapılandırma yüklenirken
+  çözülmüş ve arka uç konteynerleri o anda henüz yok. Hangi `server` parametresi
+  çözümlemeyi erteler?
+- `host not found in upstream "ex10_backend1"`: `proxy_pass`, sunucu grubu yerine
+  doğrudan bir konteyneri gösteriyor.
+- `no resolver defined to resolve names at run time`: `resolver` satırı silinmiş.
+- `No active X-Upstream response header`: başlık yok, yorum satırında ya da başka
+  bir değere ayarlanmış.
+- `Before stopping, expected both upstream ports in X-Upstream. Got 8081=0,
+  8082=0`: yanıtlarda sunucu adresi yok. `location /` iletmek yerine hâlâ metin mi
+  döndürüyor?
+- `After stopping backend2, 1 of 12 requests did not succeed through 8081`:
+  durdurmadan sonraki ilk istek yeniden denenmek yerine `502` almış. Sıradaki
+  sunucuyu deneme kapatılmış mı?
+
+---
+
+## Pekiştirme soruları
+
+- 8082'ye ilk bağlantı reddedildikten sonra gelen istekler doğrudan 8081'e gider.
+  Buna hangi `server` parametreleri karar verir ve ne kadar süreyle?
+- Kontrol HTTP sunucusunu durdurur ama arka uç konteynerini ayakta tutar. Konteyner
+  silinseydi istemci ne fark ederdi?
+- `add_header`'da `always` olmasaydı, `502` yanıtında `X-Upstream` başlığı ne
+  gösterirdi?
+- Bir arka uç konteyneri yeniden oluşturuluyor ve yeni bir IP adresi alıyor.
+  `resolve` ile trafiğe ne olur, `resolve` olmasaydı ne olurdu?

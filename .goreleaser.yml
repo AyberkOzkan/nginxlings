@@ -1,0 +1,62 @@
+version: 2
+
+project_name: nginxlings
+
+before:
+  hooks:
+    - go test ./...
+
+builds:
+  - id: nginxlings
+    main: ./cmd/nginxlings
+    binary: nginxlings
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: release
+    ids:
+      - nginxlings
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - exercises/**/*.md
+      - exercises/**/*.sh
+      - exercises/**/Dockerfile
+      - exercises/**/*.conf
+      - exercises/**/index.html
+      - exercises/**/backend_app.py
+      - exercises/manifest.json
+      - exercises/**/*.json
+      - i18n/langs.json
+      - i18n/**/*.json
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  prerelease: auto

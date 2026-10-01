@@ -1,0 +1,20 @@
+{
+  "01_static_server": "With `-p`, a relative `root` is resolved against the exercise directory, and `index` must name a file that exists there.",
+  "02_config_layout": "`nginx -T` prints every file that was actually loaded; if your server block is missing from it, the `include` line is not active.",
+  "03_context_hierarchy": "Read the first `[emerg]` line from `nginx -t` and ask which enclosing block that directive belongs in: `http`, `server`, or `location`.",
+  "04_worker_user": "Files are opened by the workers, not the master: compare the worker account in the check output with the owner and group that the Dockerfile's `chown` sets, and put `user` in the main context.",
+  "05_install_verify": "The image starts without NGINX: install the distribution package in a `RUN` step so that `nginx -v` works inside the container.",
+  "06_reverse_proxy": "The empty `location /` serves local files; give it a directive that forwards the request to the backend on 127.0.0.1:8080.",
+  "07_http_load_balancer": "Define an `upstream` that lists both backends and send `location /` to it; the `upstream=` field in the container logs shows who answered each request.",
+  "08_stream_load_balancer": "Layer 4 has no `location` blocks: turn the starter's `http {}` into a top-level `stream {}` (never nest it inside `http`) and hand the whole `server` to the upstream by name.",
+  "09_shared_zones_basics": "A zone is declared once in `http` with a name and a size, and does nothing until a `limit_req` in a `server` or `location` refers to it by name.",
+  "10_upstream_status_zone": "Give the upstream a `zone`, then add `resolve` to each server so the Docker DNS names are looked up at runtime instead of at startup.",
+  "11_zone_sync_api": "An exact-match `location =` can serve the bundled JSON file; without a MIME map you must set the Content-Type yourself with `default_type`.",
+  "12_logs_and_variables": "Define `log_format main` once in `http`, before the `access_log` that uses it, then point `access_log` at `/dev/stdout` with that format name.",
+  "13_include_modular_config": "`include` pastes the file in place, so put each `include` inside the block whose directives that file contains.",
+  "14_multi_domain_static": "Send the same request with different `Host` headers: each `server_name` should land in its own `server` block with its own `root`.",
+  "15_https_tls": "Both listeners need a `server` block; only the HTTPS one uses `ssl` on its `listen` line and points at the certificate and key already built into the image.",
+  "16_shared_zone_sizing": "Each distinct key needs one 128-byte state on 64-bit systems; count the keys the check sends between the two requests of the limited client and size req_zone to hold them with headroom.",
+  "17_verify_nginx_user": "Without a `user` directive the workers run as a default account; run `ps aux` inside the container to see which one, then set the account you want.",
+  "18_osi_layers_usecases": "`stream` sits beside `http` at the top level, and its dynamic module must be loaded with `load_module` at the very top of nginx.conf."
+}

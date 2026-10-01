@@ -1,4 +1,4 @@
-FROM alpine:3.20
+FROM alpine:3.20.10
 
 RUN apk add --no-cache nginx nginx-mod-stream python3 socat
 

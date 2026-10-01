@@ -1,139 +1,116 @@
-# 02 – Config Layout & Default Paths
+# 02 – Config Layout and Default Paths
 
 ## Goal
 
-In this exercise you will learn the typical layout of NGINX configuration files
-and how to inspect the active configuration using `nginx -t` and `nginx -T`.
-
-On a typical Linux system:
-
-- Main configuration file: `/etc/nginx/nginx.conf`
-- Additional virtual host / server definitions: `/etc/nginx/conf.d/*.conf`
-  or `sites-enabled/`
-
-In this lab we simulate the same structure **inside this directory**:
-
-- `nginx.conf` in this folder acts as the main config file.
-- Files under `conf.d/` are loaded via an `include` directive.
-
-When you select this exercise in Nginxlings and press `c` or Enter,
-a script will validate your configuration.
+In this exercise you will learn how an NGINX configuration is usually split
+between a main file and extra files, how to find out which files NGINX really
+loaded, and how to test a configuration with `nginx -t` and `nginx -T`.
 
 ---
 
-## Topic Overview
+## Background – where the configuration lives
 
-This exercise helps you practice:
+- The **main file** (`/etc/nginx/nginx.conf` on most Linux systems) holds the
+  main context (`user`, `worker_processes`, `error_log`, `pid`), the `events {}`
+  block and the `http {}` block with settings shared by every site.
+- **Server definitions** usually live in separate files that the main file loads
+  with `include` inside `http {}`. Two common layouts:
+  - `/etc/nginx/conf.d/*.conf`: every matching file is loaded (nginx.org
+    packages and the official Docker image).
+  - `sites-available/` + `sites-enabled/`: all sites are kept in the first
+    directory, and only the ones linked into the second are loaded (Debian and
+    Ubuntu packages).
+- `nginx -V` shows where an installation expects its main file
+  (`--conf-path=`). `-c <file>` chooses another file and `-p <dir>` sets the
+  prefix that relative paths such as `logs/error.log` are resolved against. A
+  relative `include` is resolved against the directory of the main file.
+- `nginx -t` tests the configuration. `nginx -T` tests it and prints everything
+  NGINX loaded, with a `# configuration file ...:` header before each file.
 
-- The default NGINX directory layout (similar to `/etc/nginx/`)
-- Main config file: `nginx.conf`
-- Extra config files: `conf.d/*.conf`
-- How the `include` directive works
-- Inspecting configuration with `nginx -t` and `nginx -T`
+A generic example (different directories and names from this lab):
 
-In everyday usage:
+    http {
+        include /etc/nginx/vhosts/*.conf;
+    }
 
-- `nginx -t` validates the syntax and basic correctness.
-- `nginx -T` prints the full effective configuration with all included files.
+    # /etc/nginx/vhosts/blog.conf
+    server {
+        listen 8000;
+        server_name blog.local;
+        ...
+    }
 
-Here you will try these commands against local config files.
-
----
-
-## What You Need to Do
-
-While working on this exercise, stay in the `02_config_layout` directory.
-
-1. Inspect the main config file (`nginx.conf`)
-
-   - Open `nginx.conf` in this directory.
-   - It should contain at least these basic blocks:
-
-        events { ... }
-        http   { ... }
-
-   - Inside the `http { ... }` block, make sure there is an **active** include line:
-
-        include conf.d/*.conf;
-
-     (No `#` in front of it. This line loads `.conf` files from `conf.d/`.)
-
-2. Create the `conf.d` directory and a server file
-
-   - If `conf.d/` does not exist yet, create it:
-
-        mkdir -p conf.d
-
-   - Create a file `conf.d/default.conf` and add a simple `server` block, for example:
-
-        server {
-            listen 8081;
-            server_name localhost;
-
-            root .;
-
-            location / {
-                return 200 "config-layout-ok\n";
-            }
-        }
-
-   - The idea:
-     - The `server` block lives in `conf.d/default.conf`, not in the main file.
-     - The main file (`nginx.conf`) holds global settings and the
-       `include conf.d/*.conf;` line.
-
-3. Test the configuration (optional, for learning)
-
-   From this directory you can run:
-
-        nginx -t -c nginx.conf -p .
-
-   - `-c nginx.conf` → tells NGINX which config file to use.
-   - `-p .`          → uses this folder as the NGINX prefix (logs, pid, etc.).
-
-   To inspect the full effective configuration:
-
-        nginx -T -c nginx.conf -p .
-
-   In the output you should see the `include conf.d/*.conf;` line
-   and the contents of `conf.d/default.conf` inlined.
-
-4. Verify the exercise via Nginxlings
-
-   - Select this exercise in the Nginxlings TUI.
-   - Press `c` or Enter.
-   - The `check.sh` script will:
-     - run `nginx -t` against your config,
-     - inspect `nginx -T` output and look for the `include conf.d/*.conf;` line.
-
-   If everything is correct, the exercise will be marked as completed (✓).
+Reference: [Beginner's Guide](https://nginx.org/en/docs/beginners_guide.html),
+[Command-line parameters](https://nginx.org/en/docs/switches.html).
 
 ---
 
-## Success Criteria
+## Lab environment
 
-The exercise is considered **successful** when:
+This exercise runs NGINX directly on your machine, not in Docker, and imitates
+the `/etc/nginx` layout inside this directory:
 
-- `nginx -t -c nginx.conf -p .` exits with code 0 (no errors).
-- The output of `nginx -T -c nginx.conf -p .` contains the line
-  `include conf.d/*.conf;`.
-- There is at least one `server { ... }` block in `conf.d/default.conf`
-  listening on a port (for example 8081).
+- `nginx.conf` is the main file. Its `http {}` block has a `TODO` where the
+  extra files should be loaded.
+- `conf.d/default.conf` is the extra file. It only contains a `TODO` comment.
+
+You can test your work yourself from this directory:
+
+    nginx -t -c nginx.conf -p .
+    nginx -T -c nginx.conf -p .
+
+The check (`c` or Enter in Nginxlings, or `./check.sh`) runs `nginx -t` with this
+directory as the prefix, reads `nginx -T` (comment lines are ignored), confirms
+that the include is active and that `conf.d/default.conf` was loaded with an
+active `server` block, reads that block's `listen` port, starts NGINX, and
+requests `http://127.0.0.1:<port>/`.
 
 ---
 
-## Tips
+## Task
 
-- On many systems the main configuration file is:
+1. In `nginx.conf`, inside `http {}`, load every `.conf` file from the `conf.d/`
+   directory.
+2. In `conf.d/default.conf`, define a `server` block that listens on a free port
+   of your choice (for example 8081), uses `localhost` as its server name, and
+   answers every request with `config-layout-ok` followed by a newline.
 
-      /etc/nginx/nginx.conf
+---
 
-- A common directory for additional virtual hosts is:
+## Success criteria
 
-      /etc/nginx/conf.d/
+- `nginx -t` accepts the configuration.
+- `nginx -T` shows an active include for `conf.d/*.conf` and the contents of
+  `conf.d/default.conf` with an active `server` block and a `listen` port.
+- A request to that port returns HTTP 200 with `config-layout-ok`.
 
-  The `nginx.conf` and `conf.d/` structure in this lab is a small copy of that layout.
+---
 
-- The `nginx -T` command is very handy when troubleshooting:
-  it shows all configuration files in one place. Remember the capital `T`.
+## If you are stuck
 
+Work through these one at a time, re-running the check in between:
+
+- `nginx.conf does not load the .conf files in conf.d/ yet`: the include is
+  missing, still a comment, or points somewhere else.
+- `NGINX rejected the configuration: "server" directive is not allowed here in
+  .../conf.d/default.conf`: the include is outside `http {}`. Look at the
+  include line, not at `default.conf`.
+- `No active 'server { ... }' block found in conf.d/default.conf`: the file is
+  not loaded, or its `server` block is still a comment.
+- `No active 'listen <port>;' directive found`: the `server` block needs a port.
+- `Port ... is already in use by ...`: another program uses that port. Pick a
+  different free port.
+- `The response ... does not contain 'config-layout-ok'`: look at what
+  `location /` answers.
+
+---
+
+## Review questions
+
+- Where is the main configuration file of the NGINX installed on your machine,
+  and how can NGINX itself tell you?
+- What is the difference between the `conf.d/*.conf` layout and the
+  `sites-available/` + `sites-enabled/` layout? Which one does your machine use?
+- In this lab, what do `-c` and `-p` change, and which file does
+  `logs/error.log` end up in?
+- In the `nginx -T` output, how can you tell which files were included?

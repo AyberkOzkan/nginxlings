@@ -1,56 +1,26 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# Checks exercise 16: req_zone is large enough (>= 256k) to keep remembering a
+# rate-limited client while many other distinct keys arrive.
 
-DOCKER_BIN="${DOCKER_BIN:-docker}"
+EX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=SCRIPTDIR/../lib/check-lib.sh
+. "${EX_DIR}/../lib/check-lib.sh"
 
-IMAGE_NAME="${IMAGE_NAME:-nginxlings_ex16_zone_sizing}"
+EXERCISE_ID="16_shared_zone_sizing"
+DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
+IMAGE_NAME="${IMAGE_NAME:-nginxlings/${EXERCISE_ID}:check}"
 CONTAINER_NAME="${CONTAINER_NAME:-nginxlings_ex16_zone_sizing_run}"
 HOST_PORT="${HOST_PORT:-18160}"
-
-PREFIX="$(pwd)"
-
-TMP_T=""
-CONF_T=""
-CODES_FILE=""
-BUILT_IMAGE="0"
-
-fail() {
-  echo "[FAIL] $*"
-  exit 1
-}
-
-info() {
-  echo "$@"
-}
-
-cleanup() {
-  set +e
-  [ -n "${TMP_T}" ] && rm -f "${TMP_T}" >/dev/null 2>&1 || true
-  [ -n "${CONF_T}" ] && rm -f "${CONF_T}" >/dev/null 2>&1 || true
-  [ -n "${CODES_FILE}" ] && rm -f "${CODES_FILE}" >/dev/null 2>&1 || true
-
-  "${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-  if [ "${BUILT_IMAGE}" = "1" ]; then
-    "${DOCKER_BIN}" image rm -f "${IMAGE_NAME}" >/dev/null 2>&1 || true
-  fi
-
-  "${DOCKER_BIN}" builder prune -f >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
-
-command -v "${DOCKER_BIN}" >/dev/null 2>&1 || fail "docker not found in PATH."
-command -v curl >/dev/null 2>&1 || fail "curl not found in PATH."
-
-[ -f "${PREFIX}/Dockerfile" ] || fail "Dockerfile not found."
-[ -f "${PREFIX}/nginx.conf" ] || fail "nginx.conf not found."
+URL="http://127.0.0.1:${HOST_PORT}/"
+# Distinct keys sent between two requests of the limited client. A 64k or 128k
+# zone cannot hold them all and evicts the limited client; 256k can.
+FLOOD_KEYS=1500
 
 size_to_bytes() {
-  local s="$1"
-  s="${s,,}"
-  if [[ "$s" =~ ^([0-9]+)([km]?)$ ]]; then
-    local n="${BASH_REMATCH[1]}"
-    local u="${BASH_REMATCH[2]}"
-    case "$u" in
+  local s="${1,,}"
+  if [[ "${s}" =~ ^([0-9]+)([km]?)$ ]]; then
+    local n="${BASH_REMATCH[1]}" u="${BASH_REMATCH[2]}"
+    case "${u}" in
       k) echo $((n * 1024)) ;;
       m) echo $((n * 1024 * 1024)) ;;
       *) echo $((n)) ;;
@@ -60,121 +30,79 @@ size_to_bytes() {
   echo 0
 }
 
-wait_http_ready() {
-  local url="http://127.0.0.1:${HOST_PORT}/"
-  for _ in $(seq 1 40); do
-    if curl -s -m 1 -o /dev/null "${url}"; then
-      return 0
-    fi
-    sleep 0.1
-  done
-  return 1
-}
+echo "[1/6] Checking prerequisites and files..."
+require_docker
+require_cmd curl
+for file in Dockerfile nginx.conf; do
+  [[ -f "${EX_DIR}/${file}" ]] || fail "${file} not found in ${EX_DIR}."
+done
+require_free_port "${HOST_PORT}" "the exercise container (override with HOST_PORT)"
 
-info "[1/7] Building Docker image..."
-DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build -t "${IMAGE_NAME}" "${PREFIX}" >/dev/null 2>&1 \
-  || fail "docker build failed."
-BUILT_IMAGE="1"
+echo "[2/6] Building Docker image ${IMAGE_NAME}..."
+on_exit "\"${DOCKER_BIN}\" image rm -f \"${IMAGE_NAME}\""
+docker_build "${IMAGE_NAME}" "${EX_DIR}"
 
-info "[2/7] Testing nginx config inside the image (nginx -t)..."
-TMP_T="$(mktemp)"
-if ! "${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
-  echo "nginx -t output:"
-  cat "${TMP_T}" || true
-  fail "nginx -t failed."
+echo "[3/6] Testing the config and reading req_zone (nginx -T)..."
+temp_file DUMP
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
+  fail_nginx_rejected "${DUMP}"
 fi
-rm -f "${TMP_T}" >/dev/null 2>&1 || true
-TMP_T=""
-info "[OK] nginx -t succeeded."
+# Effective configuration: no comments, one directive per line.
+temp_file ACTIVE
+active_config "${DUMP}" >"${ACTIVE}"
 
-info "[3/7] Checking zone size in effective config (nginx -T)..."
-CONF_T="$(mktemp)"
-"${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -T >"${CONF_T}" 2>&1 || true
+zone_line="$(grep -E '^[[:space:]]*limit_req_zone[[:space:]]' "${ACTIVE}" | grep -E 'zone=req_zone:' | head -n 1 || true)"
+[[ -n "${zone_line}" ]] || fail "No limit_req_zone directive with zone=req_zone:<size> found in nginx.conf."
+zone_size="$(grep -Eo 'zone=req_zone:[0-9]+[kKmM]?([[:space:];]|$)' <<<"${zone_line}" | head -n 1 | sed -E 's/^zone=req_zone:([0-9]+[kKmM]?).*/\1/' || true)"
+[[ -n "${zone_size}" ]] || fail "Could not read the size in: ${zone_line}"
+grep -qE '[[:space:]]rate=1r/m([[:space:];]|$)' <<<"${zone_line}" ||
+  fail "Keep rate=1r/m on req_zone; the check needs a limited client to stay limited for a minute."
+grep -qE '^[[:space:]]*limit_req[[:space:]]+([^;]*[[:space:]])?zone=req_zone([[:space:];])' "${ACTIVE}" ||
+  fail "Missing 'limit_req zone=req_zone ...' in location /."
+echo "req_zone size: ${zone_size}"
 
-zone_token="$(grep -Eo 'zone=req_zone:[0-9]+[kKmM]?' "${CONF_T}" | head -n 1 || true)"
-[ -n "${zone_token}" ] || {
-  sed -n '1,160p' "${CONF_T}" || true
-  fail "Could not find zone=req_zone:<size> in effective config."
-}
-
-zone_size="${zone_token#zone=req_zone:}"
-zone_bytes="$(size_to_bytes "${zone_size}")"
-min_bytes="$((256 * 1024))"
-
-if [ "${zone_bytes}" -lt "${min_bytes}" ]; then
-  fail "Zone size must be >= 256k. Current: ${zone_size}"
-fi
-
-grep -qE 'limit_req[[:space:]]+zone=req_zone' "${CONF_T}" \
-  || fail "Missing limit_req usage with zone=req_zone."
-
-rm -f "${CONF_T}" >/dev/null 2>&1 || true
-CONF_T=""
-info "[OK] Zone sizing looks good (req_zone:${zone_size})."
-
-info "[4/7] Starting container..."
+echo "[4/6] Starting container ${CONTAINER_NAME} (host ${HOST_PORT} -> container 8080)..."
 "${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-"${DOCKER_BIN}" run -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null \
-  || fail "Failed to start container."
-
-wait_http_ready || {
-  echo "docker logs (first 120 lines):"
-  "${DOCKER_BIN}" logs "${CONTAINER_NAME}" 2>&1 | sed -n '1,120p' || true
-  fail "Container did not become ready on time."
-}
-
-info "[5/7] Creating many unique keys to stress the shared memory zone..."
-for i in $(seq 1 1200); do
-  (
-    curl -s -m 2 "http://127.0.0.1:${HOST_PORT}/?id=${i}" >/dev/null 2>&1 || true
-  ) &
-  if (( i % 50 == 0 )); then
-    wait || true
-  fi
-done
-wait || true
-sleep 0.5
-
-LOGS="$("${DOCKER_BIN}" logs "${CONTAINER_NAME}" 2>/dev/null || true)"
-echo "${LOGS}" | grep -qiE 'could not allocate|no memory|ngx_slab_alloc' && {
-  echo "Sample logs (first 120 lines):"
-  printf '%s\n' "${LOGS}" | sed -n '1,120p' || true
-  fail "Shared memory allocation errors detected. Increase the zone size."
-}
-
-info "[OK] No shared memory allocation errors detected."
-
-info "[6/7] Verifying rate limiting is active (expects some 200 and some 429)..."
-CODES_FILE="$(mktemp)"
-: > "${CODES_FILE}"
-
-for _ in $(seq 1 30); do
-  (
-    code="$(curl -s -m 2 -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HOST_PORT}/?id=same" || echo "000")"
-    echo "${code}" >> "${CODES_FILE}"
-  ) &
-done
-wait || true
-
-ok_count="$(grep -c '^200$' "${CODES_FILE}" || true)"
-limited_count="$(grep -c '^429$' "${CODES_FILE}" || true)"
-
-if [ "${ok_count}" -eq 0 ]; then
-  echo "HTTP codes:"
-  cat "${CODES_FILE}" || true
-  fail "Expected at least one 200 response."
+on_exit "\"${DOCKER_BIN}\" rm -f \"${CONTAINER_NAME}\""
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d \
+  --name "${CONTAINER_NAME}" \
+  -p "127.0.0.1:${HOST_PORT}:8080" \
+  "${IMAGE_NAME}" >/dev/null
+if ! try_container_http "${CONTAINER_NAME}" "${URL}?id=ready" 10; then
+  fail "Nothing answered on port 8080. Keep 'listen 8080;' in the server block."
 fi
 
-if [ "${limited_count}" -eq 0 ]; then
-  echo "HTTP codes:"
-  cat "${CODES_FILE}" || true
-  fail "Expected at least one 429 response (rate limiting)."
+echo "[5/6] Checking that req_zone limits a client (?id=limited)..."
+first="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "${URL}?id=limited" || true)"
+second="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "${URL}?id=limited" || true)"
+echo "First request: ${first}, second request: ${second}"
+[[ "${first}" == "200" ]] || fail "Expected HTTP 200 for the first request, got ${first}."
+if [[ "${second}" != "429" ]]; then
+  fail "Expected HTTP 429 for the second request within a minute, got ${second}. Keep limit_req in location / and serve the file instead of using return."
 fi
 
-rm -f "${CODES_FILE}" >/dev/null 2>&1 || true
-CODES_FILE=""
-info "[OK] Rate limiting observed (200 and 429)."
+echo "[6/6] Sending ${FLOOD_KEYS} other distinct keys, then asking again as the limited client..."
+temp_file CODES
+# One curl process reuses a single keep-alive connection for all keys.
+curl -s -m 60 -o /dev/null -w '%{http_code}\n' "${URL}?id=key-[1-${FLOOD_KEYS}]" >"${CODES}" || true
+flood_ok="$(grep -c '^200$' "${CODES}" || true)"
+if ((flood_ok != FLOOD_KEYS)); then
+  echo "HTTP codes for the distinct keys:"
+  sort "${CODES}" | uniq -c
+  "${DOCKER_BIN}" logs "${CONTAINER_NAME}" 2>&1 | grep -E '\[(alert|crit|error)\]' | tail -n 20 || true
+  fail "Expected HTTP 200 for each of the ${FLOOD_KEYS} distinct keys, got ${flood_ok}."
+fi
 
-info "[7/7] Done."
-echo
-echo "[PASS] 16 – Shared Memory Zone Sizing & Limits looks good."
+third="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "${URL}?id=limited" || true)"
+echo "Limited client after ${FLOOD_KEYS} other keys: ${third}"
+if [[ "${third}" == "200" ]]; then
+  fail "req_zone:${zone_size} forgot the limited client: it filled up with ${FLOOD_KEYS} other keys, NGINX evicted the least recently used state, and the client got 200 instead of 429. Increase the zone size."
+fi
+[[ "${third}" == "429" ]] || fail "Expected HTTP 429 for the limited client, got ${third}."
+
+zone_bytes="$(size_to_bytes "${zone_size}")"
+if ((zone_bytes < 256 * 1024)); then
+  fail "req_zone:${zone_size} held ${FLOOD_KEYS} keys, but the exercise asks for at least 256k to leave headroom."
+fi
+
+pass "16 – req_zone:${zone_size} still limits the client after ${FLOOD_KEYS} other keys."

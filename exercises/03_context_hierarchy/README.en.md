@@ -1,131 +1,122 @@
-# 03 – Context Hierarchy (main / http / server / location)
+# 03 – Context Hierarchy (main/http/server/location)
 
 ## Goal
 
-In this exercise, you will practice understanding the **context hierarchy** in
-an NGINX configuration file and learn how to move misplaced directives into
-the correct level.
+In this exercise you will repair an `nginx.conf` whose directives sit in the wrong
+contexts, using the messages from `nginx -t` to find each one.
 
-We focus on the following chain:
+You will practise:
 
-- `main` (top level of the file)
-- `http`
-- `server`
-- `location`
-
-Some directives in this lab will be **deliberately placed in the wrong
-context**. Your task is to use the error/hint messages from the automatic
-check and place these directives into the correct context.
+- the nesting `main` > `http` > `server` > `location`,
+- reading `"..." directive is not allowed here` and the line number it names,
+- deciding which context a directive belongs to.
 
 ---
 
-## Background – Context hierarchy
+## Background – contexts
 
-In an NGINX configuration, the context defines where a directive is valid and
-what scope it affects.
+An NGINX configuration is a tree of blocks called **contexts**. Each directive is
+valid only in certain contexts, and a block directive opens a new context:
 
-- **main context**  
-  Top level of the file. Typically used for:
+    # main: settings for the whole NGINX instance
+    worker_processes 2;
 
-    user ...
-    worker_processes ...
-    error_log ...
-    pid ...
-
-- **http context**
+    events {
+        # connection processing
+    }
 
     http {
-        # HTTP-level settings
-        sendfile on;
-        keepalive_timeout 65;
+        # settings for all HTTP traffic
+        keepalive_timeout 30;
 
         server {
-            ...
+            # one virtual server: address, port, names
+            listen 9090;
+            server_name docs.example;
+
+            location /api/ {
+                # requests whose URI starts with /api/
+            }
         }
     }
 
-- **server context**
+Things worth knowing:
 
-    server {
-        listen 8080;
-        server_name localhost;
-        root /var/www/html;
+- Every directive's documentation has a **Context:** line listing where it may
+  appear. `nginx -t` enforces it and names the first offending line:
+  `"listen" directive is not allowed here in .../nginx.conf:31`.
+- `http` and `events` belong to `main`, `server` belongs to `http`, and `location`
+  belongs to `server` (or to another `location`).
+- A setting in an outer context is inherited by the inner ones unless they set it
+  themselves: a `root` in `server` also applies to its locations.
+- `nginx -t` stops at the first error. After each fix, the next misplaced
+  directive shows up.
 
-        location / {
-            ...
-        }
-    }
-
-- **location context**
-
-    location /images/ {
-        # Behavior for a specific URI prefix
-    }
-
-Some directives are only meaningful in certain contexts. For example:
-
-- `user`, `worker_processes` → only make sense at the main level.
-- `sendfile`, `keepalive_timeout` → used at the `http` level.
-- `listen`, `server_name`, `root` → typically live inside a `server` block.
-- URI/path-specific behavior → defined inside a `location` block.
-
-In this exercise, some directives are intentionally placed in the wrong
-context. The automatic check will generate errors or warnings to help you
-identify and fix them.
+Reference: [Beginner's guide – configuration file structure](https://nginx.org/en/docs/beginners_guide.html#conf_structure),
+[ngx_http_core_module](https://nginx.org/en/docs/http/ngx_http_core_module.html).
 
 ---
 
-## What are you doing in this exercise?
+## Lab environment
 
-In this directory, the `nginx.conf` file:
+This exercise uses the NGINX installed on your machine:
 
-- Contains a basic context hierarchy,
-- But some directives have been deliberately placed in the wrong context.
+- `nginx.conf` is your file. Its top part (`main`, `events`, `http`) is valid; the
+  section marked `INTENTIONALLY BROKEN CONTEXT SECTION` is not.
+- Relative paths such as `logs/error.log` resolve against this directory.
 
-Your task:
+The check (`c` or Enter in Nginxlings, or `./check.sh`) runs
+`nginx -t -c nginx.conf -p <this directory>`, starts NGINX in the foreground,
+requests `http://127.0.0.1:8080/` and expects a `200` whose body contains
+`context-hierarchy-ok`. Port 8080 must be free.
 
-1. Run the check with `c` or Enter.
-2. Look at the hints shown in the status line (and extra output if provided):
-   - Messages like “directive X is not allowed here”,
-   - These point to directives that are in the wrong context.
-3. Adjust the block structure and directive locations in `nginx.conf` so that
-   the context hierarchy is correct and consistent.
+---
 
-The important points:
+## Task
 
-- The `http` block must live at the **main** level.
-- `server` blocks must live inside the `http` block.
-- `location` blocks must live inside a `server` block.
-- Directives that do not belong to a given context should be moved down or up
-  to the level where they logically belong.
+Edit `nginx.conf` so that:
+
+1. `listen 8080;` and `server_name localhost;` belong to the `server` block.
+2. The `server` block, with its `location /`, lives inside `http`.
+3. `location /` keeps its `return`, so `/` still answers `context-hierarchy-ok`.
 
 ---
 
 ## Success criteria
 
-This exercise is considered **successful** when:
-
-- The configuration is syntactically valid.
-- The context hierarchy is correct.
-- Directives that were placed in the wrong context are moved to a valid level.
-- `server` and `location` blocks are inside the correct parent contexts.
-- Context-related error messages (for example, “is not allowed here”) no longer appear.
-- In the Nginxlings exercise list, this step is marked as completed (✓).
+- `nginx -t` accepts the configuration.
+- `http://127.0.0.1:8080/` answers `200`.
+- The body contains `context-hierarchy-ok`.
 
 ---
 
-## Tips
+## If you are stuck
 
-- Error/warning messages usually mention which directive on which line is in
-  the wrong context.
-- If you are unsure where a directive belongs:
-  - Think about the scope: does it affect all of NGINX, all HTTP traffic,
-    a single virtual host, or only a specific path?
-  - As a rough rule:
-    - Entire NGINX instance → `main`
-    - HTTP layer → `http`
-    - Specific host/port/virtual server → `server`
-    - URI/path-specific behavior → `location`
-- If you see the same type of directive (for example `listen`) used in
-  different contexts, one of those places is probably wrong.
+Work through these one at a time, re-running the check in between:
 
+- `"listen" directive is not allowed here in ...:31`: this is the starting state.
+  Which block does `listen` describe?
+- `"server" directive is not allowed here`: the `server` block is still outside
+  `http`.
+- `"location" directive is not allowed here`: a `location` sits directly in
+  `http`. Which block has to surround it?
+- `"sendfile" directive is not allowed here` or
+  `"worker_processes" directive is not allowed here`: a directive was moved to a
+  context it does not support. Check its **Context:** line in the documentation.
+- `NGINX did not answer on http://127.0.0.1:8080/`: the configuration is valid,
+  but no `server` listens on 8080. Did `listen 8080;` get lost on the way?
+- `got 403`: the `return` is gone from `location /`, so NGINX tries to serve a file
+  from `root`, and this directory has no `index.html`.
+
+---
+
+## Review questions
+
+- A `server` without any `listen` directive still accepts connections. On which
+  port, and why does the answer depend on whether NGINX starts as root?
+- `sendfile` is allowed in `http`, `server` and `location`. If `http` says
+  `sendfile on;` and one location says `sendfile off;`, what applies to the other
+  locations?
+- A `server` has `add_header X-A ...;` and one of its locations has
+  `add_header X-B ...;`. Which headers does a request to that location get, and
+  which does a request to another location get?

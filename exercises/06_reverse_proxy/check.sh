@@ -1,114 +1,78 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# Checks exercise 06: NGINX on :8081 proxies to the backend on :8080.
 
-NGINX_BIN="${NGINX_BIN:-nginx}"
-PREFIX="$(pwd)"
-LOG_DIR="${PREFIX}/logs"
+EX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=SCRIPTDIR/../lib/check-lib.sh
+. "${EX_DIR}/../lib/check-lib.sh"
 
-mkdir -p "${LOG_DIR}"
-
-fail() {
-  echo "[FAIL] $*"
-  exit 1
-}
-
-NGINX_PID=""
+CONF="${EX_DIR}/nginx.conf"
+BACKEND_PORT=8080
+PROXY_PORT=8081
+BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}/"
+PROXY_URL="http://127.0.0.1:${PROXY_PORT}/"
 BACKEND_PID=""
 
-cleanup() {
-  local code=$?
-  if [[ -n "${NGINX_PID}" ]]; then
-    # Try graceful stop; ignore errors
-    "${NGINX_BIN}" -s stop -c "${PREFIX}/nginx.conf" -p "${PREFIX}" >/dev/null 2>&1 || true
-    sleep 0.3 || true
-  fi
-  if [[ -n "${BACKEND_PID}" ]]; then
-    kill "${BACKEND_PID}" >/dev/null 2>&1 || true
-  fi
-  exit "${code}"
+stop_backend() {
+  [[ -n "${BACKEND_PID}" ]] || return 0
+  kill "${BACKEND_PID}" 2>/dev/null || true
+  wait "${BACKEND_PID}" 2>/dev/null || true
+  BACKEND_PID=""
 }
-trap cleanup EXIT
 
-echo "[1/4] Checking required files..."
+echo "[1/5] Checking prerequisites and files..."
+require_cmd "${NGINX_BIN}" "install NGINX on this machine"
+require_cmd curl
+require_cmd python3 "needed to run backend_app.py"
+[[ -f "${CONF}" ]] || fail "nginx.conf not found in ${EX_DIR}."
+[[ -f "${EX_DIR}/backend_app.py" ]] || fail "backend_app.py not found in ${EX_DIR}."
+require_free_port "${BACKEND_PORT}" "the backend app"
+require_free_port "${PROXY_PORT}" "the NGINX reverse proxy"
+mkdir -p "${EX_DIR}/logs"
 
-if [ ! -f "${PREFIX}/nginx.conf" ]; then
-  fail "nginx.conf not found in ${PREFIX}"
-fi
+# A random per-run token that only the backend process knows: it cannot be
+# faked by returning a fixed string from nginx.conf.
+TOKEN="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
 
-if [ ! -f "${PREFIX}/backend_app.py" ]; then
-  fail "backend_app.py not found in ${PREFIX}"
-fi
-
-if ! command -v python3 >/dev/null 2>&1; then
-  fail "python3 is required to run backend_app.py"
-fi
-
-echo "[OK] nginx.conf and backend_app.py are present."
-
-echo "[2/4] Starting backend on 127.0.0.1:8080..."
-
-python3 "${PREFIX}/backend_app.py" >/dev/null 2>&1 &
+echo "[2/5] Starting the backend on 127.0.0.1:${BACKEND_PORT}..."
+temp_file BACKEND_LOG
+on_exit "stop_backend"
+NGINXLINGS_BACKEND_TOKEN="${TOKEN}" python3 "${EX_DIR}/backend_app.py" >"${BACKEND_LOG}" 2>&1 &
 BACKEND_PID=$!
-
-# Wait for backend to become ready
-backend_ready=0
-for i in $(seq 1 20); do
-  if curl -s -o /dev/null "http://127.0.0.1:8080/"; then
-    backend_ready=1
-    break
-  fi
-  sleep 0.2
-done
-
-if [ "${backend_ready}" -ne 1 ]; then
-  fail "Backend on 127.0.0.1:8080 did not respond. Is the port already in use?"
+if ! wait_tcp 127.0.0.1 "${BACKEND_PORT}" 10 || ! kill -0 "${BACKEND_PID}" 2>/dev/null; then
+  cat "${BACKEND_LOG}" || true
+  fail "The backend did not start on ${BACKEND_URL}."
+fi
+temp_file DIRECT
+curl -s -m 5 -o "${DIRECT}" "${BACKEND_URL}" || true
+if ! grep -q "${TOKEN}" "${DIRECT}"; then
+  cat "${BACKEND_LOG}" || true
+  fail "The process answering on ${BACKEND_URL} is not this exercise's backend."
 fi
 
-echo "[OK] Backend is responding."
+echo "[3/5] Testing nginx.conf with nginx -t..."
+nginx_test "${CONF}" "${EX_DIR}"
 
-echo "[3/4] Testing nginx.conf with nginx -t..."
+echo "[4/5] Starting the NGINX reverse proxy on 127.0.0.1:${PROXY_PORT}..."
+start_host_nginx "${CONF}" "${EX_DIR}"
+wait_host_nginx "${PROXY_URL}"
 
-TMP_T_LOG="$(mktemp)"
-if ! "${NGINX_BIN}" -t -c "${PREFIX}/nginx.conf" -p "${PREFIX}" >"${TMP_T_LOG}" 2>&1; then
-  echo "nginx -t output:"
-  cat "${TMP_T_LOG}"
-  rm -f "${TMP_T_LOG}"
-  fail "nginx -t failed."
+echo "[5/5] Verifying that the response comes from the backend..."
+temp_file BODY
+HTTP_CODE="$(curl -s -m 5 -o "${BODY}" -w '%{http_code}' "${PROXY_URL}" || true)"
+if ! kill -0 "${BACKEND_PID}" 2>/dev/null; then
+  cat "${BACKEND_LOG}" || true
+  fail "The backend stopped unexpectedly."
 fi
-rm -f "${TMP_T_LOG}"
-echo "[OK] nginx -t passed."
-
-echo "[4/4] Starting nginx reverse proxy on 127.0.0.1:8081..."
-
-"${NGINX_BIN}" -c "${PREFIX}/nginx.conf" -p "${PREFIX}" >/dev/null 2>&1 &
-NGINX_PID=$!
-
-# Wait for nginx to respond
-proxy_ready=0
-for i in $(seq 1 20); do
-  if curl -s -o /dev/null "http://127.0.0.1:8081/"; then
-    proxy_ready=1
-    break
-  fi
-  sleep 0.2
-done
-
-if [ "${proxy_ready}" -ne 1 ]; then
-  fail "Nginx on 127.0.0.1:8081 did not respond."
+case "${HTTP_CODE}" in
+  200) ;;
+  404) fail "Expected HTTP 200 from ${PROXY_URL}, got 404: location / has no handler, so NGINX looked for files under its html/ root. Hand the request to the backend." ;;
+  502) fail "Expected HTTP 200 from ${PROXY_URL}, got 502: NGINX tried to proxy, but nothing answered at that address. Check the address and port in proxy_pass." ;;
+  *) fail "Expected HTTP 200 from ${PROXY_URL}, got ${HTTP_CODE}. Is proxy_pass configured correctly?" ;;
+esac
+if ! grep -q "${TOKEN}" "${BODY}"; then
+  echo "Response via proxy:"
+  cat "${BODY}"
+  fail "The response via NGINX does not come from the backend on 127.0.0.1:${BACKEND_PORT}. Forward location / to it."
 fi
 
-echo "[OK] Nginx is responding on 127.0.0.1:8081."
-
-echo "[4/4] Verifying that the response comes from the backend..."
-
-RESP="$(curl -s -D - "http://127.0.0.1:8081/")"
-
-# Check for our special marker from backend_app.py
-if ! printf '%s\n' "${RESP}" | grep -q "backend-06-ok"; then
-  echo "Full response via proxy:"
-  printf '%s\n' "${RESP}"
-  fail "Response via Nginx does not contain 'backend-06-ok'. Is proxy_pass configured correctly?"
-fi
-
-echo "[PASS] 06 – HTTP Reverse Proxy Basics looks good."
-
+pass "06 – HTTP Reverse Proxy Basics looks good."

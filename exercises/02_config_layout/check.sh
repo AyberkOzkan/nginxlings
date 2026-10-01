@@ -1,69 +1,64 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# Checks exercise 02: nginx.conf includes conf.d/*.conf and conf.d/default.conf serves a response.
 
-NGINX_BIN="${NGINX_BIN:-nginx}"
-PREFIX="$(pwd)"
-mkdir -p "${PREFIX}/logs"
+EX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=SCRIPTDIR/../lib/check-lib.sh
+. "${EX_DIR}/../lib/check-lib.sh"
 
-fail() {
-  echo "[FAIL] $*"
-  exit 1
-}
+CONF="${EX_DIR}/nginx.conf"
+DEFAULT_CONF="${EX_DIR}/conf.d/default.conf"
+EXPECTED_TEXT="config-layout-ok"
 
-echo "[1/3] Testing nginx.conf with nginx -t..."
+echo "[1/4] Checking prerequisites..."
+require_cmd "${NGINX_BIN}" "install NGINX on this machine"
+require_cmd curl
+[[ -f "${CONF}" ]] || fail "nginx.conf not found in ${EX_DIR}."
+[[ -f "${DEFAULT_CONF}" ]] || fail "conf.d/default.conf not found."
+mkdir -p "${EX_DIR}/logs"
 
-if [ ! -f "${PREFIX}/nginx.conf" ]; then
-  fail "nginx.conf not found in current directory: ${PREFIX}"
-fi
+echo "[2/4] Testing nginx.conf with nginx -t..."
+nginx_test "${CONF}" "${EX_DIR}"
 
-TMP_T_LOG="$(mktemp)"
-if ! "${NGINX_BIN}" -t -c "${PREFIX}/nginx.conf" -p "${PREFIX}" >"${TMP_T_LOG}" 2>&1; then
-  echo "nginx -t output:"
-  cat "${TMP_T_LOG}"
-  rm -f "${TMP_T_LOG}"
-  fail "nginx -t failed."
-fi
-rm -f "${TMP_T_LOG}"
-echo "[OK] nginx -t succeeded."
-
-echo "[2/3] Looking for 'include conf.d/*.conf;' in nginx -T output..."
-
-TMP_T_CONF="$(mktemp)"
-if ! "${NGINX_BIN}" -T -c "${PREFIX}/nginx.conf" -p "${PREFIX}" >"${TMP_T_CONF}" 2>&1; then
-  echo "nginx -T output:"
-  cat "${TMP_T_CONF}"
-  rm -f "${TMP_T_CONF}"
+echo "[3/4] Inspecting the effective configuration (nginx -T)..."
+temp_file DUMP
+if ! "${NGINX_BIN}" -T -c "${CONF}" -p "${EX_DIR}" >"${DUMP}" 2>&1; then
+  cat "${DUMP}"
   fail "nginx -T failed."
 fi
 
-if ! grep -qE '^[[:space:]]*include[[:space:]]+conf\.d/\*\.conf;' "${TMP_T_CONF}"; then
-  echo "First lines of nginx -T output:"
-  sed -n '1,80p' "${TMP_T_CONF}"
-  rm -f "${TMP_T_CONF}"
-  fail "The line 'include conf.d/*.conf;' was not found in the effective configuration."
-fi
-echo "[OK] 'include conf.d/*.conf;' found in effective configuration."
-
-echo "[3/3] Checking for a listening server block in conf.d/default.conf..."
-
-if [ ! -f "${PREFIX}/conf.d/default.conf" ]; then
-  rm -f "${TMP_T_CONF}"
-  fail "conf.d/default.conf not found."
+# Effective configuration: no comments, one directive per line.
+temp_file ACTIVE
+active_config "${DUMP}" >"${ACTIVE}"
+if ! grep -qE '^[[:space:]]*include[[:space:]]+([^;[:space:]]*/)?conf\.d/\*\.conf[[:space:]]*;' "${ACTIVE}"; then
+  fail "nginx.conf does not load the .conf files in conf.d/ yet; the include belongs in the http block."
 fi
 
-if ! grep -qE 'server[[:space:]]*\{' "${PREFIX}/conf.d/default.conf"; then
-  rm -f "${TMP_T_CONF}"
-  fail "No 'server { ... }' block found in conf.d/default.conf."
+# Only the part of the dump that comes from conf.d/default.conf.
+temp_file DEFAULT_ACTIVE
+awk -v file="${DEFAULT_CONF}" '
+  /^# configuration file / { on = ($0 == "# configuration file " file ":"); next }
+  on { print }
+' "${DUMP}" | active_config >"${DEFAULT_ACTIVE}"
+if ! grep -qE '^[[:space:]]*server[[:space:]]*\{' "${DEFAULT_ACTIVE}"; then
+  fail "No active 'server { ... }' block found in conf.d/default.conf (is it loaded by the include, and not commented out?)."
+fi
+PORT="$(sed -nE 's/^[[:space:]]*listen[[:space:]]+([^;]*:)?([0-9]+)([[:space:]][^;]*)?;.*/\2/p' "${DEFAULT_ACTIVE}" | head -n 1)"
+if [[ -z "${PORT}" ]]; then
+  fail "No active 'listen <port>;' directive found in the server block of conf.d/default.conf."
 fi
 
-if ! grep -qi 'listen' "${PREFIX}/conf.d/default.conf"; then
-  rm -f "${TMP_T_CONF}"
-  fail "No 'listen' directive found in conf.d/default.conf."
+echo "[4/4] Starting NGINX on port ${PORT} and requesting /..."
+require_free_port "${PORT}" "the server block in conf.d/default.conf"
+start_host_nginx "${CONF}" "${EX_DIR}"
+URL="http://127.0.0.1:${PORT}/"
+wait_host_nginx "${URL}"
+temp_file BODY
+HTTP_CODE="$(curl -s -m 5 -o "${BODY}" -w '%{http_code}' "${URL}" || true)"
+if [[ "${HTTP_CODE}" != "200" ]]; then
+  fail "Expected HTTP 200 from ${URL}, got ${HTTP_CODE}."
+fi
+if ! grep -q "${EXPECTED_TEXT}" "${BODY}"; then
+  fail "The response from ${URL} does not contain '${EXPECTED_TEXT}'. Return it from location / in conf.d/default.conf."
 fi
 
-rm -f "${TMP_T_CONF}"
-echo "[OK] conf.d/default.conf contains a server block with a listen directive."
-
-echo
-echo "[PASS] 02 – Config Layout & Default Paths looks good."
-
+pass "02 – conf.d/default.conf is included and answers '${EXPECTED_TEXT}' on port ${PORT}."

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,6 +27,10 @@ type checkResultMsg struct {
 	index  int
 }
 
+type marqueeTickMsg struct {
+	generation uint64
+}
+
 type model struct {
 	exercises []Exercise
 	cursor    int
@@ -34,10 +39,23 @@ type model struct {
 	height int
 	ready  bool
 
+	listWidth         int
+	rightWidth        int
+	marqueeGeneration uint64
+	marquee           int
+
 	readme viewport.Model
 
-	status  string
-	loading bool
+	status              string
+	loading             bool
+	checkCancel         context.CancelFunc
+	checkDone           <-chan struct{}
+	instructionsContent string
+	// checkOutputs holds the sanitized output of the last check per exercise
+	// ID for this session; Tab shows the selected exercise's entry.
+	checkOutputs map[string]string
+	// panel is what the right panel currently shows.
+	panel panelMode
 
 	i18n      *I18n
 	langIndex int
@@ -45,13 +63,26 @@ type model struct {
 	spinner spinner.Model
 	styles  Styles
 
+	// lightBackground selects the light markdown theme. It is detected once
+	// before Bubble Tea starts reading the terminal.
+	lightBackground bool
+
 	// Kalıcı state için
-	rootDir string
-	state   *AppState
+	paths AppPaths
+	state *AppState
 
 	// Reset onayı için
 	confirmReset bool
 }
+
+// panelMode selects the content of the right panel.
+type panelMode int
+
+const (
+	panelInstructions panelMode = iota
+	panelCheckOutput
+	panelHint
+)
 
 /* ---------- Yardımcı fonksiyonlar ---------- */
 
@@ -105,67 +136,79 @@ func (m *model) progressCounts() (completed, total int) {
 	return
 }
 
+// ui returns the UI string for key in the current language. fallback is the
+// English text shown when translations are missing or failed to load.
+func (m model) ui(key, fallback string) string {
+	if m.i18n == nil {
+		return fallback
+	}
+	return m.i18n.T(m.currentLangCode(), key, fallback)
+}
+
+// uif is ui with fmt.Sprintf arguments applied to the translated format.
+func (m model) uif(key, fallback string, args ...any) string {
+	return fmt.Sprintf(m.ui(key, fallback), args...)
+}
+
 // İlk açılışta status satırı
 func (m *model) initialStatusText() string {
-	base := "↑/↓ ile egzersiz seç, c ile check, h ile hint, l ile dil değiştir, r ile reset, q ile çık."
-	if m.i18n != nil {
-		base = m.i18n.T(m.currentLangCode(), "status_initial", base)
-	}
-	return base
+	return m.ui("status_initial", "Pick an exercise, edit its files, then press c to check your solution.")
 }
 
 /* ---------- Model başlangıcı ---------- */
 
-func initialModel() model {
-	baseDir, err := os.Getwd()
+// newTUIModel resolves paths, rejects an unknown --lang value, and builds the
+// initial TUI model.
+func newTUIModel(opts cliOptions) (model, error) {
+	paths, err := ResolveAppPathsWithOptions(opts.root, opts.state)
+	if err != nil {
+		return model{}, err
+	}
+	if err := validateLangCode(paths.AssetRoot, opts.lang); err != nil {
+		return model{}, err
+	}
+	return initialModelWithOptions(paths, opts.lang), nil
+}
 
-	// i18n yükle
-	i18n, i18nErr := LoadI18n(baseDir)
-
-	// state yükle
-	state, stateErr := LoadState(baseDir)
-
+func initialModelWithOptions(paths AppPaths, initialLang string) model {
 	m := model{
-		i18n:      i18n,
 		langIndex: 0,
 		spinner:   newSpinner(),
 		styles:    DefaultStyles(),
-		rootDir:   baseDir,
-		state:     state,
+		paths:     paths,
 	}
 
-	m.langIndex = 0
-	if m.i18n != nil {
-		for i, meta := range m.i18n.Langs() {
-			if meta.Code == "en" {
-				m.langIndex = i
-				break
-			}
-		}
+	// i18n ve state yükle
+	i18n, i18nErr := LoadI18n(paths.AssetRoot)
+	state, stateErr := LoadState(paths.StateFile)
+	m.i18n = i18n
+	m.state = state
+
+	// Dil önceliği: --lang, sonra state, sonra English. Metinler dil
+	// seçildikten sonra üretilir ki hata mesajları da doğru dilde olsun.
+	m.langIndex = m.langIndexFor("en", 0)
+	if m.state != nil && m.state.LangCode != "" {
+		m.langIndex = m.langIndexFor(m.state.LangCode, m.langIndex)
+	}
+	if initialLang != "" {
+		m.langIndex = m.langIndexFor(initialLang, m.langIndex)
 	}
 
-	// README viewport
 	vp := viewport.New(0, 0)
-	defaultReadme := "Select an exercise and read the instructions here."
-	if i18n != nil {
-		defaultReadme = i18n.T(m.currentLangCode(), "readme_initial", defaultReadme)
-	}
-	vp.SetContent(defaultReadme)
+	vp.SetContent(m.ui("readme_initial", "Select an exercise and read the instructions here."))
 	m.readme = vp
 
-	if err != nil {
-		m.status = fmt.Sprintf("Çalışma dizini okunamadı: %v", err)
-		return m
-	}
-
 	if i18nErr != nil {
-		m.status = fmt.Sprintf("i18n yüklenemedi: %v", i18nErr)
+		m.status = fmt.Sprintf("Translations could not be loaded: %v", i18nErr)
 	}
 	if stateErr != nil && m.status == "" {
-		m.status = fmt.Sprintf("State yüklenemedi: %v", stateErr)
+		m.status = m.uif("status_state_load_failed", "Progress could not be loaded: %v", stateErr)
 	}
 
-	exercises := LoadExercises(baseDir)
+	exercises, exercisesErr := LoadExercises(paths.AssetRoot)
+	if exercisesErr != nil && m.status == "" {
+		m.status = m.uif("status_exercises_load_failed", "Exercises could not be loaded: %v", exercisesErr)
+	}
 
 	// State'ten tamamlananları işaretle
 	if m.state != nil && m.state.Completed != nil {
@@ -188,16 +231,6 @@ func initialModel() model {
 		}
 	}
 
-	// State'ten dil tercihini yükle
-	if m.i18n != nil && m.state != nil && m.state.LangCode != "" {
-		for i, meta := range m.i18n.Langs() {
-			if meta.Code == m.state.LangCode {
-				m.langIndex = i
-				break
-			}
-		}
-	}
-
 	// Eğer status hâlâ boşsa, default initial text
 	if m.status == "" {
 		m.status = m.initialStatusText()
@@ -206,17 +239,26 @@ func initialModel() model {
 	return m
 }
 
+// langIndexFor returns the index of code in the loaded languages, or current
+// when the code is unknown or translations are unavailable.
+func (m model) langIndexFor(code string, current int) int {
+	for i, meta := range m.i18n.Langs() {
+		if meta.Code == code {
+			return i
+		}
+	}
+	return current
+}
+
 /* ---------- README yükleme (dil koduna göre) ---------- */
 
 func (m *model) loadReadmeForCurrent() {
+	m.panel = panelInstructions
 	if len(m.exercises) == 0 {
-		if m.i18n != nil {
-			m.readme.SetContent(
-				m.i18n.T(m.currentLangCode(), "status_no_exercises", "Hiç egzersiz yok."),
-			)
-		} else {
-			m.readme.SetContent("Hiç egzersiz yok.")
-		}
+		content := m.ui("status_no_exercises", "No exercises found.")
+		m.instructionsContent = content
+		m.readme.SetContent(content)
+		m.readme.GotoTop()
 		return
 	}
 
@@ -238,10 +280,15 @@ func (m *model) loadReadmeForCurrent() {
 		path := filepath.Join(ex.Path, name)
 		if data, err := os.ReadFile(path); err == nil {
 			rendered := m.renderMarkdown(string(data))
+			m.instructionsContent = rendered
 			m.readme.SetContent(rendered)
+			m.readme.GotoTop()
 			return
 		}
 	}
 
-	m.readme.SetContent(fmt.Sprintf("README bulunamadı (%s).", strings.Join(candidates, ", ")))
+	content := m.uif("readme_not_found", "README not found (%s).", strings.Join(candidates, ", "))
+	m.instructionsContent = content
+	m.readme.SetContent(content)
+	m.readme.GotoTop()
 }

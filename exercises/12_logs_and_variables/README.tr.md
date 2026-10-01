@@ -1,58 +1,114 @@
-# 12 – Loglar ve Değişkenler
+# 12 – Günlükler ve Değişkenler
 
 ## Amaç
 
-Bu egzersizde özel bir access log formatı tanımlayıp NGINX değişkenlerinin
-access log’a nasıl yazdırıldığını göreceksin.
+Bu egzersizde kendi erişim günlüğü biçimini (access log format) tanımlayacak, onu
+NGINX değişkenleriyle dolduracak ve günlüğü konteynerin (container) standart çıktısına
+göndereceksin.
 
-Hedefler:
+Pratik edeceklerin:
 
-- `main` adında özel bir `log_format` tanımlamak,
-- `access_log` satırında bu `main` formatını kullanmak,
-- Log satırlarında aşağıdaki değişkenlerin değerlerini görmek:
-  - `$remote_addr`
-  - `$status`
-  - `$request`
-  - `$http_user_agent`
+- `log_format` ve ait olduğu bağlam (context),
+- adı verilmiş bir biçimle `access_log`,
+- sık kullanılan istek değişkenleri ve değerlerinin nereden geldiği.
 
-Doğrulama, birkaç HTTP isteği gönderip access log çıktısında bu alanların
-oluştuğunu kontrol eder.
+---
+
+## Arka plan – günlük biçimleri ve değişkenler
+
+`log_format <ad> '<metin>';`, `http` bağlamında adlandırılmış bir biçim tanımlar.
+Metin düz yazıyı değişkenlerle karıştırır; her istek, her değişkenin yerine değerinin
+yazıldığı bir satır üretir. `access_log <yol> <biçim>;` günlüğü o biçimle açar.
+
+Genel bir örnek (bu laboratuvardakinden farklı ad, değişken ve dosya):
+
+    log_format timing '$remote_addr [$time_local] "$request" rt=$request_time';
+
+    server {
+        access_log /var/log/nginx/timing.log timing;
+    }
+
+Bilinmesi gerekenler:
+
+- Bir biçim, onu kullanan `access_log`'dan önce tanımlanmalıdır; ad, yapılandırma
+  okunurken aranır.
+- Biçim adı verilmeyen `access_log` önceden tanımlı `combined` biçimini kullanır.
+  Hiç `access_log` olmasa bile NGINX, derlendiği yola `combined` biçiminde günlük
+  yazar.
+- İç bağlamdaki `access_log off;` orada günlüğü kapatır.
+- Göreli bir günlük yolu, egzersiz 01'deki `root` gibi NGINX önekine (prefix) göre
+  çözülür.
+- Bazı değişkenler: `$remote_addr` bağlantının istemci adresi, `$status` yanıtın
+  durum kodu, `$request` isteğin tam satırıdır (yöntem, URI, protokol).
+  `$http_<ad>` herhangi bir istek başlığını (header) okur: ad küçük harfle, tireler
+  alt çizgiyle yazılır.
+- Konteyner içinde `/dev/stdout`'a yazılan günlükler `docker logs` içinde görünür.
+
+Kaynak: [ngx_http_log_module](https://nginx.org/en/docs/http/ngx_http_log_module.html),
+[variables](https://nginx.org/en/docs/varindex.html).
+
+---
+
+## Laboratuvar ortamı
+
+Her şey bu dizinden oluşturulan (build) tek bir Docker konteyneri içinde çalışır:
+
+- `Dockerfile`, imajı (image) `nginx:1.28.3-alpine` üzerine senin `nginx.conf`'unla
+  kurar.
+- `nginx.conf` senin dosyan. `server`'ı 8080 portunda `/` için `200` döner; TODO
+  yorumları biçim ve erişim günlüğü için gerekenleri listeler.
+
+Kontrol (Nginxlings'te `c` veya Enter ya da `./check.sh`) imajı
+(`nginxlings/12_logs_and_variables:check`) oluşturur, aktif yapılandırmayı
+`nginx -T` ile okur, konteynerin 8080 portunu `http://127.0.0.1:18120/` adresine
+açar, `nginxlings-test-agent/1.0` User-Agent'ı ile beş istek gönderir ve bunları
+`docker logs` içinde arar.
 
 ---
 
 ## Görev
 
-Bu egzersizin `nginx.conf` dosyasını düzenle ve şunları yap:
+`nginx.conf` dosyasını düzenle:
 
-1. `http { ... }` context’i içinde `main` adında bir `log_format` tanımla.
-2. `access_log` satırında bu `main` formatını kullan.
-3. 8080 portunda dinleyen ve `/` isteğine HTTP 200 döndüren bir `server`
-   bloğu olduğundan emin ol.
-
-`log_format main` içinde en az şunlar bulunmalı:
-
-    $remote_addr
-    $status
-    $request
-    $http_user_agent
+1. `http` içinde en az `$remote_addr`, `$status`, `$request` ve `$http_user_agent`
+   içeren **main** adında bir günlük biçimi tanımla.
+2. Erişim günlüğünü `main` biçiminde **/dev/stdout**'a yaz.
+3. 8080 portunda `/` için `200` dönen `server`'ı koru.
 
 ---
 
 ## Başarı kriterleri
 
-Bu egzersiz şu koşullarda başarılı sayılır:
-
-- Access log aktif ve `main` formatı ile yazılıyor olmalı.
-- Test isteklerinden sonra access log’da şu bilgileri içeren satırlar olmalı:
-  - `$remote_addr` kaynak IP değeri
-  - `$status` HTTP durum kodu
-  - `$request` istek satırı
-  - `$http_user_agent` user-agent değeri
+- `nginx -T`, dört değişkeni içeren aktif bir `log_format main` ve `main`'i kullanan
+  aktif bir `access_log` göstermeli.
+- Test isteklerinden sonra `docker logs`, test User-Agent'ını, `GET /` isteğini,
+  `200` durum kodunu ve bir IP adresini içeren satırlar içermeli.
 
 ---
 
-## İpuçları
+## Takıldıysan
 
-- `log_format` mutlaka `http` context’i içinde tanımlanır.
-- `access_log` `http` veya `server` içinde tanımlanabilir; bu lab için ikisi de olur.
-- Access log hedefini `/dev/stdout` yaparsan container log’larında kolayca görebilirsin.
+Bunları sırayla dene, aralarda kontrolü yeniden çalıştır:
+
+- `No active 'log_format main ...;' found`: başlangıç durumu bu.
+- `log_format main does not include $...`: biçimde mesajda adı geçen değişken
+  eksik.
+- `No active access_log uses the main format yet`: biçim adı verilmeyen bir
+  `access_log` `main` değil `combined` yazar.
+- `unknown log format "main"`: ad bir yerde yanlış yazılmış, biçim onu kullanan
+  `access_log`'dan sonra tanımlanmış ya da `http` içinde değil.
+- `open() "/etc/nginx/logs/access.log" failed (2: No such file or directory)`: göreli
+  bir yol `/etc/nginx` önekine göre çözülmüş.
+- `No access log line contains the test User-Agent`: günlük `/dev/stdout`'a mı
+  yazılıyor? `server` içinde günlük kapatılmış mı?
+
+---
+
+## Pekiştirme soruları
+
+- Bu imajda `access_log /var/log/nginx/access.log main;` de kontrolden geçer. Bu
+  satırlar neden `docker logs`'a ulaşır?
+- `index.html` üzerinden yanıtlanan `GET /?a=1` isteği için `$request`,
+  `$request_uri` ve `$uri` ne içerir?
+- Bir yük dengeleyicinin (load balancer) arkasında `$remote_addr` ne gösterir ve
+  NGINX'in bunun yerine asıl istemci adresini günlüğe yazmasını hangi modül sağlar?

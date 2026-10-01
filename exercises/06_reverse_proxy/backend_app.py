@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
+import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+# check.sh sets a random per-run token; manual runs use a default.
+TOKEN = os.environ.get("NGINXLINGS_BACKEND_TOKEN", "manual-run")
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        body = b"backend-06-ok\n"
+        body = f"backend-06-ok token={TOKEN}\n".encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("X-Backend", "exercise-06")

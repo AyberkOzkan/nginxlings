@@ -1,81 +1,88 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# Checks exercise 04: unprivileged workers can read the web root the Dockerfile prepares.
 
-NGINX_BIN="${NGINX_BIN:-nginx}"
-PREFIX="$(pwd)"
-LOG_DIR="${PREFIX}/logs"
-HTML_DIR="${PREFIX}/html"
+EX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=SCRIPTDIR/../lib/check-lib.sh
+. "${EX_DIR}/../lib/check-lib.sh"
 
-mkdir -p "${LOG_DIR}"
+EXERCISE_ID="04_worker_user"
+DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
+IMAGE_NAME="${IMAGE_NAME:-nginxlings/${EXERCISE_ID}:check}"
+CONTAINER_NAME="${CONTAINER_NAME:-nginxlings_ex04_worker_user_run}"
+HOST_PORT="${HOST_PORT:-18040}"
+URL="http://127.0.0.1:${HOST_PORT}/"
 
-fail() {
-  echo "[FAIL] $*"
-  exit 1
-}
+# The Dockerfile's web root: owner, group and mode must stay as shipped.
+EXPECTED_PERMS=$'/srv/site webapp:webapp 750\n/srv/site/index.html webapp:webapp 640'
 
-echo "[1/3] Testing nginx.conf with nginx -t..."
+echo "[1/6] Checking prerequisites and files..."
+require_docker
+require_cmd curl
+for file in Dockerfile nginx.conf; do
+  [[ -f "${EX_DIR}/${file}" ]] || fail "${file} not found in ${EX_DIR}."
+done
+require_free_port "${HOST_PORT}" "the exercise container (override with HOST_PORT)"
 
-if [ ! -f "${PREFIX}/nginx.conf" ]; then
-  fail "nginx.conf not found in ${PREFIX}"
+echo "[2/6] Building Docker image ${IMAGE_NAME}..."
+on_exit "\"${DOCKER_BIN}\" image rm -f \"${IMAGE_NAME}\""
+docker_build "${IMAGE_NAME}" "${EX_DIR}"
+
+echo "[3/6] Testing nginx config inside the image (nginx -t)..."
+if ! T_OUTPUT="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -t 2>&1)"; then
+  fail_nginx_rejected - <<<"${T_OUTPUT}"
 fi
 
-TMP_T_LOG="$(mktemp)"
-if ! "${NGINX_BIN}" -t -c "${PREFIX}/nginx.conf" -p "${PREFIX}" >"${TMP_T_LOG}" 2>&1; then
-  echo "nginx -t output:"
-  cat "${TMP_T_LOG}"
-  rm -f "${TMP_T_LOG}"
-  fail "nginx -t failed."
+echo "[4/6] Checking that /srv/site keeps the Dockerfile's owner and mode..."
+if ! PERMS="$("${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" \
+  stat -c '%n %U:%G %a' /srv/site /srv/site/index.html 2>&1)"; then
+  printf '%s\n' "${PERMS}"
+  fail "Could not inspect /srv/site in the image. Keep the Dockerfile as it is."
 fi
-rm -f "${TMP_T_LOG}"
-echo "[OK] nginx -t succeeded."
-
-echo "[2/3] Verifying user directive in main context..."
-
-CURRENT_USER="$(id -un)"
-CURRENT_GROUP="$(id -gn)"
-
-# Accept:
-#   user CURRENT_USER;
-#   user CURRENT_USER CURRENT_GROUP;
-if ! grep -qE "^[[:space:]]*user[[:space:]]+${CURRENT_USER}([[:space:]]+${CURRENT_GROUP})?[[:space:]]*;" "${PREFIX}/nginx.conf"; then
-  echo "Expected a user directive for the current user in nginx.conf."
-  echo "For example:"
-  echo "    user ${CURRENT_USER};"
-  echo "or:"
-  echo "    user ${CURRENT_USER} ${CURRENT_GROUP};"
-  fail "user directive not found or does not match the current user."
-fi
-echo "[OK] user directive matches current user (${CURRENT_USER})."
-
-echo "[3/3] Checking web root, index.html and ownership..."
-
-if [ ! -d "${HTML_DIR}" ]; then
-  fail "Expected web root directory: ${HTML_DIR}"
+if [[ "${PERMS}" != "${EXPECTED_PERMS}" ]]; then
+  echo "Found:"
+  printf '%s\n' "${PERMS}"
+  echo "Expected:"
+  printf '%s\n' "${EXPECTED_PERMS}"
+  fail "The owner or mode of /srv/site changed. Keep the Dockerfile as it is and solve this in nginx.conf."
 fi
 
-if [ ! -f "${HTML_DIR}/index.html" ]; then
-  fail "Expected index.html inside ${HTML_DIR}"
+echo "[5/6] Starting container ${CONTAINER_NAME} (host ${HOST_PORT} -> container 8080)..."
+"${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+on_exit "\"${DOCKER_BIN}\" rm -f \"${CONTAINER_NAME}\""
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d \
+  --name "${CONTAINER_NAME}" \
+  -p "127.0.0.1:${HOST_PORT}:8080" \
+  "${IMAGE_NAME}" >/dev/null
+wait_container_http "${CONTAINER_NAME}" "${URL}"
+
+echo "[6/6] Checking the worker account and the response..."
+# Workers are forked right after the master starts; poll instead of sleeping.
+PS_OUT=""
+for _ in $(seq 1 50); do
+  PS_OUT="$("${DOCKER_BIN}" exec "${CONTAINER_NAME}" ps -o user,args 2>/dev/null || true)"
+  grep -q 'nginx: worker process' <<<"${PS_OUT}" && break
+  sleep 0.2
+done
+WORKERS="$(grep 'nginx: worker process' <<<"${PS_OUT}" || true)"
+if [[ -z "${WORKERS}" ]]; then
+  printf '%s\n' "${PS_OUT}"
+  fail "No nginx worker process found in the container."
+fi
+echo "Worker processes (account, command):"
+printf '%s\n' "${WORKERS}"
+if grep -qE '^root[[:space:]]' <<<"${WORKERS}"; then
+  fail "The workers run as root. Choose an unprivileged account that can read /srv/site."
 fi
 
-# Ownership checks
-DIR_OWNER="$(stat -c '%U' "${HTML_DIR}")"
-FILE_OWNER="$(stat -c '%U' "${HTML_DIR}/index.html")"
-
-if [ "${DIR_OWNER}" != "${CURRENT_USER}" ] || [ "${FILE_OWNER}" != "${CURRENT_USER}" ]; then
-  echo "Directory owner: ${DIR_OWNER}"
-  echo "index.html owner: ${FILE_OWNER}"
-  echo "Expected owner for both: ${CURRENT_USER}"
-  fail "html/ and index.html must be owned by the current user."
+temp_file BODY
+CODE="$(curl -s -m 5 -o "${BODY}" -w '%{http_code}' "${URL}" || true)"
+if [[ "${CODE}" == "403" ]]; then
+  echo "Error log:"
+  "${DOCKER_BIN}" logs "${CONTAINER_NAME}" 2>&1 | grep -E 'forbidden|Permission denied' | tail -n 3 || true
+  fail "403 Forbidden: the workers cannot read /srv/site. Compare their account with the owner, group and mode of the files."
 fi
+[[ "${CODE}" == "200" ]] || fail "Expected 200 from ${URL}, got ${CODE:-no answer}."
+grep -q 'worker-user-ok' "${BODY}" ||
+  fail "/ answered 200 but not with the page from /srv/site/index.html."
 
-# Root directive should point to html/ (relative or absolute)
-if ! grep -qE "root[[:space:]]+html[[:space:]]*;" "${PREFIX}/nginx.conf" && \
-   ! grep -qE "root[[:space:]]+${HTML_DIR}[[:space:]]*;" "${PREFIX}/nginx.conf"; then
-  echo "Tip: inside your server block use something like:"
-  echo "    root html;"
-  fail "Could not find a root directive pointing to the html/ directory."
-fi
-
-echo
-echo "[PASS] 04 – Worker User & Permissions looks good."
-
+pass "04 – Worker User & Permissions"

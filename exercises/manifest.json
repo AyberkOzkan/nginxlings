@@ -1,0 +1,76 @@
+{
+  "exercises": [
+    {
+      "id": "01_static_server",
+      "default_name": "01 - Basic Static NGINX Server"
+    },
+    {
+      "id": "02_config_layout",
+      "default_name": "02 - Config Layout and Default Paths"
+    },
+    {
+      "id": "03_context_hierarchy",
+      "default_name": "03 - Context Hierarchy (main/http/server/location)"
+    },
+    {
+      "id": "04_worker_user",
+      "default_name": "04 - Worker User and Permissions"
+    },
+    {
+      "id": "05_install_verify",
+      "default_name": "05 - Install and Verify from Official Repository"
+    },
+    {
+      "id": "06_reverse_proxy",
+      "default_name": "06 - HTTP Reverse Proxy Basics"
+    },
+    {
+      "id": "07_http_load_balancer",
+      "default_name": "07 - HTTP Load Balancer (Layer 7)"
+    },
+    {
+      "id": "08_stream_load_balancer",
+      "default_name": "08 - TCP Load Balancer (Layer 4, stream)"
+    },
+    {
+      "id": "09_shared_zones_basics",
+      "default_name": "09 - Shared Memory Zones Fundamentals"
+    },
+    {
+      "id": "10_upstream_status_zone",
+      "default_name": "10 - Upstream State in Shared Memory (zone up_mem)"
+    },
+    {
+      "id": "11_zone_sync_api",
+      "default_name": "11 - Zone Synchronization and API (zone_sync)"
+    },
+    {
+      "id": "12_logs_and_variables",
+      "default_name": "12 - Logs and Variables"
+    },
+    {
+      "id": "13_include_modular_config",
+      "default_name": "13 - Include and Modular Config Design"
+    },
+    {
+      "id": "14_multi_domain_static",
+      "default_name": "14 - Multiple Domains and Static Sites"
+    },
+    {
+      "id": "15_https_tls",
+      "default_name": "15 - HTTPS (TLS) Quick Lab"
+    },
+    {
+      "id": "16_shared_zone_sizing",
+      "default_name": "16 - Shared Memory Zone Sizing and Limits"
+    },
+    {
+      "id": "17_verify_nginx_user",
+      "default_name": "17 - Verify NGINX User and Processes"
+    },
+    {
+      "id": "18_osi_layers_usecases",
+      "default_name": "18 - OSI Layers and Use-Case Mapping"
+    }
+  ]
+}

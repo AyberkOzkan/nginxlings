@@ -1,4 +1,4 @@
-FROM nginx:alpine
+FROM nginx:1.28.3-alpine
 
 # Copy main config and modular pieces
 COPY nginx.conf /etc/nginx/nginx.conf

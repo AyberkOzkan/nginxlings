@@ -1,0 +1,20 @@
+{
+  "01_static_server": "`-p` kullanıldığında göreli bir `root`, egzersiz dizinine göre çözülür; `index` ise orada gerçekten var olan bir dosyayı göstermelidir.",
+  "02_config_layout": "`nginx -T` gerçekten yüklenen her dosyayı yazdırır; `server` bloğun orada görünmüyorsa `include` satırı etkin değildir.",
+  "03_context_hierarchy": "`nginx -t` çıktısındaki ilk `[emerg]` satırını oku ve o direktifin hangi bloğun içinde olması gerektiğini düşün: `http`, `server` ya da `location`.",
+  "04_worker_user": "Dosyaları ana süreç değil işçi süreçler açar: kontrol çıktısındaki işçi süreç hesabını Dockerfile'daki `chown`'un verdiği sahip ve grupla karşılaştır; `user`'ı `main` bağlamına yaz.",
+  "05_install_verify": "İmaj NGINX olmadan başlıyor: `nginx -v` konteyner içinde çalışsın diye dağıtım paketini bir `RUN` adımında kur.",
+  "06_reverse_proxy": "Boş `location /` yerel dosyaları sunar; ona isteği 127.0.0.1:8080 üzerindeki arka uç sunucuya ileten bir direktif ver.",
+  "07_http_load_balancer": "İki arka uç sunucuyu listeleyen bir `upstream` tanımla ve `location /` isteklerini ona gönder; konteyner günlüklerindeki `upstream=` alanı her isteğe kimin yanıt verdiğini gösterir.",
+  "08_stream_load_balancer": "Katman 4'te `location` blokları yoktur: başlangıçtaki `http {}` bloğunu üst düzey bir `stream {}` bloğuna çevir (`http`'nin içine yazma) ve `server`'ın tamamını sunucu grubuna adıyla devret.",
+  "09_shared_zones_basics": "Bölge, `http` içinde bir ad ve boyutla bir kez tanımlanır; bir `server` ya da `location` içindeki `limit_req` onu adıyla kullanana kadar hiçbir şey yapmaz.",
+  "10_upstream_status_zone": "Sunucu grubuna bir `zone` ver, sonra her `server` satırına `resolve` ekle; böylece Docker DNS adları başlangıçta değil çalışma zamanında çözülür.",
+  "11_zone_sync_api": "Birebir eşleşen bir `location =` paketteki JSON dosyasını sunabilir; MIME eşlemesi olmadığı için `Content-Type` başlığını `default_type` ile kendin belirlemelisin.",
+  "12_logs_and_variables": "`log_format main` tanımını `http` içinde, onu kullanan `access_log`'dan önce bir kez yap; sonra `access_log`'u bu biçim adıyla `/dev/stdout`'a yönlendir.",
+  "13_include_modular_config": "`include` dosyayı olduğu yere yapıştırır; bu yüzden her `include`'u, dosyanın içerdiği direktiflerin ait olduğu bloğun içine koy.",
+  "14_multi_domain_static": "Aynı isteği farklı `Host` başlıklarıyla gönder: her `server_name`, kendi `root`'u olan ayrı bir `server` bloğuna düşmeli.",
+  "15_https_tls": "İki dinleyicinin de bir `server` bloğuna ihtiyacı var; sadece HTTPS olanı `listen` satırında `ssl` kullanır ve imajda hazır bulunan sertifika ile anahtarı gösterir.",
+  "16_shared_zone_sizing": "64 bit sistemlerde her farklı anahtar 128 baytlık bir durum kaplar; kontrolün sınırlı istemcinin iki isteği arasında gönderdiği anahtarları say ve `req_zone`'u bunları pay bırakarak alacak boyutta ayarla.",
+  "17_verify_nginx_user": "`user` direktifi yoksa işçi süreçler varsayılan bir hesapla çalışır; hangisi olduğunu görmek için konteyner içinde `ps aux` çalıştır, sonra istediğin hesabı ayarla.",
+  "18_osi_layers_usecases": "`stream`, üst düzeyde `http`'nin yanında durur; dinamik modülü `nginx.conf`'un en başında `load_module` ile yüklenmelidir."
+}

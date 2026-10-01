@@ -1,138 +1,102 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# Checks exercise 12: a custom access log format is written to stdout.
 
-DOCKER_BIN="${DOCKER_BIN:-docker}"
+EX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=SCRIPTDIR/../lib/check-lib.sh
+. "${EX_DIR}/../lib/check-lib.sh"
 
-IMAGE_NAME="${IMAGE_NAME:-nginxlings_ex12_logs_vars}"
+EXERCISE_ID="12_logs_and_variables"
+DOCKER_LABEL="com.nginxlings.exercise=${EXERCISE_ID}"
+IMAGE_NAME="${IMAGE_NAME:-nginxlings/${EXERCISE_ID}:check}"
 CONTAINER_NAME="${CONTAINER_NAME:-nginxlings_ex12_logs_vars_run}"
 HOST_PORT="${HOST_PORT:-18120}"
-
+URL="http://127.0.0.1:${HOST_PORT}/"
 UA="nginxlings-test-agent/1.0"
 
-PREFIX="$(pwd)"
-
-TMP_T=""
-CONF_T=""
-BUILT_IMAGE="0"
-
-fail() {
-  echo "[FAIL] $*"
-  exit 1
-}
-
-info() {
-  echo "$@"
-}
-
-cleanup() {
-  set +e
-
-  [ -n "${TMP_T}" ] && rm -f "${TMP_T}" >/dev/null 2>&1 || true
-  [ -n "${CONF_T}" ] && rm -f "${CONF_T}" >/dev/null 2>&1 || true
-
-  "${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-
-  if [ "${BUILT_IMAGE}" = "1" ]; then
-    "${DOCKER_BIN}" image rm -f "${IMAGE_NAME}" >/dev/null 2>&1 || true
-  fi
-
-  "${DOCKER_BIN}" builder prune -f >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
-
-command -v "${DOCKER_BIN}" >/dev/null 2>&1 || fail "docker not found in PATH."
-command -v curl >/dev/null 2>&1 || fail "curl not found in PATH."
-
-[ -f "${PREFIX}/nginx.conf" ] || fail "nginx.conf not found in ${PREFIX}"
-[ -f "${PREFIX}/Dockerfile" ] || fail "Dockerfile not found in ${PREFIX}"
-
-info "[1/6] Building Docker image..."
-DOCKER_BUILDKIT=0 "${DOCKER_BIN}" build -t "${IMAGE_NAME}" "${PREFIX}" >/dev/null 2>&1 \
-  || fail "docker build failed."
-BUILT_IMAGE="1"
-
-info "[2/6] Testing nginx config inside the image (nginx -t)..."
-TMP_T="$(mktemp)"
-if ! "${DOCKER_BIN}" run --rm "${IMAGE_NAME}" nginx -t >/dev/null 2>"${TMP_T}"; then
-  echo "nginx -t output:"
-  cat "${TMP_T}" || true
-  fail "nginx -t failed."
-fi
-rm -f "${TMP_T}" >/dev/null 2>&1 || true
-TMP_T=""
-info "[OK] nginx -t succeeded."
-
-info "[3/6] Starting container..."
-"${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-"${DOCKER_BIN}" run -d --name "${CONTAINER_NAME}" -p "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null \
-  || fail "Failed to start container."
-
-sleep 1
-
-info "[4/6] Sending HTTP requests..."
-for _ in 1 2 3 4 5; do
-  curl -s -H "User-Agent: ${UA}" "http://127.0.0.1:${HOST_PORT}/" >/dev/null || {
-    echo "docker logs (first 80 lines):"
-    "${DOCKER_BIN}" logs "${CONTAINER_NAME}" 2>&1 | sed -n '1,80p' || true
-    fail "HTTP request failed."
-  }
+echo "[1/6] Checking prerequisites and files..."
+require_docker
+require_cmd curl
+for file in Dockerfile nginx.conf; do
+  [[ -f "${EX_DIR}/${file}" ]] || fail "${file} not found in ${EX_DIR}."
 done
-sleep 1
+require_free_port "${HOST_PORT}" "the exercise container (override with HOST_PORT)"
 
-info "[5/6] Extracting effective config (nginx -T) and validating directives..."
+echo "[2/6] Building Docker image ${IMAGE_NAME}..."
+on_exit "\"${DOCKER_BIN}\" image rm -f \"${IMAGE_NAME}\""
+docker_build "${IMAGE_NAME}" "${EX_DIR}"
 
-CONF_T="$(mktemp)"
-if ! "${DOCKER_BIN}" exec "${CONTAINER_NAME}" sh -lc "nginx -T 2>&1" > "${CONF_T}"; then
-  echo "nginx -T output (first 120 lines):"
-  sed -n '1,120p' "${CONF_T}" || true
-  fail "Could not run nginx -T inside container."
+echo "[3/6] Testing nginx config and log_format main inside the image (nginx -T)..."
+temp_file DUMP
+if ! "${DOCKER_BIN}" run --label "${DOCKER_LABEL}" --rm "${IMAGE_NAME}" nginx -T >"${DUMP}" 2>&1; then
+  fail_nginx_rejected "${DUMP}"
+fi
+# Effective configuration: no comments, one directive per line.
+temp_file ACTIVE
+active_config "${DUMP}" >"${ACTIVE}"
+
+# The official image already logs the built-in "combined" format to stdout,
+# so the log lines alone do not prove that the learner's format is used.
+temp_file FORMAT
+awk '/^[[:space:]]*log_format[[:space:]]+main([[:space:]]|$)/ { on = 1 }
+  on { print; if (/;[[:space:]]*$/) exit }' "${ACTIVE}" >"${FORMAT}"
+[[ -s "${FORMAT}" ]] || fail "No active 'log_format main ...;' found in the http block of nginx.conf."
+for var in remote_addr status request http_user_agent; do
+  grep -qE "\\\$\\{?${var}([^a-z_]|$)" "${FORMAT}" || fail "log_format main does not include \$${var}."
+done
+if ! grep -qE '^[[:space:]]*access_log[[:space:]]+[^;[:space:]]+[[:space:]]+main([[:space:]][^;]*)?;' "${ACTIVE}"; then
+  fail "No active access_log uses the main format yet. Without a format name, access_log writes the predefined combined format."
 fi
 
-# Must have log_format main somewhere (allow end-of-line)
-grep -qE '^[[:space:]]*log_format[[:space:]]+main([[:space:]]|$)' "${CONF_T}" \
-  || { echo "nginx -T output (first 120 lines):"; sed -n '1,120p' "${CONF_T}" || true; fail "log_format main not found in effective config."; }
+echo "[4/6] Starting container ${CONTAINER_NAME} (host ${HOST_PORT} -> container 8080)..."
+"${DOCKER_BIN}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+on_exit "\"${DOCKER_BIN}\" rm -f \"${CONTAINER_NAME}\""
+"${DOCKER_BIN}" run --label "${DOCKER_LABEL}" -d \
+  --name "${CONTAINER_NAME}" \
+  -p "127.0.0.1:${HOST_PORT}:8080" \
+  "${IMAGE_NAME}" >/dev/null
+wait_container_http "${CONTAINER_NAME}" "${URL}" 10 -H "User-Agent: ${UA}"
 
-# Required variables must appear somewhere in effective config
-grep -q '\$remote_addr' "${CONF_T}"     || fail "Missing \$remote_addr in effective config."
-grep -q '\$status' "${CONF_T}"          || fail "Missing \$status in effective config."
-grep -q '\$request' "${CONF_T}"         || fail "Missing \$request in effective config."
-grep -q '\$http_user_agent' "${CONF_T}" || fail "Missing \$http_user_agent in effective config."
+echo "[5/6] Sending HTTP requests..."
+for _ in 1 2 3 4 5; do
+  if ! curl -sS -o /dev/null -m 5 -H "User-Agent: ${UA}" "${URL}"; then
+    echo "docker logs (last 80 lines):"
+    "${DOCKER_BIN}" logs "${CONTAINER_NAME}" 2>&1 | tail -n 80 || true
+    fail "HTTP request to ${URL} failed; see the curl error above."
+  fi
+done
 
-# Must have access_log using main format (http or server context)
-grep -qE '^[[:space:]]*access_log[[:space:]]+[^;]+[[:space:]]+main[[:space:]]*;' "${CONF_T}" \
-  || { echo "nginx -T output (first 120 lines):"; sed -n '1,120p' "${CONF_T}" || true; fail "No access_log directive using format 'main' found in effective config."; }
+echo "[6/6] Validating access log output (docker logs)..."
+# Log lines reach docker logs asynchronously; poll instead of sleeping.
+MATCHED=""
+for ((i = 0; i < 50; i++)); do
+  LOGS="$("${DOCKER_BIN}" logs "${CONTAINER_NAME}" 2>/dev/null || true)"
+  MATCHED="$(printf '%s\n' "${LOGS}" | grep -F "${UA}" || true)"
+  [[ -n "${MATCHED}" ]] && break
+  sleep 0.1
+done
 
-rm -f "${CONF_T}" >/dev/null 2>&1 || true
-CONF_T=""
-info "[OK] log_format main and access_log main are present in effective config."
-
-info "[6/6] Validating access log output (docker logs)..."
-LOGS="$("${DOCKER_BIN}" logs "${CONTAINER_NAME}" 2>/dev/null || true)"
-
-MATCHED="$(printf '%s\n' "${LOGS}" | grep -F "${UA}" || true)"
-if [ -z "${MATCHED}" ]; then
-  echo "Sample logs (first 120 lines):"
-  printf '%s\n' "${LOGS}" | sed -n '1,120p' || true
-  fail "No access log line contains the test User-Agent. Make sure access_log is enabled and logs include \$http_user_agent."
+if [[ -z "${MATCHED}" ]]; then
+  echo "Sample logs (last 120 lines):"
+  printf '%s\n' "${LOGS}" | tail -n 120
+  fail "No access log line contains the test User-Agent. Is the main format written to /dev/stdout?"
 fi
 
-echo "${MATCHED}" | grep -q "GET /" || {
+if ! grep -q "GET /" <<<"${MATCHED}"; then
   echo "Matched UA lines:"
-  echo "${MATCHED}" | sed -n '1,30p' || true
+  printf '%s\n' "${MATCHED}" | head -n 30
   fail "UA-matched lines do not contain 'GET /'. Make sure \$request is included."
-}
+fi
 
-echo "${MATCHED}" | grep -Eq '(^|[[:space:]])200([[:space:]]|$)' || {
+if ! grep -Eq '(^|[[:space:]])200([[:space:]]|$)' <<<"${MATCHED}"; then
   echo "Matched UA lines:"
-  echo "${MATCHED}" | sed -n '1,30p' || true
+  printf '%s\n' "${MATCHED}" | head -n 30
   fail "UA-matched lines do not contain HTTP status 200. Make sure \$status is included."
-}
+fi
 
-echo "${MATCHED}" | grep -Eq '([0-9]{1,3}\.){3}[0-9]{1,3}' || {
+if ! grep -Eq '([0-9]{1,3}\.){3}[0-9]{1,3}' <<<"${MATCHED}"; then
   echo "Matched UA lines:"
-  echo "${MATCHED}" | sed -n '1,30p' || true
+  printf '%s\n' "${MATCHED}" | head -n 30
   fail "UA-matched lines do not contain an IP address. Make sure \$remote_addr is included."
-}
+fi
 
-echo
-echo "[PASS] 12 – Logs & Variables looks good."
+pass "12 – Logs & Variables"

@@ -1,191 +1,133 @@
-# 04 – Worker User ve İzinler
+# 04 – İşçi Süreç Kullanıcısı ve İzinler
 
 ## Amaç
 
-Bu egzersizde `user` direktifinin NGINX worker süreçlerinin hangi Unix
-kullanıcısı ile çalıştığını nasıl etkilediğini ve web root dizininin sahipliğinin
-neden önemli olduğunu pratik edeceksin.
+Bu egzersizde NGINX'e, dosyalarını yalnızca tek bir hesabın okuyabildiği bir siteyi
+sunduracaksın. İşçi süreçlerin (worker process) hangi hesapla çalıştığını, `200` ile
+`403` arasındaki farkı bunun neden belirlediğini ve `user` direktifinin bunu nasıl
+değiştirdiğini göreceksin.
 
-Odaklandığımız noktalar:
+Pratik edeceklerin:
 
-- `user` direktifi – **main** (dosyanın en üst) context’te yer alır.
-- NGINX master prosesi ile worker prosesleri arasındaki fark.
-- Web root dizininin NGINX’in çalıştığı kullanıcıya göre sahipliği/izinleri.
-
-Nginxlings içinde bu egzersizi seçip `c` veya `Enter`’a bastığında, arka planda
-çalışan bir script konfigürasyonunu ve dosya izinlerini kontrol eder.
-
----
-
-## Arkaplan – worker kullanıcısı
-
-NGINX tipik bir Linux sisteminde **root** olarak başlatıldığında:
-
-- *Master prosesi* `root` kullanıcısı olarak çalışmaya devam eder.
-- Master, worker proseslerini başlatırken `user` direktifi ile bu proseslerin
-  hangi kullanıcı (ve grup) ile çalışacağını belirler:
-
-    user nginx;
-    # veya
-    user www-data www-data;
-
-- Worker prosesleri istemci trafiğini bu daha az ayrıcalıklı kullanıcı ile
-  işler.
-
-Notlar:
-
-- `user` direktifi sadece **main** context’te (nginx.conf’un en üst seviyesi)
-  geçerlidir; `http`, `server` veya `location` içinde yazılmaz.
-- Tipik kullanıcılar `nginx`, `www-data` veya uygulamaya özel oluşturulmuş
-  bir servistir.
-- Web root dizinindeki dosyaların sahipliği ve izinleri, bu kullanıcının
-  dosyaları okuyup (gerekirse yazıp) yazamayacağını belirler.
-
-Bu lab ortamında NGINX’i normal bir kullanıcı ile çalıştırdığında, `user`
-direktifi bazı durumlarda NGINX tarafından göz ardı edilebilir; yine de aynı
-sözdizimini kullanırız ve pratik yapmak için faydalıdır.
+- `user` direktifi ve ait olduğu bağlam (context),
+- bir dosyayı kimin açabileceğini sahip, grup ve izin kipi (mode) bitlerinden
+  okumak,
+- bir `403 Forbidden`'ın sebebini hata günlüğünde (error log) bulmak.
 
 ---
 
-## Bu egzersizde ne yapıyorsun?
+## Arka plan – dosyaları hangi hesap açar
 
-Sadece bu dizin içinde çalışıyorsun:
+NGINX bir **ana süreç** (master process) ve birkaç **işçi süreç** başlatır. Ana süreç
+yapılandırmayı okur ve dinleyen soketleri (socket) açar; istekleri işçi süreçler
+işler ve sundukları dosyaları da onlar açar. Bu yüzden dosya erişimi ana sürecin değil,
+**işçi sürecin** hesabına göre denetlenir. (Egzersiz 17 süreç modelini daha ayrıntılı
+ele alır.)
 
-    04_worker_user/
+**main** bağlamındaki `user` direktifi bu hesabı ve istenirse grubunu belirler:
 
-Genel fikir:
+    user www-data;
+    user app appgroup;
 
-1. NGINX’i şöyle ayarlamak:
-   - **Main** context’te, Nginxlings’i çalıştıran Unix kullanıcısıyla aynı
-     kullanıcıyı kullanan bir `user` direktifi olmalı.
-   - Bu klasör içinde yer alan `html/` dizininden dosya sunan basit bir HTTP
-     server olmalı.
-2. `html/` dizininin ve içindeki `index.html` dosyasının **aynı kullanıcıya
-   ait** olduğundan emin olmak.
+Grup verilmezse NGINX hesapla aynı adlı grubu kullanır. Hesap sistemde (`/etc/passwd`
+içinde) bulunmalıdır, yoksa `nginx -t` hata verir. `user` direktifi yoksa NGINX
+derlendiği hesabı kullanır.
 
-Denetleyici script, geçerli Unix kullanıcısını ve grubunu şu komutlarla
-belirler:
+`/var/www/blog/index.html` dosyasını sunabilmek için işçi sürecin yol üzerindeki her
+dizinde **çalıştırma** (`x`), dosyada ise **okuma** (`r`) iznine ihtiyacı vardır.
+Unix, süreç dosyanın sahibiyse sahip bitlerine, değilse ve süreç dosyanın grubundaysa
+grup bitlerine, ikisi de değilse "diğerleri" bitlerine bakar. Genel bir örnek:
 
-    id -un
-    id -gn
+    $ ls -ld /var/www/blog /var/www/blog/index.html
+    drwxr-x---  2 blog blog 4096 Jan  1 10:00 /var/www/blog
+    -rw-r-----  1 blog blog   12 Jan  1 10:00 /var/www/blog/index.html
 
-ve `user` direktifinin bu kullanıcıya uygun olmasını bekler.
+Burada sahip olan `blog` dizine girip dosyayı okuyabilir, `blog` grubunun üyeleri de
+aynısını yapabilir, diğer hesaplar ise ikisini de yapamaz.
 
----
+Bilinmesi gerekenler:
 
-## Hazırlaman gerekenler
+- Bir işçi süreç dosyayı açamadığında NGINX `403 Forbidden` döner ve sebebini
+  `(13: Permission denied)` ile birlikte hata günlüğüne yazar.
+- İşçi süreçleri `root` ile çalıştırmak bütün izin sorunlarını ortadan kaldırır; tam da
+  bu yüzden bir çözüm değildir: işçi süreçteki herhangi bir hata tam yetkiyle çalışır.
+- `user` yalnızca ana süreç root olarak çalıştığında etkilidir. Aksi hâlde NGINX onu
+  bir uyarıyla yok sayar. Bu laboratuvarın, ana sürecin root olduğu bir konteyner
+  (container) içinde çalışmasının sebebi budur.
 
-`04_worker_user` dizininde:
-
-1. **Ana konfigürasyon dosyası**
-
-    Bu dizinde `nginx.conf` dosyasını oluştur ya da düzenle. Minimum olarak:
-
-    - **Main** context’te, geçerli kullanıcıyı kullanan bir `user` direktifi
-      olmalı (terminalde `whoami` çıktısı ile aynı):
-
-        user seninkullanici;
-        # veya grup ile birlikte:
-        user seninkullanici sengrubun;
-
-      Denetleyici şu formları kabul eder:
-
-      - `user <gecerli_kullanici>;`
-      - `user <gecerli_kullanici> <gecerli_grup>;`
-
-    - Basit bir `events` bloğu:
-
-        events {
-            worker_connections 1024;
-        }
-
-    - Basit bir `http` bloğu ve server, örneğin:
-
-        http {
-            server {
-                listen 8082;
-                server_name localhost;
-
-                # Web root, bu egzersiz klasörünün altındaki html/
-                root html;
-                index index.html;
-
-                location / {
-                }
-            }
-        }
-
-    Loglama, gzip vb. ekleyebilirsin; önemli olan sözdiziminin geçerli olması
-    ve `nginx -t` testinin hatasız geçmesidir.
-
-2. **Web root dizini ve dosya**
-
-    Bu klasörde bir `html/` dizini ve içinde bir `index.html` dosyası oluştur:
-
-        html/
-          index.html
-
-    `index.html` içeriği sana kalmış; denetleyici sadece dosyanın varlığına ve
-    sahipliğinin doğru olmasına bakar.
-
-3. **Dosya sahipliği**
-
-    Şunlardan emin ol:
-
-    - `html/` dizini, bu egzersizi çalıştıran kullanıcıya ait.
-    - `html/index.html` dosyası da aynı kullanıcıya ait.
-
-    Sahipliği şu şekilde görebilirsin:
-
-        ls -ld html
-        ls -l html/index.html
-
-    Gerekirse `chown` ile düzelt:
-
-        chown kullanici:grup html html/index.html
-
-    (Bazı sistemlerde bunun için `sudo` gerekebilir.)
+Kaynak: [user](https://nginx.org/en/docs/ngx_core_module.html#user),
+[Beginner's guide](https://nginx.org/en/docs/beginners_guide.html).
 
 ---
 
-## Denetleyicinin kontrol ettiği noktalar
+## Laboratuvar ortamı
 
-Nginxlings içinde `c` veya `Enter`’a bastığında, bu dizindeki `check.sh`
-script’i çalışır ve şu kontrolleri yapar:
+Her şey bu dizinden oluşturulan (build) tek bir Docker konteyneri içinde çalışır:
 
-1. **Konfigürasyon sözdizimi**
+- `Dockerfile`, imajı (image) `nginx:1.28.3-alpine` üzerine kurar. Ayrı bir hesap ve
+  bu hesaba ait, diğerlerine kapalı, tek bir `index.html` içeren **/srv/site** sitesini
+  oluşturur. **Dockerfile'ı olduğu gibi bırak**; kontrol iki yolun sahibini ve
+  iznini doğrular.
+- `nginx.conf` senin dosyan. `/srv/site`'ı 8080 portunda sunar ve bir Debian
+  sunucusundan kopyalanmış bir `user` satırıyla başlar.
 
-    - Bu dizinde bir `nginx.conf` dosyası olmalı.
-    - `nginx -t -c nginx.conf -p .` komutu hatasız bitmeli.
-
-2. **`user` direktifi**
-
-    - `nginx.conf` içinde, main context’te geçerli Unix kullanıcısına uyan
-      bir `user` direktifi bulunmalı.
-    - Kabul edilen formlar:
-
-        user <gecerli_kullanici>;
-        user <gecerli_kullanici> <gecerli_grup>;
-
-3. **Web root ve sahiplik**
-
-    - Bu klasörde bir `html/` dizini olmalı.
-    - `html/index.html` dosyası bulunmalı.
-    - Hem `html/` dizini hem de `html/index.html` dosyası geçerli kullanıcıya
-      ait olmalı.
-
-Tüm bu kontroller geçtiğinde, Nginxlings arayüzünde bu egzersiz tamamlandı (✓)
-olarak işaretlenir.
+Kontrol (Nginxlings'te `c` veya Enter ya da `./check.sh`) imajı
+(`nginxlings/04_worker_user:check`) oluşturur, `nginx -t` çalıştırır,
+`/srv/site` ve `/srv/site/index.html`'in sahibini ve iznini Dockerfile'dakiyle
+karşılaştırır, konteynerin 8080 portunu `http://127.0.0.1:18040/` adresine açar,
+işçi süreçleri `ps -o user,args` ile listeler ve `/` ister.
 
 ---
 
-## İpuçları
+## Görev
 
-- `user` direktifi mutlaka **nginx.conf’un en üst seviyesinde** olmalı; `http`
-  bloğunun içine yazma.
-- Denetleyici sahiplikle ilgili uyarı veriyorsa, `ls -l` ile kimin sahibi
-  olduğuna bak ve gerekirse `chown` ile düzelt.
-- NGINX’i normal kullanıcı ile çalıştırdığın ortamlarda worker prosesleri
-  zaten o kullanıcı ile çalışıyor olabilir; burada amaç `user` direktifine
-  ve worker kullanıcısı–dosya izinleri ilişkisine alışmak.
+Yalnızca `nginx.conf` dosyasını düzenle:
 
+1. İşçi süreçleri, bu imajda var olan ve `/srv/site/index.html`'i okuyabilen bir
+   hesapla çalıştır.
+2. İşçi süreçler `root` ile çalışmamalı.
+3. `server` bloğunu koru: 8080 portu, `root /srv/site`.
+
+---
+
+## Başarı kriterleri
+
+- İmaj oluşmalı ve `nginx -t` yapılandırmayı kabul etmeli.
+- `/srv/site` ve `/srv/site/index.html`, Dockerfile'ın verdiği sahip, grup ve izni
+  korumalı.
+- En az bir işçi süreç çalışmalı ve hiçbiri `root` ile çalışmamalı.
+- `/`, `/srv/site/index.html` sayfasıyla `200` dönmeli.
+
+---
+
+## Takıldıysan
+
+Bunları sırayla dene, aralarda kontrolü yeniden çalıştır:
+
+- `getpwnam("www-data") failed`: başlangıç durumu bu. `www-data`, Debian ve
+  Ubuntu'daki web sunucusu hesabıdır. Bu Alpine imajında hangi hesaplar var?
+- `"user" directive is not allowed here`: direktif bir bloğun içinde. Geriye hangi
+  bağlam kalıyor?
+- `403 Forbidden: the workers cannot read /srv/site` ve hata günlüğünde
+  `is forbidden (13: Permission denied)`: kontrolün yazdırdığı işçi süreç hesabını
+  dosyaların sahibi ve grubuyla karşılaştır. Dockerfile'daki `chown` ve `chmod`
+  satırları bunları gösterir. Kendin bakmak için bir imaj oluştur
+  (`docker build -t ex04-debug .`) ve
+  `docker run --rm ex04-debug ls -ld /srv/site /srv/site/index.html` çalıştır.
+- `The workers run as root`: root her şeyi okuyabilir, bu yüzden izinler hakkında
+  hiçbir şey kanıtlamaz. Yetkisiz bir hesap seç.
+- `The owner or mode of /srv/site changed`: Dockerfile değiştirilmiş. Eski hâline
+  getir ve görevi `nginx.conf` içinde çöz.
+
+---
+
+## Pekiştirme soruları
+
+- Bu kontrolden birden fazla `user` satırı geçer. Sahip bitlerine dayanan birini ve
+  grup bitlerine dayanan birini bul. Hangisini seçerdin, neden?
+- Bir dizin neden yalnızca `r` değil `x` de ister? `/srv/site`'ın izni `0740`
+  olsaydı, dosyanın grubundaki bir işçi süreç ne alırdı?
+- Konteyner `docker run --user 101 ...` ile başlatılırsa `user` direktifine ne olur?
+  Bu durumda başka ne başarısız olur?
+- `nginx.conf`'a ve dosya izinlerine dokunmadan, bir kurulum varsayılan `nginx`
+  hesabına `/srv/site`'ı okuma yetkisini nasıl verebilir?

@@ -1,109 +1,111 @@
-# 05 – Install & Verify from Official Repo
+# 05 – Install and Verify from Official Repository
 
 ## Goal
 
-In this exercise you will:
-
-- Install NGINX **from the official OS package repository** (apt) inside a container.
-- Build an image using the provided `Dockerfile`.
-- Ensure that NGINX is correctly installed and can be verified with:
-  - `nginx -v`
-  - `nginx -V`
-- Make sure the container can start NGINX and serve HTTP on port 80.
+In this exercise you will install NGINX into a container image from the
+distribution's package repository, then verify the installation the way you
+would on a new server: which version it is, how it was built, which package
+it came from, and whether it serves HTTP.
 
 ---
 
-## Background – official package repository
+## Background – packages and images
 
-On Debian/Ubuntu-based systems, NGINX is usually installed from the official
-distribution repositories, for example:
+- Debian's package tool is `apt-get`. A fresh `debian:*-slim` image ships
+  **without a package index**, so no package can be found until the index has
+  been downloaded.
+- Nothing can answer a question during `docker build`. `apt-get` has an option
+  that answers "yes" to its own confirmation prompt, and the
+  `DEBIAN_FRONTEND=noninteractive` environment variable tells debconf not to
+  open configuration dialogs.
+- Every `RUN` instruction becomes an image layer, and Docker caches layers.
+  If refreshing the index and installing a package are separate `RUN`
+  instructions, a later build can reuse an old cached index with a new install
+  line. That is why the two are usually chained in one `RUN` with `&&`.
+- The downloaded index under `/var/lib/apt/lists/` is not needed at run time.
+  Removing it **in the same `RUN`** keeps the layer small; removing it in a
+  later `RUN` does not, because the earlier layer still contains it.
+- Verification commands:
+  - `nginx -v` prints the version.
+  - `nginx -V` also prints the compiler and the `configure arguments:` NGINX was
+    built with, which tells you which modules exist and whether they are static
+    or dynamic.
+  - `dpkg -s nginx` shows the package status, version and dependencies.
 
-    apt-get update
-    apt-get install -y nginx
+"Official repository" here means the Debian package archive that the base image
+already uses. nginx.org also publishes its own package repository with newer
+NGINX versions; adding it needs an extra apt source and signing key, and this
+exercise does not use it. The check accepts any `nginx` package that `dpkg`
+reports as installed.
 
-This provides:
-
-- A packaged NGINX binary (`/usr/sbin/nginx` or similar),
-- Default configuration files under `/etc/nginx/`,
-- System integration (logs, default configs, etc.).
-
-In this exercise, you will simulate that installation **inside a container**
-defined by the `Dockerfile` in this directory.
+Reference: [Installing NGINX Open Source](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/).
 
 ---
 
-## What you do in this exercise
+## Lab environment
 
-You work in:
+- `Dockerfile` starts from `debian:12.15-slim`. A `TODO` comment marks where the
+  installation goes; `EXPOSE 80` and the `CMD` that runs NGINX in the foreground
+  are already in place.
+- The Debian package ships a default site that answers on port 80, so this
+  exercise needs no NGINX configuration of your own.
 
-    05_install_verify/
+The check (`c` or Enter in Nginxlings, or `./check.sh`) builds the image
+(`nginxlings/05_install_verify:check`), confirms that `nginx` is on the `PATH`,
+runs `nginx -v` and `nginx -V` (it looks for `configure arguments:`), confirms
+that `dpkg` reports the `nginx` package as installed, then starts a container
+with port 80 published on a free local port and requests `/`.
 
-The key file is:
+---
 
-    Dockerfile
+## Task
 
-Your tasks:
+Under the `TODO` in the `Dockerfile`, add a single `RUN` instruction that:
 
-1. Open the `Dockerfile` in this directory.
+1. refreshes the package index,
+2. installs the `nginx` package without asking any questions,
+3. removes the downloaded package index.
 
-2. Under the `TODO` comment, add one or more `RUN` commands that:
-
-    - Update the package index,
-    - Install `nginx` from the official repository using `apt-get`,
-    - Optionally clean the package cache to keep the image smaller.
-
-   For example, the final shape of the block should conceptually:
-
-    - Use `apt-get update`,
-    - Install `nginx` with `DEBIAN_FRONTEND=noninteractive apt-get install -y nginx`,
-    - Remove `/var/lib/apt/lists/*` when you are done.
-
-3. Make sure the installed NGINX is available in `PATH` so that commands like:
-
-       nginx -v
-       nginx -V
-
-   work inside a container created from this image.
-
-4. Ensure that the image can start NGINX in a way that allows HTTP traffic
-   on port 80. The provided `CMD` line is prepared for that; you only need
-   to make sure NGINX is correctly installed.
+Leave `FROM`, `EXPOSE` and `CMD` as they are.
 
 ---
 
 ## Success criteria
 
-This exercise is considered successful when:
-
-- The image defined by this `Dockerfile` builds successfully with:
-
-      docker build -t <some-name> .
-
-- `nginx` is installed from the OS repository inside the image
-  (no missing binary, no package errors).
-
-- Running the following inside a container based on this image works without errors:
-
-      nginx -v
-      nginx -V
-
-- NGINX can start inside the container and listen on port 80, serving HTTP
-  responses for requests to `/`.
+- The image builds.
+- `nginx` is on the `PATH`; `nginx -v` and `nginx -V` work, and `nginx -V` shows
+  its `configure arguments:`.
+- `dpkg -s nginx` reports `Status: install ok installed`.
+- A container started from the image answers `/` on port 80 with a successful
+  HTTP response.
 
 ---
 
-## Tips
+## If you are stuck
 
-- Use `DEBIAN_FRONTEND=noninteractive` in front of `apt-get install` to avoid
-  interactive prompts during installation.
+Work through these one at a time, re-running the check in between:
 
-- Always run `apt-get update` before the first `apt-get install` in a fresh image.
+- `E: Unable to locate package nginx`: the package index is empty. What has to
+  run before the install?
+- `Do you want to continue? [Y/n] Abort.`: the install is waiting for an answer
+  that never comes during a build.
+- `debconf: unable to initialize frontend: Dialog` in the build output: only a
+  warning, the install still works. The environment variable from the
+  Background section silences it.
+- `The image has no nginx yet.`: the build succeeded but nothing installed
+  NGINX. Is your `RUN` instruction below the `TODO` and not commented out?
 
-- Clean the apt cache at the end of the `RUN` chain to avoid unnecessary image size:
+---
 
-      rm -rf /var/lib/apt/lists/*
+## Review questions
 
-- If the build or NGINX commands fail, read the full error message carefully;
-  it usually tells you which package or step is missing.
-
-
+- Where in the `nginx -V` output can you see whether the `stream` module is
+  available in Debian's package, and is it built in statically or as a dynamic
+  module? What else would you need before a `stream {}` block works?
+- Why are refreshing the index and installing a package normally chained in one
+  `RUN` instruction?
+- Which NGINX version does Debian 12 ship, and what would you change to install
+  the current version from nginx.org instead?
+- Where does Debian's package keep its default site, and which line in its
+  `nginx.conf` loads it? How does that differ from the official `nginx` Docker
+  image used in the other exercises?

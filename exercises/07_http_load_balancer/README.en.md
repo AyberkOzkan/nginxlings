@@ -2,160 +2,112 @@
 
 ## Goal
 
-In this exercise you will configure NGINX as a **HTTP load balancer**
-running entirely inside a Docker container.
+In this exercise you will turn NGINX into an **HTTP load balancer** that spreads
+requests across two backend servers, and you will prove from the access log which
+backend answered each request.
 
-The goals are:
+You will practise:
 
-- Run two backend HTTP servers inside the same container:
-  - 127.0.0.1:8081
-  - 127.0.0.1:8082
-- Use an `upstream backend` block that balances requests between both servers.
-- Expose a frontend `server` that listens on port 8080.
-- Proxy all `/` requests with `proxy_pass http://backend;`.
-- Use `$upstream_addr` in the log format to see which backend handled each request.
-
-All of this will be tested via Docker; the host NGINX installation (if any) is not touched.
+- grouping backend servers in an `upstream` block,
+- handing requests to that group with `proxy_pass`,
+- reading `$upstream_addr` to see the load balancing decision.
 
 ---
 
 ## Background – upstream and round-robin
 
-A typical NGINX HTTP load balancer looks like this:
+An `upstream` block, inside the `http` context, names a group of servers. A
+`proxy_pass` whose URL uses that name as its host sends each request to one member
+of the group instead of a single address.
 
-    upstream backend {
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
+A generic example (different names and addresses from this lab):
+
+    upstream app_pool {
+        server 10.0.0.11:3000;
+        server 10.0.0.12:3000;
     }
 
     server {
-        listen 8080;
-        server_name localhost;
+        listen 80;
 
-        location / {
-            proxy_pass http://backend;
+        location /api/ {
+            proxy_pass http://app_pool;
         }
     }
 
-By default, NGINX uses a **round-robin** algorithm: each new request goes to the next server in the upstream list.
+Things worth knowing:
 
-If you add `$upstream_addr` to your log format, you can see which backend served each request:
+- The default method is **round-robin**: requests go to the servers in turn.
+  `weight=` on a `server` changes the share; `least_conn` and `ip_hash` inside the
+  `upstream` block change the method.
+- `$upstream_addr` holds the address of the server that answered. If NGINX had to
+  try more than one server, it lists all of them, separated by commas.
+- `return` ends the request in the rewrite phase, before any proxying happens. A
+  location that still has a `return` never reaches the upstream.
 
-    log_format lb_main
-        '$remote_addr - $remote_user [$time_local] '
-        '"$request" $status $body_bytes_sent '
-        '"$http_referer" "$http_user_agent" '
-        'upstream=$upstream_addr';
-
-    access_log /dev/stdout lb_main;
-
----
-
-## What you do in this exercise
-
-You will work in this directory:
-
-    07_http_load_balancer/
-
-Files:
-
-- `nginx.conf`  
-  NGINX configuration skeleton. Contains TODO comments for the `upstream backend`
-  and the frontend `server` block.
-- `Dockerfile`  
-  Builds an image based on `nginx:alpine`, copies `nginx.conf` and `start.sh`
-  into the image.
-- `start.sh`  
-  Starts two backend HTTP servers (127.0.0.1:8081 and 127.0.0.1:8082) inside the
-  container, then starts NGINX in the foreground.
-- `check.sh`  
-  Automatically tests this exercise:
-  - Builds the Docker image,
-  - Starts a container,
-  - Sends several HTTP requests,
-  - Parses the logs and checks that requests are distributed across both backends.
-
-The main file you will edit is: `nginx.conf`.
+Reference: [ngx_http_upstream_module](https://nginx.org/en/docs/http/ngx_http_upstream_module.html),
+[proxy_pass](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass).
 
 ---
 
-## Steps
+## Lab environment
 
-1. Go to the directory
+Everything runs inside one Docker container built from this directory:
 
-    cd exercises/07_http_load_balancer
+- `start.sh` starts two small HTTP backends on **127.0.0.1:8081** and
+  **127.0.0.1:8082** inside the container, then starts NGINX in the foreground.
+- `nginx.conf` is your file. It already defines the `lb_main` log format with
+  `upstream=$upstream_addr` and sends the access log to stdout.
+- `Dockerfile` builds the image on `nginx:1.28.3-alpine`.
 
-2. Inspect `nginx.conf`
+The check (`c` or Enter in Nginxlings, or `./check.sh`) builds the image
+(`nginxlings/07_http_load_balancer:check`), runs `nginx -t`, publishes container
+port 8080 on `http://127.0.0.1:18080/`, sends several requests, and counts the
+`upstream=` values in the container logs.
 
-3. Complete the `upstream backend` block
+---
 
-   You should define two backend servers:
+## Task
 
-    upstream backend {
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
-    }
+Edit `nginx.conf`:
 
-4. Configure `location /` with `proxy_pass`
-
-   The frontend server listening on 8080 should send all `/` requests to the upstream:
-
-    server {
-        listen 8080;
-        server_name localhost;
-
-        location / {
-            proxy_pass http://backend;
-        }
-    }
-
-   You may add extra `proxy_set_header` directives if you like (not required).
-
-5. Run the automatic check
-
-    ./check.sh
-
-   The script will:
-
-   - Build a Docker image from the current directory (for example `nginxlings_http_lb_07`),
-   - Start a container from this image,
-   - Inside the container:
-     - Start two backend HTTP servers on 127.0.0.1:8081 and 127.0.0.1:8082,
-     - Start NGINX listening on port 8080,
-   - From the host, send several HTTP requests to `http://127.0.0.1:18080/`,
-   - Collect the container logs and check that `$upstream_addr` includes both
-     127.0.0.1:8081 and 127.0.0.1:8082.
-
-If something is wrong, `check.sh` will show the relevant error messages and a snippet of the logs.
+1. In the `upstream backend` block, replace the placeholder server with the two
+   backends that `start.sh` runs.
+2. In `location /`, replace the placeholder `return` so that requests are handed
+   to the `backend` upstream group.
+3. Keep the `log_format lb_main` and `access_log` lines; the check reads the
+   `upstream=` field they produce.
 
 ---
 
 ## Success criteria
 
-This exercise is considered successful when:
-
-- The `docker` command is available and working on the host.
-- `Dockerfile`, `start.sh` and `nginx.conf` exist and the image builds successfully.
-- Inside the container, `nginx -t` reports a valid configuration.
-- The `upstream backend` block contains **at least two servers**:
-  - 127.0.0.1:8081
-  - 127.0.0.1:8082
-- The frontend `server` block:
-  - Listens on port 8080,
-  - Has a `location /` that proxies to `http://backend`.
-- The log format includes `$upstream_addr` and the `access_log` uses this format.
-- According to `check.sh`:
-  - At least one request is handled by 127.0.0.1:8081,
-  - At least one request is handled by 127.0.0.1:8082.
+- The image builds and `nginx -t` accepts the configuration.
+- Requests to port 8080 are answered through the upstream group.
+- The access log shows at least one request answered by `127.0.0.1:8081` and at
+  least one answered by `127.0.0.1:8082`.
 
 ---
 
-## Tips
+## If you are stuck
 
-- Any syntax error in `nginx.conf` will prevent the container from starting;
-  `check.sh` will show the `nginx -t` output in that case.
-- If `$upstream_addr` is missing from the log format, it becomes hard to see
-  which backend handled which request.
-- When the check fails, carefully read the sample of logs printed by `check.sh`;
-  you should be able to see which upstream addresses are used.
+Work through these one at a time, re-running the check in between:
 
+- `upstream=127.0.0.1:65535` in the log output: the placeholder server is still in
+  the upstream block.
+- `upstream=-`: the request never reached an upstream. Is the `return` still in
+  `location /`?
+- Only one backend appears: count the `server` lines in the upstream block, and
+  check that both ports match what `start.sh` starts.
+- `nginx -t` reports `invalid URL prefix`: `proxy_pass` expects a URL with a
+  scheme, and the host part of that URL is the upstream name.
+
+---
+
+## Review questions
+
+- What would the distribution look like with `weight=3` on the first server?
+- Which directive would you add to the `upstream` block to always send a client to
+  the same backend, and what does it use as the key?
+- What does `$upstream_addr` contain when the first backend refuses the connection
+  and NGINX retries the second one? (Exercise 10 relies on this.)

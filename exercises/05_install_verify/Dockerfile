@@ -1,11 +1,9 @@
 # Exercise 05 - Install & Verify from Official Repo
 
 
-FROM debian:stable-slim
+FROM debian:12.15-slim
 
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nginx && \
-    rm -rf /var/lib/apt/lists/*
+# TODO: install NGINX from Debian's package repository and clean the apt cache.
 
 EXPOSE 80
 
