@@ -232,7 +232,7 @@ func (m model) selectedDir() string {
 
 // openTerminal opens the shell pane below the app in the selected folder.
 func (m model) openTerminal(focus bool) tea.Cmd {
-	title := m.ui("terminal_pane_title", "Terminal · F2: switch · Alt+↑/↓: resize · drag this line with the mouse")
+	title := m.ui("terminal_pane_title", "Terminal · F2: switch · Alt+↑/↓: resize")
 	appTitle := m.ui("app_pane_title", "nginxlings · F2: terminal")
 	open := openTerminalPane(m.selectedDir(), m.height, focus, title)
 	return func() tea.Msg {
@@ -269,7 +269,7 @@ func (m model) retitleTerminal() tea.Cmd {
 		return nil
 	}
 	pane := m.terminalPane
-	title := m.ui("terminal_pane_title", "Terminal · F2: switch · Alt+↑/↓: resize · drag this line with the mouse")
+	title := m.ui("terminal_pane_title", "Terminal · F2: switch · Alt+↑/↓: resize")
 	appTitle := m.ui("app_pane_title", "nginxlings · F2: terminal")
 	return func() tea.Msg {
 		_, _ = runTmux("select-pane", "-t", pane, "-T", title)
