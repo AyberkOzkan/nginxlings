@@ -47,6 +47,15 @@ Uygulama menüsünde "Nginxlings"i bul ve aç ya da bir terminal açıp
 Sağ paneldeki "Dosyalar:" satırı seçili egzersizin klasörünü gösterir, `o` tuşu
 da o klasörü dosya yöneticisinde açar.
 
+Ekranın üst kısmında nginxlings, en altında ise bir terminal bulunur. Terminal,
+seçili egzersizin klasöründe açılır; dosyaları orada düzenleyip komutları orada
+çalıştırırsın, ikinci bir pencere açman gerekmez.
+
+- `F2` ya da fareyle tıklamak: nginxlings ile terminal arasında geç
+- `Alt+↑` / `Alt+↓` ya da aradaki çizgiyi fareyle sürüklemek: terminali büyüt ya da küçült
+- `t` (nginxlings'teyken): terminali seçili egzersizin klasörüne götür
+- Fareyle metin seçmek için `Shift` tuşunu basılı tutarak sürükle.
+
 Temel tuşlar:
 
 - `W` / `S`: egzersiz seç
@@ -54,7 +63,7 @@ Temel tuşlar:
 - `h`: ipucu
 - `Tab`: talimatlarla son kontrol çıktısı arasında geç
 - `?`: bütün tuşlar
-- `q`: çık
+- `q`: çık (alttaki terminal de kapanır)
 
 ## 4. Altta "! Kurulum" yazıyorsa
 

@@ -383,7 +383,7 @@ func (m *model) renderMarkdown(raw string) string {
 /* ---------- Status and key help ---------- */
 
 func (m model) helpText() string {
-	return m.ui("help", "W/S select · c check · Tab view · h hint · o folder · ? all keys · q quit")
+	return m.ui("help", "W/S select · c check · Tab view · h hint · t terminal · ? all keys · q quit")
 }
 
 // statusText is the status message behind the ready or running label.

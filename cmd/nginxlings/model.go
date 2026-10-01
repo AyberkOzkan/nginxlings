@@ -79,6 +79,15 @@ type model struct {
 
 	// setup is the last setup check, nil until the first one finishes.
 	setup *setupReport
+
+	// inTmux is true inside any tmux session, ownTmux inside the one
+	// nginxlings started. terminalPane is the tmux id of the shell pane
+	// below the app, once opened; terminalTried records that the app opened
+	// it at start.
+	inTmux        bool
+	ownTmux       bool
+	terminalPane  string
+	terminalTried bool
 }
 
 // panelMode selects the content of the right panel.
@@ -178,7 +187,10 @@ func newTUIModel(opts cliOptions) (model, error) {
 	if err := syncWorkspace(paths); err != nil {
 		return model{}, err
 	}
-	return initialModelWithOptions(paths, opts.lang), nil
+	m := initialModelWithOptions(paths, opts.lang)
+	m.inTmux = os.Getenv("TMUX") != ""
+	m.ownTmux = m.inTmux && os.Getenv(envInTmux) == "1"
+	return m, nil
 }
 
 func initialModelWithOptions(paths AppPaths, initialLang string) model {

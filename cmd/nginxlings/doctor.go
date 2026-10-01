@@ -30,6 +30,8 @@ const (
 	// notePodmanDNS is not a problem to fix: Podman's docker command runs
 	// most exercises, but not those that use Docker's embedded DNS server.
 	notePodmanDNS
+	// noteNoTmux: without tmux nginxlings runs without its terminal pane.
+	noteNoTmux
 )
 
 // dockerDNSAddress is Docker's embedded DNS server, which Podman lacks.
@@ -162,6 +164,9 @@ func runSetupCheck(ctx context.Context, exercises []Exercise, env setupEnv) setu
 				}
 			}
 		}
+	}
+	if _, err := env.lookPath("tmux"); err != nil {
+		report.notes = append(report.notes, setupProblem{kind: noteNoTmux, command: "tmux", fix: pm.installCommand("tmux")})
 	}
 	return report
 }
@@ -420,9 +425,9 @@ func shellCommand(argv []string) string {
 // errNoFix means no problem in the report has a command that fixes it.
 var errNoFix = errors.New("no fix to run")
 
-// firstFix returns the first problem's fix command.
+// firstFix returns the first fix command, problems before notes.
 func (r setupReport) firstFix() ([]string, error) {
-	for _, problem := range r.problems {
+	for _, problem := range append(append([]setupProblem(nil), r.problems...), r.notes...) {
 		if problem.fix != nil {
 			return problem.fix, nil
 		}
@@ -481,10 +486,18 @@ func setupReportLines(report setupReport, t func(key, fallback string) string) [
 		lines = append(lines, line)
 	}
 	for _, n := range report.notes {
-		lines = append(lines, reportLine{
-			note: true,
-			text: fmt.Sprintf(t("doctor_podman_dns", "The docker command here is Podman's. Exercises %s use Docker's DNS server on 127.0.0.11, which Podman does not have, so they cannot pass here. Install Docker CE from Docker's repository for them: https://docs.docker.com/engine/install/"), exerciseRanges(n.exercises)),
-		})
+		line := reportLine{note: true}
+		switch n.kind {
+		case notePodmanDNS:
+			line.text = fmt.Sprintf(t("doctor_podman_dns", "The docker command here is Podman's. Exercises %s use Docker's DNS server on 127.0.0.11, which Podman does not have, so they cannot pass here. Install Docker CE from Docker's repository for them: https://docs.docker.com/engine/install/"), exerciseRanges(n.exercises))
+		case noteNoTmux:
+			line.text = t("doctor_no_tmux", "tmux is not installed, so nginxlings runs without the terminal pane below it.")
+			if n.fix != nil {
+				line.fixIntro = t("doctor_install_fix", "Install it with:")
+				line.fix = shellCommand(n.fix)
+			}
+		}
+		lines = append(lines, line)
 	}
 	return lines
 }

@@ -82,11 +82,29 @@ Inside the TUI:
 - `h`: show the selected exercise's hint (press again to return)
 - `d`: setup check: what the exercises still need and how to fix it
 - `?`: list every key in the right panel
+- `t`: take the terminal below to the selected exercise's folder (without tmux: open a shell there; `exit` returns)
+- `F2`: move between nginxlings and the terminal below; a mouse click works too
+- `Alt+↑` / `Alt+↓`: make the terminal taller or shorter; dragging the line above it works too
 - `o`: open the selected exercise's folder in the file manager
 - `e`: restore the selected exercise's starting files (installed package only; asks first)
 - `l`: switch language
 - `r`: reset progress
-- `q`: quit
+- `q`: quit (ends the terminal below too)
+
+### Terminal pane
+
+When tmux is installed (the packages install it), `nginxlings` starts in a tmux
+session of its own: the app on top and a shell in the selected exercise's
+folder at the bottom, so editing files and running commands needs no second
+terminal window. The line between them names the keys. The session uses its own
+tmux server and configuration, so your tmux setup is not touched, and it ends
+when you quit nginxlings or close the window. The mouse works in tmux there: to
+select text with it, hold `Shift` while dragging.
+
+Inside an existing tmux session, nginxlings runs in the current pane and `t`
+splits a terminal below it. `--no-tmux` or `NGINXLINGS_NO_TMUX=1` runs without
+the pane; `t` then opens a full-screen shell in the exercise folder, and `exit`
+returns to nginxlings.
 
 ## CLI Usage
 

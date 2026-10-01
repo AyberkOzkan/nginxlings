@@ -288,6 +288,20 @@ func TestRunSetupCheckNotesPodmanWithoutCountingAProblem(t *testing.T) {
 	}
 }
 
+func TestRunSetupCheckNotesAMissingTmuxWithItsFix(t *testing.T) {
+	report := runSetupCheck(context.Background(), setupExercises(t), fakeSetupEnv("tmux", "27.0", nil, true, true))
+	if len(report.problems) != 0 || len(report.notes) != 1 || report.notes[0].kind != noteNoTmux {
+		t.Fatalf("report = %+v, want one tmux note and no problems", report)
+	}
+	text := setupText(setupReportLines(report, func(_, fallback string) string { return fallback }))
+	if !strings.Contains(text, "[NOTE] tmux is not installed") || !strings.Contains(text, "sudo apt install -y tmux") {
+		t.Fatalf("text = %q", text)
+	}
+	if fix, err := report.firstFix(); err != nil || shellCommand(fix) != "sudo apt install -y tmux" {
+		t.Fatalf("firstFix() = %q, %v", fix, err)
+	}
+}
+
 func TestStatusRowWarnsOnlyAboutProblems(t *testing.T) {
 	m, _ := workspaceModel(t)
 	m.setup = &setupReport{notes: []setupProblem{{kind: notePodmanDNS, exercises: []string{"10"}}}}

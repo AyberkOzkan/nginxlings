@@ -94,7 +94,7 @@ func TestRepoLinuxPackagesShipTheAppAndItsDependencies(t *testing.T) {
 	// Each format names NGINX, curl, bash, Python and a Docker provider.
 	for format, docker := range map[string]string{"deb": "docker.io", "rpm": "/usr/bin/dockerd", "archlinux": "docker"} {
 		block, _, _ := strings.Cut(nfpms[strings.Index(nfpms, "      "+format+":\n"):], "\n      recommends:")
-		for _, dep := range []string{"bash", "curl", "nginx", "python", docker} {
+		for _, dep := range []string{"bash", "curl", "nginx", "python", "tmux", docker} {
 			if !strings.Contains(block, dep) {
 				t.Errorf("%s dependencies lack %s", format, dep)
 			}

@@ -13,6 +13,7 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
 	github.com/yuin/goldmark v1.7.17
+	golang.org/x/term v0.46.0
 )
 
 require (
@@ -40,6 +41,5 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )

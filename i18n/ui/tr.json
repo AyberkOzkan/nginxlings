@@ -13,7 +13,7 @@
   "status_no_check_output": "Henüz kontrol çıktısı yok.",
   "ready_label": "[HAZIR]",
   "working_label": "[ÇALIŞIYOR]",
-  "help": "W/S seç · c kontrol · Tab görünüm · h ipucu · o klasör · ? tüm tuşlar · q çık",
+  "help": "W/S seç · c kontrol · Tab görünüm · h ipucu · t terminal · ? tüm tuşlar · q çık",
   "lang_label": "Dil",
   "status_loading": "Nginxlings yükleniyor...",
   "status_state_load_failed": "İlerleme yüklenemedi: %v",
@@ -61,7 +61,15 @@
   "status_setup_fix_failed": "Komut tamamlanamadı: %v",
   "status_setup_fix_done": "Tamamlandı. Kurulum yeniden kontrol ediliyor...",
   "keys_title": "Tuşlar",
-  "keys_markdown": "- **W** / **S**: önceki ya da sonraki egzersizi seç\n- **c** ya da **Enter**: seçili egzersizi kontrol et\n- **Tab**: talimatlarla son kontrol çıktısı arasında geçiş yap\n- **h**: ipucunu göster ya da gizle\n- **o**: egzersiz klasörünü dosya yöneticisinde aç\n- **e**: egzersizin başlangıç dosyalarını geri yükle (önce sorar)\n- **d**: kurulum kontrolü: neyin eksik olduğu ve nasıl düzeleceği\n- **l**: dili değiştir\n- **r**: tüm ilerlemeyi sıfırla (önce sorar)\n- **↑** / **↓** ve **PgUp** / **PgDn**: sağ paneli kaydır; **←** / **→** yana kaydırır\n- **?**: bu listeyi göster ya da gizle\n- **q**: çık",
+  "keys_markdown": "- **W** / **S**: önceki ya da sonraki egzersizi seç\n- **c** ya da **Enter**: seçili egzersizi kontrol et\n- **Tab**: talimatlarla son kontrol çıktısı arasında geçiş yap\n- **h**: ipucunu göster ya da gizle\n- **t**: alttaki terminali egzersiz klasörüne götür (tmux yoksa orada bir kabuk açar; exit ile dönülür)\n- **F2**: nginxlings ile terminal arasında geç; fareyle tıklamak da olur\n- **Alt+↑** / **Alt+↓**: terminali büyüt ya da küçült; üstündeki çizgiyi sürüklemek de olur\n- **o**: egzersiz klasörünü dosya yöneticisinde aç\n- **e**: egzersizin başlangıç dosyalarını geri yükle (önce sorar)\n- **d**: kurulum kontrolü: neyin eksik olduğu ve nasıl düzeleceği\n- **l**: dili değiştir\n- **r**: tüm ilerlemeyi sıfırla (önce sorar)\n- **↑** / **↓** ve **PgUp** / **PgDn**: sağ paneli kaydır; **←** / **→** yana kaydırır\n- **?**: bu listeyi göster ya da gizle\n- **q**: çık",
   "status_showing_keys": "Tüm tuşlar gösteriliyor. Dönmek için ? veya Tab'a bas.",
-  "doctor_podman_dns": "Buradaki docker komutu Podman'a ait. Egzersiz %s, Docker'ın 127.0.0.11 adresindeki DNS sunucusunu kullanır; Podman'da bu sunucu olmadığı için burada geçemez. Bunun için Docker'ın kendi deposundan Docker CE kur: https://docs.docker.com/engine/install/"
+  "doctor_podman_dns": "Buradaki docker komutu Podman'a ait. Egzersiz %s, Docker'ın 127.0.0.11 adresindeki DNS sunucusunu kullanır; Podman'da bu sunucu olmadığı için burada geçemez. Bunun için Docker'ın kendi deposundan Docker CE kur: https://docs.docker.com/engine/install/",
+  "terminal_pane_title": "Terminal · F2: geçiş · Alt+↑/↓: boyut · bu çizgiyi fareyle sürükle",
+  "app_pane_title": "nginxlings · F2: terminal",
+  "shell_hint": "nginxlings: geri dönmek için exit yaz.",
+  "status_terminal_failed": "Terminal açılamadı: %v",
+  "status_terminal_busy": "Terminalde %s çalışıyor. O bitince cd komutunu kendin yaz.",
+  "status_terminal_moved": "Terminal %s klasörüne geçti. Buraya F2 ile dönersin.",
+  "status_shell_done": "Kabuktan dönüldü.",
+  "doctor_no_tmux": "tmux kurulu değil, bu yüzden nginxlings altındaki terminal paneli olmadan çalışıyor."
 }

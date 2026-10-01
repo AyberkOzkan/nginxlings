@@ -30,6 +30,7 @@ type cliOptions struct {
 	state     string
 	workspace string
 	checkID   string
+	noTmux    bool
 }
 
 type checkRunner func(Exercise) (string, error)
@@ -83,6 +84,7 @@ func parseCLI(args []string, output io.Writer) (cliOptions, error) {
 	fs.StringVar(&opts.root, "root", "", "asset root containing exercises/ and i18n/")
 	fs.StringVar(&opts.state, "state", "", "state file path")
 	fs.StringVar(&opts.workspace, "workspace", "", "folder with your own copy of the exercises")
+	fs.BoolVar(&opts.noTmux, "no-tmux", false, "run without the terminal pane")
 
 	if err := fs.Parse(args); err != nil {
 		return opts, err
@@ -135,10 +137,14 @@ Flags:
   --workspace <path>
                   Folder with your own copy of the exercises. An installed
                   package uses ~/nginxlings by default.
+  --no-tmux       Run without the terminal pane below the app. Without it,
+                  nginxlings starts in a tmux session of its own when tmux
+                  is installed, with a shell in the exercise folder below.
 
 Environment:
   NGINXLINGS_ASSET_ROOT  Default asset root when --root is not set.
   NGINXLINGS_WORKSPACE   Default exercise folder when --workspace is not set.
+  NGINXLINGS_NO_TMUX     Set to any value to run without the terminal pane.
   NGINXLINGS_STATE_FILE  Default state file when --state is not set.
   NGINXLINGS_STATE_ROOT  Default directory for state.json.
 `)

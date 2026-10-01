@@ -13,7 +13,7 @@
   "status_no_check_output": "No check output yet.",
   "ready_label": "[READY]",
   "working_label": "[RUNNING]",
-  "help": "W/S select · c check · Tab view · h hint · o folder · ? all keys · q quit",
+  "help": "W/S select · c check · Tab view · h hint · t terminal · ? all keys · q quit",
   "lang_label": "Lang",
   "status_loading": "Loading Nginxlings...",
   "status_state_load_failed": "Progress could not be loaded: %v",
@@ -61,7 +61,15 @@
   "status_setup_fix_failed": "The command did not finish: %v",
   "status_setup_fix_done": "Done. Checking the setup again...",
   "keys_title": "Keys",
-  "keys_markdown": "- **W** / **S**: select the previous or next exercise\n- **c** or **Enter**: check the selected exercise\n- **Tab**: switch between the instructions and the last check output\n- **h**: show or hide the hint\n- **o**: open the exercise folder in the file manager\n- **e**: restore the exercise's starting files (asks first)\n- **d**: setup check: what is missing and how to fix it\n- **l**: switch the language\n- **r**: reset all progress (asks first)\n- **↑** / **↓** and **PgUp** / **PgDn**: scroll the right panel; **←** / **→** scroll sideways\n- **?**: show or hide this list\n- **q**: quit",
+  "keys_markdown": "- **W** / **S**: select the previous or next exercise\n- **c** or **Enter**: check the selected exercise\n- **Tab**: switch between the instructions and the last check output\n- **h**: show or hide the hint\n- **t**: take the terminal below to the exercise folder (without tmux: open a shell there; exit returns)\n- **F2**: move between nginxlings and the terminal; a mouse click works too\n- **Alt+↑** / **Alt+↓**: make the terminal taller or shorter, or drag the line above it\n- **o**: open the exercise folder in the file manager\n- **e**: restore the exercise's starting files (asks first)\n- **d**: setup check: what is missing and how to fix it\n- **l**: switch the language\n- **r**: reset all progress (asks first)\n- **↑** / **↓** and **PgUp** / **PgDn**: scroll the right panel; **←** / **→** scroll sideways\n- **?**: show or hide this list\n- **q**: quit",
   "status_showing_keys": "Showing all keys. Press ? or Tab to return.",
-  "doctor_podman_dns": "The docker command here is Podman's. Exercises %s use Docker's DNS server on 127.0.0.11, which Podman does not have, so they cannot pass here. Install Docker CE from Docker's repository for them: https://docs.docker.com/engine/install/"
+  "doctor_podman_dns": "The docker command here is Podman's. Exercises %s use Docker's DNS server on 127.0.0.11, which Podman does not have, so they cannot pass here. Install Docker CE from Docker's repository for them: https://docs.docker.com/engine/install/",
+  "terminal_pane_title": "Terminal · F2: switch · Alt+↑/↓: resize · drag this line with the mouse",
+  "app_pane_title": "nginxlings · F2: terminal",
+  "shell_hint": "nginxlings: type exit to return.",
+  "status_terminal_failed": "The terminal could not be opened: %v",
+  "status_terminal_busy": "The terminal is running %s. Type cd yourself when it ends.",
+  "status_terminal_moved": "Terminal moved to %s. F2 comes back here.",
+  "status_shell_done": "Back from the shell.",
+  "doctor_no_tmux": "tmux is not installed, so nginxlings runs without the terminal pane below it."
 }

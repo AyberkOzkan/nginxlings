@@ -8,8 +8,8 @@
 #
 # It installs the program in /usr/local/bin and the exercises in
 # /usr/local/share/nginxlings, adds a menu entry, installs what the exercises
-# run (bash, curl, NGINX, Python, Docker) with the distribution's package
-# manager, and starts Docker. Your own copy of the exercises in ~/nginxlings
+# run (bash, curl, NGINX, Python, Docker) and tmux for the terminal pane with
+# the distribution's package manager, and starts Docker. Your own copy of the exercises in ~/nginxlings
 # is never touched.
 
 set -eu
@@ -53,7 +53,7 @@ os_value() {
 install_packages() {
   ids="$(os_value ID) $(os_value ID_LIKE)"
   missing=""
-  for cmd in bash curl nginx python3 docker; do
+  for cmd in bash curl nginx python3 docker tmux; do
     command -v "${cmd}" >/dev/null 2>&1 && continue
     # nginx usually lives in /usr/sbin, which a user's PATH may lack.
     [ "${cmd}" = nginx ] && [ -x /usr/sbin/nginx ] && continue

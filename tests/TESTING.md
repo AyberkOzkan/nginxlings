@@ -80,6 +80,7 @@ that explanation (`require_docker_dns`).
 | `c` runs a passing and a failing check; output panel, `Tab`, list marks, progress and the saved state follow | `TestTUICheckFlowShowsResultAndProgress` |
 | At 80x24 a long check output opens at its end and a long verdict wraps in the status rows | `TestTUILongCheckResultStaysReadable` |
 | With a workspace, the folder row names it; `e` then `y` restores an exercise's starting files | `TestTUIWorkspaceResetRestoresStartingFiles` |
+| Started outside tmux, the program opens its own tmux session with a shell below; `t` moves the shell to the exercise folder, `F2` returns, `q` ends the session (skipped without tmux) | `TestTUITmuxOpensATerminalBelow` |
 | `r` asks for confirmation; `n` cancels, `y` clears progress | `TestTUIResetClearsProgress` |
 | A restart restores the last selected exercise | `TestTUIRestartRestoresTheSelectedExercise` |
 
@@ -90,6 +91,11 @@ instructions keep 6 rows); two closed panels whose right border reaches the
 last column; panels side by side from 80 columns and stacked below;
 and at most three rows without borders when the terminal is shorter than 9 rows,
 or narrower than 80 and shorter than 14 rows.
+
+The harness starts the program with `--no-tmux` unless a test asks for tmux, and
+drops `TMUX` from its environment, so no test touches the developer's tmux. The
+tmux test points `TMUX_TMPDIR` at a short temporary directory: tmux socket paths
+are limited to about 100 bytes.
 
 The check flow uses a two-exercise fake asset root whose checks answer at once,
 so it needs neither Docker nor NGINX.

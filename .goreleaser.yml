@@ -50,7 +50,8 @@ archives:
 # Linux packages: the binary in /usr/bin, the exercises and translations in
 # /usr/share/nginxlings, from where the app copies the exercises to the
 # learner's ~/nginxlings on first start. The package manager installs what
-# the exercises run: bash, curl, NGINX, Python and Docker.
+# the exercises run (bash, curl, NGINX, Python and Docker) and tmux, which
+# gives nginxlings its terminal pane.
 nfpms:
   - id: packages
     ids:
@@ -91,6 +92,7 @@ nfpms:
       - curl
       - nginx
       - python3
+      - tmux
     overrides:
       deb:
         dependencies:
@@ -98,6 +100,7 @@ nfpms:
           - curl
           - nginx | nginx-core | nginx-light | nginx-full | nginx-extras
           - python3
+          - tmux
           - docker.io | docker-ce | podman-docker
         recommends:
           - iproute2
@@ -108,6 +111,7 @@ nfpms:
           - curl
           - nginx
           - python3
+          - tmux
           # The Docker daemon: moby-engine on Fedora, docker on openSUSE,
           # docker-ce from Docker's repository. RHEL-like systems ship Podman
           # with a docker command instead.
@@ -121,6 +125,7 @@ nfpms:
           - curl
           - nginx
           - python
+          - tmux
           - docker
     archlinux:
       packager: Kenan Ayberk Özkan <kenan.ayberk@hotmail.com>

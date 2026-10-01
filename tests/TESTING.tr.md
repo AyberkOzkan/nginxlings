@@ -81,6 +81,7 @@ ve kontrolü bu açıklamayla durur (`require_docker_dns`).
 | `c` başarılı ve başarısız bir kontrol çalıştırır; çıktı paneli, `Tab`, liste işaretleri, ilerleme ve kaydedilen durum buna uyar | `TestTUICheckFlowShowsResultAndProgress` |
 | 80x24'te uzun bir kontrol çıktısı sonundan açılır, uzun bir sonuç durum satırlarına sarılır | `TestTUILongCheckResultStaysReadable` |
 | Çalışma klasörüyle açılınca klasör satırı onu gösterir; `e` ve ardından `y` egzersizin başlangıç dosyalarını geri yükler | `TestTUIWorkspaceResetRestoresStartingFiles` |
+| tmux dışında başlatılan program, altında bir kabuk olan kendi tmux oturumunu açar; `t` kabuğu egzersiz klasörüne götürür, `F2` geri döner, `q` oturumu kapatır (tmux yoksa atlanır) | `TestTUITmuxOpensATerminalBelow` |
 | `r` onay ister; `n` iptal eder, `y` ilerlemeyi sıfırlar | `TestTUIResetClearsProgress` |
 | Yeniden başlatma son seçilen egzersizi geri getirir | `TestTUIRestartRestoresTheSelectedExercise` |
 
@@ -90,6 +91,11 @@ satır olmadan (talimatlara 6 satır kaldığı sürece durum en fazla 4, tuş y
 fazla 4 satıra sarılır); sağ kenarı son sütuna ulaşan iki kapalı panel;
 80 sütundan itibaren yan yana, daha darda alt alta paneller; terminal 9 satırdan
 kısa ya da 80 sütundan dar ve 14 satırdan kısaysa kenarsız en fazla üç satır.
+
+Harness, bir test tmux istemedikçe programı `--no-tmux` ile başlatır ve
+ortamından `TMUX` değişkenini çıkarır; böylece hiçbir test geliştiricinin
+tmux'una dokunmaz. tmux testi `TMUX_TMPDIR` değişkenini kısa bir geçici dizine
+yönlendirir, çünkü tmux soket yolları yaklaşık 100 baytla sınırlıdır.
 
 Kontrol akışı, kontrolleri anında yanıt veren iki egzersizlik sahte bir kök
 dizin kullanır; bu yüzden Docker'a da NGINX'e de ihtiyaç duymaz.

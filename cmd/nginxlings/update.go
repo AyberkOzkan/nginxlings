@@ -217,6 +217,69 @@ func displayPath(path string) string {
 	return path
 }
 
+type terminalMovedMsg struct {
+	dir  string
+	busy string
+}
+
+// selectedDir is the folder of the selected exercise, or the exercise root.
+func (m model) selectedDir() string {
+	if m.cursor >= 0 && m.cursor < len(m.exercises) {
+		return m.exercises[m.cursor].Path
+	}
+	return m.paths.ExercisesDir()
+}
+
+// openTerminal opens the shell pane below the app in the selected folder.
+func (m model) openTerminal(focus bool) tea.Cmd {
+	title := m.ui("terminal_pane_title", "Terminal · F2: switch · Alt+↑/↓: resize · drag this line with the mouse")
+	appTitle := m.ui("app_pane_title", "nginxlings · F2: terminal")
+	open := openTerminalPane(m.selectedDir(), m.height, focus, title)
+	return func() tea.Msg {
+		if pane := os.Getenv("TMUX_PANE"); pane != "" {
+			_, _ = runTmux("select-pane", "-t", pane, "-T", appTitle)
+		}
+		return open()
+	}
+}
+
+// terminalToSelected takes the terminal to the selected exercise's folder:
+// the shell pane below in tmux, opened again if it was closed, or a full
+// screen shell without tmux.
+func (m model) terminalToSelected() tea.Cmd {
+	dir := m.selectedDir()
+	if !m.inTmux {
+		return runShell(dir, m.ui("shell_hint", "nginxlings: type exit to return."))
+	}
+	pane := m.terminalPane
+	open := m.openTerminal(true)
+	return func() tea.Msg {
+		if pane != "" {
+			if busy, err := moveTerminalTo(pane, dir); err == nil {
+				return terminalMovedMsg{dir: dir, busy: busy}
+			}
+		}
+		return open()
+	}
+}
+
+// retitleTerminal translates the pane titles after a language switch.
+func (m model) retitleTerminal() tea.Cmd {
+	if m.terminalPane == "" {
+		return nil
+	}
+	pane := m.terminalPane
+	title := m.ui("terminal_pane_title", "Terminal · F2: switch · Alt+↑/↓: resize · drag this line with the mouse")
+	appTitle := m.ui("app_pane_title", "nginxlings · F2: terminal")
+	return func() tea.Msg {
+		_, _ = runTmux("select-pane", "-t", pane, "-T", title)
+		if own := os.Getenv("TMUX_PANE"); own != "" {
+			_, _ = runTmux("select-pane", "-t", own, "-T", appTitle)
+		}
+		return nil
+	}
+}
+
 /* ---------- Bubble Tea Update ---------- */
 
 func (m model) Init() tea.Cmd {
@@ -336,6 +399,12 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.readme.GotoBottom()
 		case lines > 0:
 			m.readme.SetYOffset(offset * m.readme.TotalLineCount() / lines)
+		}
+		// In its own tmux session the app opens the terminal below itself
+		// once, when the window is tall enough to share.
+		if m.ownTmux && !m.terminalTried && m.height >= minSplitHeight {
+			m.terminalTried = true
+			return m, tea.Batch(m.resetMarquee(), m.openTerminal(false))
 		}
 		return m, m.resetMarquee()
 
@@ -479,7 +548,7 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.status = m.uif("status_state_save_failed", "Progress could not be saved: %v", err)
 					}
 				}
-				return m, m.resetMarquee()
+				return m, tea.Batch(m.resetMarquee(), m.retitleTerminal())
 			}
 
 		// Seçili egzersizin başlangıç dosyalarını geri yükle
@@ -536,6 +605,10 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.status = m.uif("status_setup_running_fix", "Running %s", shellCommand(fix))
 			return m, runFix(fix)
+
+		// Terminal: alttaki kabuğu seçili egzersizin klasörüne götür
+		case "t", "T":
+			return m, m.terminalToSelected()
 
 		// Egzersiz klasörünü dosya yöneticisinde aç
 		case "o", "O":
@@ -635,6 +708,26 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case problems > 0 && m.status == m.initialStatusText():
 			m.status = m.uif("status_setup_problems", "Setup needs attention (%d). Press d to see what to do.", problems)
 		}
+		return m, nil
+
+	case terminalPaneMsg:
+		if msg.err != nil {
+			m.status = m.uif("status_terminal_failed", "The terminal could not be opened: %v", msg.err)
+			return m, nil
+		}
+		m.terminalPane = msg.pane
+		return m, nil
+
+	case terminalMovedMsg:
+		if msg.busy != "" {
+			m.status = m.uif("status_terminal_busy", "The terminal is running %s. Type cd yourself when it ends.", msg.busy)
+		} else {
+			m.status = m.uif("status_terminal_moved", "Terminal moved to %s. F2 comes back here.", displayPath(msg.dir))
+		}
+		return m, nil
+
+	case shellDoneMsg:
+		m.status = m.ui("status_shell_done", "Back from the shell.")
 		return m, nil
 
 	case setupFixDoneMsg:

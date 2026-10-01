@@ -32,5 +32,6 @@ echo "$user_out" | grep -q 'is not installed' && fail "doctor misses a command f
 echo "$user_out" | grep -q 'missing prerequisite' && fail "01 lacks a prerequisite for a regular user"
 [ -x /home/learner/nginxlings/01_static_server/check.sh ] || fail "no workspace for the regular user"
 command -v docker >/dev/null || fail "no docker command"
+command -v tmux >/dev/null || fail "tmux, which gives nginxlings its terminal pane, is not installed"
 command -v dockerd >/dev/null || command -v podman >/dev/null || fail "neither the Docker daemon nor Podman is installed"
 echo "VERIFY OK"
