@@ -11,19 +11,28 @@ import (
 	"nginxlings/tests/testutil"
 )
 
+// fakeExercise is an exercise whose check.sh runs script.
+type fakeExercise struct{ id, name, script string }
+
 // fakeRoot builds an asset root with the repository's translations and two
 // exercises whose checks answer at once: 01 passes and 02 fails. It lets the
 // check flow run without Docker or NGINX.
 func fakeRoot(t *testing.T) string {
 	t.Helper()
+	return fakeRootWith(t, []fakeExercise{
+		{"01_pass", "01 - Passing Exercise", "echo '[1/1] Pretending to check...'\necho '[PASS] fake check passed'\n"},
+		{"02_fail", "02 - Failing Exercise", "echo '[1/1] Pretending to check...'\necho '[FAIL] fake check failed'\nexit 1\n"},
+	})
+}
+
+// fakeRootWith builds an asset root with the repository's translations and
+// the given exercises.
+func fakeRootWith(t *testing.T, exercises []fakeExercise) string {
+	t.Helper()
 	root := t.TempDir()
 	copy := exec.Command("cp", "-r", filepath.Join(testutil.RepoRoot(t), "i18n"), root)
 	if out, err := copy.CombinedOutput(); err != nil {
 		t.Fatalf("copy i18n: %v\n%s", err, out)
-	}
-	exercises := []struct{ id, name, script string }{
-		{"01_pass", "01 - Passing Exercise", "echo '[1/1] Pretending to check...'\necho '[PASS] fake check passed'\n"},
-		{"02_fail", "02 - Failing Exercise", "echo '[1/1] Pretending to check...'\necho '[FAIL] fake check failed'\nexit 1\n"},
 	}
 	type entry struct {
 		ID          string `json:"id"`
@@ -162,6 +171,39 @@ func TestTUICheckFlowShowsResultAndProgress(t *testing.T) {
 	if !saved.Completed["01_pass"] || saved.Completed["02_fail"] || saved.LastExerciseID != "02_fail" {
 		t.Fatalf("saved state = %+v, want 01_pass completed, 02_fail not, last 02_fail", saved)
 	}
+}
+
+// TestTUILongCheckResultStaysReadable runs a check whose output is longer
+// than the panel and whose verdict is longer than a row at 80 columns: the
+// output opens at its end and the status wraps instead of cutting the verdict.
+func TestTUILongCheckResultStaysReadable(t *testing.T) {
+	const verdict = `[FAIL] NGINX rejected the configuration: getpwnam("www-data") failed in /etc/nginx/nginx.conf:5`
+	root := fakeRootWith(t, []fakeExercise{{
+		"01_long", "01 - Long Output",
+		"for i in $(seq 1 40); do echo \"[step] output line $i\"; done\n" +
+			"echo 'nginx: [emerg] the error before the verdict'\n" +
+			"echo '" + verdict + "'\nexit 1\n",
+	}})
+	en := textsFor(t, "en")
+	s := start(t, options{cols: 80, rows: 24, root: root})
+	s.waitForFrame(80, 24, en)
+
+	s.press("c")
+	screen := s.waitForText("nginx: [emerg] the error")
+	if strings.Contains(strings.Join(screen, "\n"), "output line 1 ") {
+		t.Fatalf("the output opened at its start:\n%s", s.dump())
+	}
+	squeezed := func(s string) string { return strings.Join(strings.Fields(s), "") }
+	s.waitFor("the whole verdict in the status rows", func(rows []string) bool {
+		if checkFrame(rows, 80, 24, en) != nil {
+			return false
+		}
+		var footer []string
+		for i := len(rows) - 1; i >= 0 && !strings.Contains(rows[i], "╰"); i-- {
+			footer = append([]string{rows[i]}, footer...)
+		}
+		return strings.Contains(squeezed(strings.Join(footer, "")), squeezed(verdict))
+	})
 }
 
 func TestTUIResetClearsProgress(t *testing.T) {

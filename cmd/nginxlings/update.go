@@ -150,10 +150,47 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	next, cmd := m.update(msg)
+	updated := next.(model)
+	updated.fitReadme()
+	return updated, cmd
+}
+
+// followsEnd reports whether the right panel shows the end of its text in a
+// way worth keeping when the panel changes size: check output opened at its
+// end, or any text the reader scrolled to the bottom.
+func (m model) followsEnd() bool {
+	return m.readme.AtBottom() && (m.readme.YOffset > 0 || m.panel == panelCheckOutput)
+}
+
+// fitReadme gives the right panel the height the status and key help leave
+// for it; a long status message takes rows from the instructions.
+func (m *model) fitReadme() {
+	if !m.ready {
+		return
+	}
+	height := m.layout().readmeHeight
+	if m.readme.Height == height {
+		return
+	}
+	atEnd := m.followsEnd()
+	m.readme.Height = height
+	if atEnd {
+		m.readme.GotoBottom()
+	} else {
+		m.readme.SetYOffset(m.readme.YOffset)
+	}
+}
+
+func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case tea.WindowSizeMsg:
 		panel := m.panel
+		// Re-rendering at the new width changes the line count, so remember
+		// where the reader is and return there afterwards.
+		atEnd := m.followsEnd()
+		offset, lines := m.readme.YOffset, m.readme.TotalLineCount()
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
@@ -162,7 +199,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.listWidth = layout.listOuterWidth
 		m.rightWidth = layout.rightOuterWidth
 		m.readme.Width = layout.rightInnerWidth
-		m.readme.Height = layout.readmeHeight
+		m.readme.Height = m.layout().readmeHeight
 
 		m.loadReadmeForCurrent()
 		switch {
@@ -170,6 +207,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showCheckOutput()
 		case panel == panelHint:
 			m.showHint()
+		}
+		switch {
+		case atEnd:
+			m.readme.GotoBottom()
+		case lines > 0:
+			m.readme.SetYOffset(offset * m.readme.TotalLineCount() / lines)
 		}
 		return m, m.resetMarquee()
 

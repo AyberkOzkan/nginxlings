@@ -26,5 +26,6 @@
   "readme_not_found": "README not found (%s).",
   "status_reset_blocked": "Wait for the running check to finish before resetting progress.",
   "hint_title": "Hint",
-  "status_showing_hint": "Showing the hint. Press h or Tab to return to the instructions."
+  "status_showing_hint": "Showing the hint. Press h or Tab to return to the instructions.",
+  "list_more": "%d more"
 }

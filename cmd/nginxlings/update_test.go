@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -667,6 +668,81 @@ func TestUpdateRunningStatusRendersOneTranslatedLabel(t *testing.T) {
 			}
 			assertRenderedLinesWithin(t, view, tt.width)
 		})
+	}
+}
+
+// numberedLines returns n lines "line 1" ... "line n" followed by last.
+func numberedLines(n int, last string) string {
+	lines := make([]string, 0, n+1)
+	for i := 1; i <= n; i++ {
+		lines = append(lines, fmt.Sprintf("line %d", i))
+	}
+	return strings.Join(append(lines, last), "\n")
+}
+
+func TestCheckOutputOpensAtItsEnd(t *testing.T) {
+	m := layoutTestModel(100, 30)
+	m.exercises = []Exercise{{ID: "01_static", DefaultName: "Static Server"}}
+	output := numberedLines(60, "[FAIL] the verdict")
+
+	updated, _ := m.Update(checkResultMsg{output: output, err: errors.New("exit status 1"), index: 0})
+	got := updated.(model)
+	view := got.View()
+	if !strings.Contains(got.readme.View(), "[FAIL] the verdict") || strings.Contains(got.readme.View(), "line 1\n") {
+		t.Fatalf("output panel does not show the end of the output:\n%s", view)
+	}
+
+	updated, _ = got.Update(tea.KeyMsg{Type: tea.KeyTab})
+	updated, _ = updated.(model).Update(tea.KeyMsg{Type: tea.KeyTab})
+	if again := updated.(model).readme.View(); !strings.Contains(again, "[FAIL] the verdict") {
+		t.Fatalf("Tab back to the output does not show its end:\n%s", again)
+	}
+}
+
+func TestLongStatusTakesRowsFromThePanelsAndKeepsTheVerdictVisible(t *testing.T) {
+	m := layoutTestModel(80, 24)
+	m.exercises = []Exercise{{ID: "01_static", DefaultName: "Static Server"}}
+	short, _ := m.Update(checkResultMsg{output: numberedLines(60, "[FAIL] short"), err: errors.New("exit status 1"), index: 0})
+	verdict := "[FAIL] NGINX rejected the configuration: getpwnam(\"www-data\") failed in /etc/nginx/nginx.conf:5"
+	long, _ := m.Update(checkResultMsg{output: numberedLines(60, verdict), err: errors.New("exit status 1"), index: 0})
+
+	shortHeight, longHeight := short.(model).readme.Height, long.(model).readme.Height
+	if longHeight >= shortHeight {
+		t.Fatalf("instructions height = %d with a long status, %d with a short one; want fewer rows", longHeight, shortHeight)
+	}
+	view := long.(model).View()
+	if got := renderedRows(view); got != 24 {
+		t.Fatalf("rendered rows = %d, want 24\n%s", got, view)
+	}
+	if !strings.Contains(long.(model).readme.View(), "nginx.conf:5") {
+		t.Fatalf("the end of the output is hidden after the status grew:\n%s", view)
+	}
+}
+
+func TestWindowResizeKeepsTheInstructionsScrollPosition(t *testing.T) {
+	dir := t.TempDir()
+	var readme strings.Builder
+	for i := 1; i <= 80; i++ {
+		fmt.Fprintf(&readme, "Paragraph %d of the instructions.\n\n", i)
+	}
+	writeFile(t, filepath.Join(dir, "README.md"), readme.String())
+	m := layoutTestModel(100, 30)
+	m.exercises = []Exercise{{ID: "01_static", DefaultName: "Static Server", Path: dir}}
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(model)
+	for i := 0; i < 20; i++ {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+		m = updated.(model)
+	}
+	before := m.readme.ScrollPercent()
+	if before <= 0.2 || m.readme.AtBottom() {
+		t.Fatalf("scroll percent = %.2f, want the reader in the middle", before)
+	}
+
+	updated, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	after := updated.(model).readme.ScrollPercent()
+	if after < before-0.1 || after > before+0.1 {
+		t.Fatalf("scroll percent after resize = %.2f, want about %.2f", after, before)
 	}
 }
 

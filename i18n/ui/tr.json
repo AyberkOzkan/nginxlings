@@ -26,5 +26,6 @@
   "readme_not_found": "README bulunamadı (%s).",
   "status_reset_blocked": "İlerlemeyi sıfırlamadan önce çalışan kontrolün bitmesini bekle.",
   "hint_title": "İpucu",
-  "status_showing_hint": "İpucu gösteriliyor. Talimatlara dönmek için h veya Tab'a bas."
+  "status_showing_hint": "İpucu gösteriliyor. Talimatlara dönmek için h veya Tab'a bas.",
+  "list_more": "%d tane daha"
 }

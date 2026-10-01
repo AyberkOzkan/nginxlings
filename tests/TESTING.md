@@ -61,12 +61,15 @@ from the starting files.
 | `l` switches the language of titles, list names and the README | `TestTUILanguageSwitchTranslatesTheScreen` |
 | PgDn/PgUp scroll the instructions | `TestTUIScrollMovesTheInstructions` |
 | `c` runs a passing and a failing check; output panel, `Tab`, list marks, progress and the saved state follow | `TestTUICheckFlowShowsResultAndProgress` |
+| At 80x24 a long check output opens at its end and a long verdict wraps in the status rows | `TestTUILongCheckResultStaysReadable` |
 | `r` asks for confirmation; `n` cancels, `y` clears progress | `TestTUIResetClearsProgress` |
 | A restart restores the last selected exercise | `TestTUIRestartRestoresTheSelectedExercise` |
 
-A valid frame means: the title on the first row, the status line on the second
-last row and the key help on the last row; two closed panels whose right border
-reaches the last column; panels side by side from 80 columns and stacked below;
+A valid frame means: the title on the first row; under the panels the status
+rows, then the key help rows down to the last row, with no empty row between
+(the status wraps onto up to 4 rows and the key help onto up to 3 when the
+instructions keep 6 rows); two closed panels whose right border reaches the
+last column; panels side by side from 80 columns and stacked below;
 and at most three rows without borders when the terminal is shorter than 9 rows,
 or narrower than 80 and shorter than 14 rows.
 

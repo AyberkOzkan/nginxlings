@@ -37,7 +37,8 @@ Inside the TUI:
 - `pgup` / `pgdown`: scroll faster
 - `left` / `right`: horizontal scroll
 - `c` or `enter`: run the selected exercise check
-- `tab`: toggle between instructions and the last check output
+- `tab`: toggle between instructions and the last check output, which opens at
+  its end where the result is
 - `h`: show the selected exercise's hint (press again to return)
 - `l`: switch language
 - `r`: reset progress

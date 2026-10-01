@@ -80,8 +80,9 @@ func (m *model) showHint() {
 }
 
 // showCheckOutput switches the right panel to the selected exercise's output.
+// It opens at the end, where the verdict and the error that caused it are.
 func (m *model) showCheckOutput() {
 	m.panel = panelCheckOutput
 	m.readme.SetContent(wrapCheckOutput(m.selectedCheckOutput(), m.readme.Width))
-	m.readme.GotoTop()
+	m.readme.GotoBottom()
 }
