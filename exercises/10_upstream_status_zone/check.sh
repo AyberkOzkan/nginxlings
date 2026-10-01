@@ -54,6 +54,7 @@ wait_backend() {
 
 echo "[1/7] Checking prerequisites and files..."
 require_docker
+require_docker_dns
 require_cmd curl
 for file in Dockerfile nginx.conf; do
   [[ -f "${EX_DIR}/${file}" ]] || fail "${file} not found in ${EX_DIR}."

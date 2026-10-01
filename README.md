@@ -31,9 +31,10 @@ missing, usually Docker access for your user, the status row shows
 `! Setup` and `d` explains the fix; `f` runs it.
 
 On Rocky, AlmaLinux and RHEL the package installs Podman's `docker` command
-instead of Docker. Every exercise runs with it except 10, which uses Docker's
-embedded DNS server on `127.0.0.11`; install Docker CE from Docker's
-repository for that one.
+instead of Docker. Every exercise runs with it except 10, which teaches
+Docker's embedded DNS server on `127.0.0.11`; install Docker CE from Docker's
+repository for that one. The setup check (`d`, `--doctor`) notes this, and
+exercise 10's check stops with the same explanation instead of failing later.
 
 To remove nginxlings, remove the package (`sudo apt remove nginxlings`,
 `sudo dnf remove nginxlings`, `sudo pacman -R nginxlings`) or run

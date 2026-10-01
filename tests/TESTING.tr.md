@@ -61,7 +61,8 @@ NGINXLINGS_PACKAGES=$PWD/dist go test ./tests/packages -v -count=1 -timeout 40m
 `NGINXLINGS_SOLUTIONS` ve `NGINXLINGS_PODMAN=1` de verilirse, Docker kullanan her
 egzersizi Rocky Linux'ta Podman'ın docker komutuyla, ayrıcalıklı (privileged) bir
 konteynerde de çalıştırır (yaklaşık 30 dakika). Egzersiz 10'un orada başarısız
-olması beklenir: Docker'ın 127.0.0.11 adresindeki gömülü DNS sunucusunu kullanır.
+olması beklenir: Docker'ın 127.0.0.11 adresindeki gömülü DNS sunucusunu kullanır
+ve kontrolü bu açıklamayla durur (`require_docker_dns`).
 
 ## Test adımları
 

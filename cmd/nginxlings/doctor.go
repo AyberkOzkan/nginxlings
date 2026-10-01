@@ -27,7 +27,13 @@ const (
 	problemDockerRelogin
 	problemDockerStopped
 	problemDockerOther
+	// notePodmanDNS is not a problem to fix: Podman's docker command runs
+	// most exercises, but not those that use Docker's embedded DNS server.
+	notePodmanDNS
 )
+
+// dockerDNSAddress is Docker's embedded DNS server, which Podman lacks.
+const dockerDNSAddress = "127.0.0.11"
 
 // setupProblem is one thing that keeps some exercises from running.
 type setupProblem struct {
@@ -43,16 +49,19 @@ type setupProblem struct {
 	fix []string
 }
 
-// setupReport lists the commands the exercises need and what is wrong.
+// setupReport lists the commands the exercises need, what is wrong, and
+// notes about exercises that cannot run here although nothing is missing.
 type setupReport struct {
 	commands []string
 	problems []setupProblem
+	notes    []setupProblem
 }
 
 // setupEnv is what the setup check reads from the system; tests replace it.
 type setupEnv struct {
-	lookPath   func(string) (string, error)
-	dockerInfo func(context.Context) (string, error)
+	lookPath      func(string) (string, error)
+	dockerInfo    func(context.Context) (string, error)
+	dockerVersion func(context.Context) (string, error)
 	// dockerGroup reports whether the user is in the docker group in the
 	// group database (listed) and in this session (active).
 	dockerGroup func() (listed, active bool)
@@ -66,11 +75,12 @@ func systemSetupEnv() setupEnv {
 		name = u.Username
 	}
 	return setupEnv{
-		lookPath:    lookPathWithSbin,
-		dockerInfo:  runDockerInfo,
-		dockerGroup: dockerGroupMembership,
-		osRelease:   readOSRelease("/etc/os-release"),
-		userName:    name,
+		lookPath:      lookPathWithSbin,
+		dockerInfo:    runDockerInfo,
+		dockerVersion: runDockerVersion,
+		dockerGroup:   dockerGroupMembership,
+		osRelease:     readOSRelease("/etc/os-release"),
+		userName:      name,
 	}
 }
 
@@ -146,9 +156,48 @@ func runSetupCheck(ctx context.Context, exercises []Exercise, env setupEnv) setu
 				problem.exercises = needs[cmd]
 				report.problems = append(report.problems, problem)
 			}
+			if isPodman(ctx, env) {
+				if numbers := exercisesUsingDockerDNS(exercises); len(numbers) > 0 {
+					report.notes = append(report.notes, setupProblem{kind: notePodmanDNS, command: "docker", exercises: numbers})
+				}
+			}
 		}
 	}
 	return report
+}
+
+// isPodman reports whether the docker command is Podman's, which RHEL-like
+// systems install instead of Docker.
+func isPodman(ctx context.Context, env setupEnv) bool {
+	ctx, cancel := context.WithTimeout(ctx, setupCheckTimeout)
+	defer cancel()
+	out, _ := env.dockerVersion(ctx)
+	return strings.Contains(strings.ToLower(out), "podman")
+}
+
+func runDockerVersion(ctx context.Context) (string, error) {
+	out, err := exec.CommandContext(ctx, "docker", "--version").CombinedOutput()
+	return string(out), err
+}
+
+// exercisesUsingDockerDNS returns the exercises whose files mention Docker's
+// embedded DNS server, so an exercise added later is covered too.
+func exercisesUsingDockerDNS(exercises []Exercise) []string {
+	var numbers []string
+	for _, ex := range exercises {
+		_ = filepath.WalkDir(ex.Path, func(path string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			data, err := os.ReadFile(path)
+			if err == nil && strings.Contains(string(data), dockerDNSAddress) {
+				numbers = append(numbers, ex.ID[:2])
+				return filepath.SkipAll
+			}
+			return nil
+		})
+	}
+	return numbers
 }
 
 // checkDocker asks the Docker daemon for its version and explains a failure.
@@ -382,9 +431,11 @@ func (r setupReport) firstFix() ([]string, error) {
 }
 
 // reportLine is one translated line of a setup report: what is wrong, and
-// the command that fixes it when there is one.
+// the command that fixes it when there is one. A note says what cannot run
+// here although nothing is missing.
 type reportLine struct {
 	ok       bool
+	note     bool
 	text     string
 	fixIntro string
 	fix      string
@@ -393,13 +444,13 @@ type reportLine struct {
 // setupReportLines turns a report into translated lines. t looks up a UI
 // string by key with an English fallback.
 func setupReportLines(report setupReport, t func(key, fallback string) string) []reportLine {
+	var lines []reportLine
 	if len(report.problems) == 0 {
-		return []reportLine{{
+		lines = append(lines, reportLine{
 			ok:   true,
 			text: fmt.Sprintf(t("doctor_ok", "Everything the exercises need is ready: %s."), strings.Join(report.commands, ", ")),
-		}}
+		})
 	}
-	var lines []reportLine
 	for _, p := range report.problems {
 		line := reportLine{}
 		if p.fix != nil {
@@ -429,6 +480,12 @@ func setupReportLines(report setupReport, t func(key, fallback string) string) [
 		line.text += " " + fmt.Sprintf(t("doctor_needed_by", "Needed by exercises %s."), exerciseRanges(p.exercises))
 		lines = append(lines, line)
 	}
+	for _, n := range report.notes {
+		lines = append(lines, reportLine{
+			note: true,
+			text: fmt.Sprintf(t("doctor_podman_dns", "The docker command here is Podman's. Exercises %s use Docker's DNS server on 127.0.0.11, which Podman does not have, so they cannot pass here. Install Docker CE from Docker's repository for them: https://docs.docker.com/engine/install/"), exerciseRanges(n.exercises)),
+		})
+	}
 	return lines
 }
 
@@ -439,8 +496,11 @@ func setupMarkdown(lines []reportLine, t func(key, fallback string) string) stri
 	hasFix := false
 	for _, line := range lines {
 		mark := "✗"
-		if line.ok {
+		switch {
+		case line.ok:
 			mark = "✓"
+		case line.note:
+			mark = "!"
 		}
 		fmt.Fprintf(&b, "%s %s\n\n", mark, line.text)
 		if line.fixIntro != "" {
@@ -462,8 +522,11 @@ func setupText(lines []reportLine) string {
 	var b strings.Builder
 	for _, line := range lines {
 		mark := "[FAIL]"
-		if line.ok {
+		switch {
+		case line.ok:
 			mark = "[OK]"
+		case line.note:
+			mark = "[NOTE]"
 		}
 		fmt.Fprintf(&b, "%s %s\n", mark, line.text)
 		if line.fixIntro != "" {

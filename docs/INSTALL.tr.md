@@ -70,8 +70,10 @@ da bilgisayarı yeniden başlatman) gerekir; ardından Nginxlings'i yeniden aç.
 
 Bu dağıtımlarda kurulum Docker yerine Podman'ın `docker` komutunu kurar.
 Egzersiz 10 dışındaki bütün egzersizler onunla çalışır. Egzersiz 10, Docker'ın
-`127.0.0.11` adresindeki DNS sunucusunu kullanır. O egzersiz için eğitmeninden
-Docker CE kurulumunda yardım iste.
+`127.0.0.11` adresindeki DNS sunucusunu öğretir; Podman'da bu sunucu yoktur.
+Kurulum kontrolü (`d`) bunu bir not olarak gösterir, egzersiz 10'un kontrolü de
+aynı açıklamayla durur. O egzersiz için eğitmeninden Docker CE kurulumunda yardım
+iste.
 
 ## Kaldırma
 

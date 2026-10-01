@@ -60,7 +60,8 @@ NGINXLINGS_PACKAGES=$PWD/dist go test ./tests/packages -v -count=1 -timeout 40m
 With `NGINXLINGS_SOLUTIONS` and `NGINXLINGS_PODMAN=1` as well, they also run
 every Docker exercise with Podman's docker command on Rocky Linux in a
 privileged container (about 30 minutes). Exercise 10 is expected to fail
-there: it uses Docker's embedded DNS on 127.0.0.11.
+there: it uses Docker's embedded DNS on 127.0.0.11, and its check stops with
+that explanation (`require_docker_dns`).
 
 ## Test steps
 

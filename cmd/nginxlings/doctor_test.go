@@ -90,10 +90,11 @@ func fakeSetupEnv(missing string, dockerOut string, dockerErr error, listed, act
 			}
 			return "/usr/bin/" + cmd, nil
 		},
-		dockerInfo:  func(context.Context) (string, error) { return dockerOut, dockerErr },
-		dockerGroup: func() (bool, bool) { return listed, active },
-		osRelease:   map[string]string{"ID": "ubuntu", "ID_LIKE": "debian"},
-		userName:    "learner",
+		dockerInfo:    func(context.Context) (string, error) { return dockerOut, dockerErr },
+		dockerVersion: func(context.Context) (string, error) { return "Docker version 29.0.0, build 1", nil },
+		dockerGroup:   func() (bool, bool) { return listed, active },
+		osRelease:     map[string]string{"ID": "ubuntu", "ID_LIKE": "debian"},
+		userName:      "learner",
 	}
 }
 
@@ -252,5 +253,45 @@ func TestRunCLIDoctor(t *testing.T) {
 
 	if code := runCLI([]string{"--root", root, "--doctor", "--list"}, &stdout, &stderr, nil, nil); code != 2 {
 		t.Fatalf("--doctor --list exit = %d, want a usage error", code)
+	}
+}
+
+func TestExercisesUsingDockerDNSOfTheShippedExercises(t *testing.T) {
+	exercises, err := LoadExercises(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := exerciseRanges(exercisesUsingDockerDNS(exercises)); got != "10" {
+		t.Fatalf("exercises using Docker's DNS = %q, want 10", got)
+	}
+}
+
+func TestRunSetupCheckNotesPodmanWithoutCountingAProblem(t *testing.T) {
+	exercises := setupExercises(t)
+	writeFile(t, filepath.Join(exercises[0].Path, "nginx.conf"), "resolver 127.0.0.11;\n")
+	env := fakeSetupEnv("", "", nil, true, true)
+	env.dockerVersion = func(context.Context) (string, error) { return "podman version 5.8.2\n", nil }
+
+	report := runSetupCheck(context.Background(), exercises, env)
+	if len(report.problems) != 0 || len(report.notes) != 1 || exerciseRanges(report.notes[0].exercises) != exercises[0].ID[:2] {
+		t.Fatalf("report = %+v, want one Podman note and no problems", report)
+	}
+	text := setupText(setupReportLines(report, func(_, fallback string) string { return fallback }))
+	if !strings.HasPrefix(text, "[OK]") || !strings.Contains(text, "[NOTE] The docker command here is Podman's.") || !strings.Contains(text, "127.0.0.11") {
+		t.Fatalf("text = %q", text)
+	}
+
+	// With Docker itself there is no note.
+	env.dockerVersion = func(context.Context) (string, error) { return "Docker version 29.0.0", nil }
+	if report := runSetupCheck(context.Background(), exercises, env); len(report.notes) != 0 {
+		t.Fatalf("notes with Docker = %+v", report.notes)
+	}
+}
+
+func TestStatusRowWarnsOnlyAboutProblems(t *testing.T) {
+	m, _ := workspaceModel(t)
+	m.setup = &setupReport{notes: []setupProblem{{kind: notePodmanDNS, exercises: []string{"10"}}}}
+	if strings.Contains(m.View(), "! Setup") {
+		t.Fatal("a Podman note alone must not raise the setup warning")
 	}
 }
