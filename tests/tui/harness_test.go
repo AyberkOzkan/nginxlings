@@ -24,6 +24,31 @@ import (
 // binPath is the nginxlings binary built once for the whole package.
 var binPath string
 
+// toolsDir holds stand-ins for the commands the exercise checks need. It
+// comes first on the program's PATH, so the setup check finds a ready
+// machine wherever the tests run and the status row does not depend on what
+// is installed.
+var toolsDir string
+
+// standIns are the commands the exercise checks ask for, except bash, which
+// the checks themselves run in. docker answers the two calls the setup check
+// makes; the others only have to exist.
+var standIns = map[string]string{
+	"docker": `case "$1" in
+--version) echo "Docker version 29.1.3, build tui-test" ;;
+info) echo "Server Version: 29.1.3" ;;
+*) echo "tui tests: docker $* has no stand-in" >&2; exit 1 ;;
+esac
+`,
+	"nginx":   standInOnly,
+	"curl":    standInOnly,
+	"python3": standInOnly,
+}
+
+const standInOnly = `echo "tui tests: $0 is a stand-in for the setup check" >&2
+exit 1
+`
+
 func TestMain(m *testing.M) {
 	os.Exit(runTests(m))
 }
@@ -42,6 +67,17 @@ func runTests(m *testing.M) int {
 	if out, err := build.CombinedOutput(); err != nil {
 		fmt.Fprintf(os.Stderr, "build nginxlings: %v\n%s", err, out)
 		return 1
+	}
+	toolsDir = filepath.Join(dir, "tools")
+	if err := os.Mkdir(toolsDir, 0o755); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	for name, body := range standIns {
+		if err := os.WriteFile(filepath.Join(toolsDir, name), []byte("#!/bin/sh\n"+body), 0o755); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
 	}
 	return m.Run()
 }
@@ -126,7 +162,8 @@ func start(t *testing.T, opt options) *session {
 	}
 	cmd := exec.Command(binPath, args...)
 	// A test run from inside tmux must not split the developer's window.
-	cmd.Env = append(withoutEnv(os.Environ(), "TMUX", "TMUX_PANE"), "TERM=xterm-256color")
+	cmd.Env = append(withoutEnv(os.Environ(), "TMUX", "TMUX_PANE", "PATH"),
+		"TERM=xterm-256color", "PATH="+toolsDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	cmd.Env = append(cmd.Env, opt.env...)
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(opt.cols), Rows: uint16(opt.rows)})
 	if err != nil {

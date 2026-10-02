@@ -75,7 +75,7 @@ ve kontrolü bu açıklamayla durur (`require_docker_dns`).
 | Çerçeve denetimi bozulmuş ekranları reddetmeli | `TestFrameCheckRejectsDamagedScreens` |
 | `s`/`w` seçimi taşır; yeniden çizimden hızlı basılan tuşların hepsi sayılır | `TestTUINavigationCountsEveryKeyPress` |
 | `h` ipucunu açar ve kapatır | `TestTUIHintTogglesWithInstructions` |
-| `?` tüm tuşları listeler, `d` kurulum kontrolünü açar; ikisi de talimatlara döner | `TestTUIKeysAndSetupPanels` |
+| `?` tüm tuşları listeler, `d` kurulum kontrolünü açar ve kontrol her şeyi hazır bulur; ikisi de talimatlara döner | `TestTUIKeysAndSetupPanels` |
 | `l` başlıkların, liste adlarının ve README'nin dilini değiştirir | `TestTUILanguageSwitchTranslatesTheScreen` |
 | PgDn/PgUp talimatları kaydırır | `TestTUIScrollMovesTheInstructions` |
 | `c` başarılı ve başarısız bir kontrol çalıştırır; çıktı paneli, `Tab`, liste işaretleri, ilerleme ve kaydedilen durum buna uyar | `TestTUICheckFlowShowsResultAndProgress` |
@@ -96,6 +96,12 @@ Harness, bir test tmux istemedikçe programı `--no-tmux` ile başlatır ve
 ortamından `TMUX` değişkenini çıkarır; böylece hiçbir test geliştiricinin
 tmux'una dokunmaz. tmux testi `TMUX_TMPDIR` değişkenini kısa bir geçici dizine
 yönlendirir, çünkü tmux soket yolları yaklaşık 100 baytla sınırlıdır.
+
+Harness ayrıca programın `PATH` değişkeninin başına sahte `docker`, `nginx`,
+`curl` ve `python3` komutlarının bulunduğu bir dizin koyar. Böylece kurulum
+kontrolü her makinede her şeyi hazır bulur ve durum satırı NGINX ile Docker
+kurulu olsun olmasın aynı görünür; bunlar olmadan durum satırına eklenen
+`! Kurulum` işareti satırı, testin beklemediği bir yerden alta kaydırırdı.
 
 Kontrol akışı, kontrolleri anında yanıt veren iki egzersizlik sahte bir kök
 dizin kullanır; bu yüzden Docker'a da NGINX'e de ihtiyaç duymaz.
