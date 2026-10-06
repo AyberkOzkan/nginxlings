@@ -120,7 +120,7 @@ func showsStatus(row string, texts frameTexts) bool {
 }
 
 // footerRowsMax mirrors maxStatusRows + maxHelpRows in cmd/nginxlings/view.go.
-const footerRowsMax = 4 + 3
+const footerRowsMax = 4 + 4
 
 // checkFooter checks the rows under the panels: the status starts right under
 // the bottom border, the key help follows it and ends on the last row, and no

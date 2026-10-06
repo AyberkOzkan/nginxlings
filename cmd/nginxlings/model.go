@@ -73,6 +73,21 @@ type model struct {
 
 	// Reset onayı için
 	confirmReset bool
+	// confirmResetFiles waits for y/n before the selected exercise's
+	// starting files are restored.
+	confirmResetFiles bool
+
+	// setup is the last setup check, nil until the first one finishes.
+	setup *setupReport
+
+	// inTmux is true inside any tmux session, ownTmux inside the one
+	// nginxlings started. terminalPane is the tmux id of the shell pane
+	// below the app, once opened; terminalTried records that the app opened
+	// it at start.
+	inTmux        bool
+	ownTmux       bool
+	terminalPane  string
+	terminalTried bool
 }
 
 // panelMode selects the content of the right panel.
@@ -82,6 +97,8 @@ const (
 	panelInstructions panelMode = iota
 	panelCheckOutput
 	panelHint
+	panelSetup
+	panelKeys
 )
 
 /* ---------- Yardımcı fonksiyonlar ---------- */
@@ -160,14 +177,20 @@ func (m *model) initialStatusText() string {
 // newTUIModel resolves paths, rejects an unknown --lang value, and builds the
 // initial TUI model.
 func newTUIModel(opts cliOptions) (model, error) {
-	paths, err := ResolveAppPathsWithOptions(opts.root, opts.state)
+	paths, err := ResolveAppPathsWithOptions(opts.root, opts.state, opts.workspace)
 	if err != nil {
 		return model{}, err
 	}
 	if err := validateLangCode(paths.AssetRoot, opts.lang); err != nil {
 		return model{}, err
 	}
-	return initialModelWithOptions(paths, opts.lang), nil
+	if err := syncWorkspace(paths); err != nil {
+		return model{}, err
+	}
+	m := initialModelWithOptions(paths, opts.lang)
+	m.inTmux = os.Getenv("TMUX") != ""
+	m.ownTmux = m.inTmux && os.Getenv(envInTmux) == "1"
+	return m, nil
 }
 
 func initialModelWithOptions(paths AppPaths, initialLang string) model {
@@ -205,7 +228,7 @@ func initialModelWithOptions(paths AppPaths, initialLang string) model {
 		m.status = m.uif("status_state_load_failed", "Progress could not be loaded: %v", stateErr)
 	}
 
-	exercises, exercisesErr := LoadExercises(paths.AssetRoot)
+	exercises, exercisesErr := LoadExercisesFrom(paths.ExercisesDir())
 	if exercisesErr != nil && m.status == "" {
 		m.status = m.uif("status_exercises_load_failed", "Exercises could not be loaded: %v", exercisesErr)
 	}

@@ -109,6 +109,16 @@ require_docker() {
   fi
 }
 
+# require_docker_dns fails when the docker command is Podman's. Exercises
+# that point NGINX at Docker's embedded DNS server on 127.0.0.11 cannot pass
+# with Podman, which has no server there; saying so beats a puzzling failure
+# further on.
+require_docker_dns() {
+  if "${DOCKER_BIN:-docker}" --version 2>/dev/null | grep -qi podman; then
+    fail "This exercise needs Docker itself: it uses Docker's embedded DNS server on 127.0.0.11, and the docker command here is Podman's. Install Docker CE (https://docs.docker.com/engine/install/)."
+  fi
+}
+
 # port_owner PORT prints the process listening on PORT when ss can see it.
 port_owner() {
   local port=$1
@@ -244,7 +254,14 @@ active_config() {
 # Host NGINX
 # ---------------------------------------------------------------------------
 
-NGINX_BIN="${NGINX_BIN:-nginx}"
+# Debian and Ubuntu install nginx in /usr/sbin, which a regular user's PATH
+# may not contain.
+if [[ -z "${NGINX_BIN:-}" ]]; then
+  NGINX_BIN=nginx
+  if ! command -v nginx >/dev/null 2>&1 && [[ -x /usr/sbin/nginx ]]; then
+    NGINX_BIN=/usr/sbin/nginx
+  fi
+fi
 NGINX_PID=""
 NGINX_STDERR=""
 

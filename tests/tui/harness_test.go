@@ -57,6 +57,7 @@ var keyBytes = map[string]string{
 	"left":   "\x1b[D",
 	"pgup":   "\x1b[5~",
 	"pgdown": "\x1b[6~",
+	"f2":     "\x1bOQ",
 	"ctrl+c": "\x03",
 }
 
@@ -80,6 +81,29 @@ type options struct {
 	root string
 	// stateFile is reused across sessions when set.
 	stateFile string
+	// workspace, when set, is the learner's exercise folder (--workspace).
+	workspace string
+	// tmux lets the program start its tmux session; tests run without it
+	// unless they test it.
+	tmux bool
+	// env holds extra environment variables.
+	env []string
+}
+
+// withoutEnv returns env without the named variables.
+func withoutEnv(env []string, names ...string) []string {
+	out := make([]string, 0, len(env))
+	for _, kv := range env {
+		name, _, _ := strings.Cut(kv, "=")
+		drop := false
+		for _, n := range names {
+			drop = drop || name == n
+		}
+		if !drop {
+			out = append(out, kv)
+		}
+	}
+	return out
 }
 
 func start(t *testing.T, opt options) *session {
@@ -93,8 +117,17 @@ func start(t *testing.T, opt options) *session {
 	if opt.lang == "" {
 		opt.lang = "en"
 	}
-	cmd := exec.Command(binPath, "--root", opt.root, "--state", opt.stateFile, "--lang", opt.lang)
-	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
+	args := []string{"--root", opt.root, "--state", opt.stateFile, "--lang", opt.lang}
+	if opt.workspace != "" {
+		args = append(args, "--workspace", opt.workspace)
+	}
+	if !opt.tmux {
+		args = append(args, "--no-tmux")
+	}
+	cmd := exec.Command(binPath, args...)
+	// A test run from inside tmux must not split the developer's window.
+	cmd.Env = append(withoutEnv(os.Environ(), "TMUX", "TMUX_PANE"), "TERM=xterm-256color")
+	cmd.Env = append(cmd.Env, opt.env...)
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(opt.cols), Rows: uint16(opt.rows)})
 	if err != nil {
 		t.Fatalf("start nginxlings in a pty: %v", err)

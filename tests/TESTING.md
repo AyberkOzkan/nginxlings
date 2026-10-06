@@ -12,6 +12,7 @@ layer covers. A Turkish version is in `TESTING.tr.md`.
 | Check library | `tests/checklib` | `exercises/lib/check-lib.sh` with bash and fake binaries | Go, bash | ~1 s | yes |
 | TUI | `tests/tui` | The built program in a pseudo-terminal, read through a terminal emulator | Go, Linux pty | ~3 s | yes |
 | Exercises | `tests/exercises` | Every exercise's real `check.sh`: starting files fail, the solution passes | Docker, host NGINX, solutions | ~90 s | no (skipped) |
+| Packages | `tests/packages` | The built .deb, .rpm and Arch packages and `install.sh` in nine distribution images: dependencies, `~/nginxlings`, a host-NGINX check as root and as a regular user, the setup check | Docker, network, built packages | ~5 min | no (skipped) |
 
 Unit tests stay next to the code because Go tests of unexported code must be in
 the same package. Everything under `tests/` treats the repository and the
@@ -47,6 +48,21 @@ Solutions are never committed. `NGINXLINGS_SOLUTIONS` points at a directory
 with one subdirectory per exercise ID that holds only the files that differ
 from the starting files.
 
+The package tests install what GoReleaser built (`goreleaser release --snapshot
+--clean` in a clean checkout, see `docs/RELEASING.md`) in Ubuntu, Debian,
+Fedora, Rocky, openSUSE, Arch, Alpine, Void and once more Ubuntu with
+`install.sh`:
+
+```sh
+NGINXLINGS_PACKAGES=$PWD/dist go test ./tests/packages -v -count=1 -timeout 40m
+```
+
+With `NGINXLINGS_SOLUTIONS` and `NGINXLINGS_PODMAN=1` as well, they also run
+every Docker exercise with Podman's docker command on Rocky Linux in a
+privileged container (about 30 minutes). Exercise 10 is expected to fail
+there: it uses Docker's embedded DNS on 127.0.0.11, and its check stops with
+that explanation (`require_docker_dns`).
+
 ## Test steps
 
 ### TUI (`tests/tui`)
@@ -58,20 +74,28 @@ from the starting files.
 | The frame check itself rejects damaged screens | `TestFrameCheckRejectsDamagedScreens` |
 | `s`/`w` move the selection; keys typed faster than a redraw are all counted | `TestTUINavigationCountsEveryKeyPress` |
 | `h` opens and closes the hint | `TestTUIHintTogglesWithInstructions` |
+| `?` lists every key and `d` opens the setup check; each returns to the instructions | `TestTUIKeysAndSetupPanels` |
 | `l` switches the language of titles, list names and the README | `TestTUILanguageSwitchTranslatesTheScreen` |
 | PgDn/PgUp scroll the instructions | `TestTUIScrollMovesTheInstructions` |
 | `c` runs a passing and a failing check; output panel, `Tab`, list marks, progress and the saved state follow | `TestTUICheckFlowShowsResultAndProgress` |
 | At 80x24 a long check output opens at its end and a long verdict wraps in the status rows | `TestTUILongCheckResultStaysReadable` |
+| With a workspace, the folder row names it; `e` then `y` restores an exercise's starting files | `TestTUIWorkspaceResetRestoresStartingFiles` |
+| Started outside tmux, the program opens its own tmux session with a shell below; `t` moves the shell to the exercise folder, `F2` returns, `q` ends the session (skipped without tmux) | `TestTUITmuxOpensATerminalBelow` |
 | `r` asks for confirmation; `n` cancels, `y` clears progress | `TestTUIResetClearsProgress` |
 | A restart restores the last selected exercise | `TestTUIRestartRestoresTheSelectedExercise` |
 
 A valid frame means: the title on the first row; under the panels the status
 rows, then the key help rows down to the last row, with no empty row between
-(the status wraps onto up to 4 rows and the key help onto up to 3 when the
+(the status wraps onto up to 4 rows and the key help onto up to 4 when the
 instructions keep 6 rows); two closed panels whose right border reaches the
 last column; panels side by side from 80 columns and stacked below;
 and at most three rows without borders when the terminal is shorter than 9 rows,
 or narrower than 80 and shorter than 14 rows.
+
+The harness starts the program with `--no-tmux` unless a test asks for tmux, and
+drops `TMUX` from its environment, so no test touches the developer's tmux. The
+tmux test points `TMUX_TMPDIR` at a short temporary directory: tmux socket paths
+are limited to about 100 bytes.
 
 The check flow uses a two-exercise fake asset root whose checks answer at once,
 so it needs neither Docker nor NGINX.

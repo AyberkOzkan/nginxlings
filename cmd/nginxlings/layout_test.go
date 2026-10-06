@@ -530,7 +530,7 @@ func TestViewWrapsLongStatusAndKeyHelp(t *testing.T) {
 				t.Fatalf("status rows = %q, want the whole message %q", footer[:helpStart], message)
 			}
 			help := strings.Join(footer[helpStart:], " ")
-			for _, entry := range []string{"q quit", "↑/↓ PgUp/PgDn ←/→ scroll"} {
+			for _, entry := range []string{"? all keys", "q quit"} {
 				if !strings.Contains(help, entry) {
 					t.Fatalf("key help rows = %q, want %q", footer[helpStart:], entry)
 				}

@@ -23,10 +23,10 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Install shellcheck
+      - name: Install shellcheck and tmux
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends shellcheck
+          sudo apt-get install -y --no-install-recommends shellcheck tmux
 
       - name: Check formatting
         run: |
@@ -50,6 +50,7 @@ jobs:
       - name: Run shellcheck
         run: |
           find exercises -name '*.sh' -print0 | xargs -0 shellcheck --severity=error
+          shellcheck install.sh packaging/*.sh tests/packages/*.sh
 
       - name: Validate GoReleaser configuration
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3

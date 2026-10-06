@@ -100,6 +100,26 @@ func TestTUIHintTogglesWithInstructions(t *testing.T) {
 	s.waitForFrame(100, 30, en)
 }
 
+// TestTUIKeysAndSetupPanels opens the full key list with ? and the setup
+// check with d; each key returns to the instructions.
+func TestTUIKeysAndSetupPanels(t *testing.T) {
+	en := textsFor(t, "en")
+	s := start(t, options{cols: 100, rows: 30})
+	s.waitForFrame(100, 30, en)
+
+	s.press("?")
+	s.waitForText(uiText(t, "en", "keys_title"))
+	s.waitForText(uiText(t, "en", "status_showing_keys"))
+	s.press("?")
+	s.waitForText(uiText(t, "en", "status_showing_instructions"))
+
+	s.press("d")
+	s.waitForText(uiText(t, "en", "doctor_title"))
+	s.press("d")
+	s.waitForText(uiText(t, "en", "status_showing_instructions"))
+	s.waitForFrame(100, 30, en)
+}
+
 func TestTUILanguageSwitchTranslatesTheScreen(t *testing.T) {
 	s := start(t, options{cols: 100, rows: 30, lang: "en"})
 	s.waitForFrame(100, 30, textsFor(t, "en"))
@@ -204,6 +224,79 @@ func TestTUILongCheckResultStaysReadable(t *testing.T) {
 		}
 		return strings.Contains(squeezed(strings.Join(footer, "")), squeezed(verdict))
 	})
+}
+
+// TestTUIWorkspaceResetRestoresStartingFiles runs with a workspace, as an
+// installed package does: the folder row names it, and e then y restores the
+// starting files of the selected exercise.
+func TestTUIWorkspaceResetRestoresStartingFiles(t *testing.T) {
+	en := textsFor(t, "en")
+	workspace := filepath.Join(t.TempDir(), "nginxlings")
+	s := start(t, options{cols: 100, rows: 30, root: fakeRoot(t), workspace: workspace})
+	s.waitForFrame(100, 30, en)
+	s.waitForText(uiText(t, "en", "files_label") + ": ")
+	s.waitForText("/01_pass")
+
+	script := filepath.Join(workspace, "01_pass", "check.sh")
+	started, err := os.ReadFile(script)
+	if err != nil {
+		t.Fatalf("the workspace was not created: %v", err)
+	}
+	readme := filepath.Join(workspace, "01_pass", "README.en.md")
+	if err := os.WriteFile(readme, []byte("# changed by the learner\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	notes := filepath.Join(workspace, "01_pass", "notes.txt")
+	if err := os.WriteFile(notes, []byte("scratch\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s.press("e")
+	s.waitForText("(y/n)")
+	s.press("y")
+	s.waitForText(uiText(t, "en", "status_reset_files_done"))
+	if _, err := os.Stat(notes); !os.IsNotExist(err) {
+		t.Fatalf("a learner file survived the reset: %v", err)
+	}
+	if now, _ := os.ReadFile(script); string(now) != string(started) {
+		t.Fatalf("check.sh = %q after reset, want %q", now, started)
+	}
+	s.waitForFrame(100, 30, en)
+}
+
+// TestTUITmuxOpensATerminalBelow starts nginxlings as a learner does, outside
+// tmux: it opens its own tmux session with a shell below. t takes the shell
+// to the selected exercise's folder, F2 returns to nginxlings, and q ends the
+// whole session.
+func TestTUITmuxOpensATerminalBelow(t *testing.T) {
+	if _, err := exec.LookPath("tmux"); err != nil {
+		t.Skip("tmux is not installed")
+	}
+	// tmux sockets live under TMUX_TMPDIR and their paths are limited to
+	// about 100 bytes, so this directory must be short.
+	sockets, err := os.MkdirTemp("", "nlx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(sockets) })
+	workspace := filepath.Join(t.TempDir(), "nginxlings")
+	s := start(t, options{cols: 100, rows: 32, root: fakeRoot(t), workspace: workspace, tmux: true,
+		env: []string{"TMUX_TMPDIR=" + sockets, "NGINXLINGS_STATE_ROOT=" + t.TempDir(), "SHELL=/bin/sh", "ENV=", "PS1=$ "}})
+	s.waitForText(uiText(t, "en", "title"))
+	s.waitForText("Terminal · F2")
+
+	s.press("s", "t")
+	s.waitForText("Terminal moved to")
+	// The status row names the folder too, so wait for the shell's own output.
+	s.write("echo \"in $(pwd)\"\r")
+	s.waitForText("in " + filepath.Join(workspace, "02_fail"))
+
+	s.press("f2", "w")
+	s.waitForText("➤ x 01 - Passing Exercise")
+	s.press("q")
+	if err := s.waitExit(); err != nil {
+		t.Fatalf("the tmux session did not end cleanly: %v\n%s", err, s.dump())
+	}
 }
 
 func TestTUIResetClearsProgress(t *testing.T) {

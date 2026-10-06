@@ -86,6 +86,20 @@ func writeFakeBin(t *testing.T, name, body string) string {
 	return "PATH=" + dir + string(os.PathListSeparator) + os.Getenv("PATH")
 }
 
+func TestCheckLibRequireDockerDNSStopsOnPodman(t *testing.T) {
+	podman := writeFakeBin(t, "docker", `echo "podman version 5.8.2"`+"\n")
+	run := runLibScript(t, `require_docker_dns; echo still-running`, podman)
+	if run.exitCode != 1 || !strings.Contains(run.lastLine(), "uses Docker's embedded DNS server on 127.0.0.11") {
+		t.Fatalf("with Podman: exit %d, last line %q", run.exitCode, run.lastLine())
+	}
+
+	docker := writeFakeBin(t, "docker", `echo "Docker version 29.0.0, build 1"`+"\n")
+	run = runLibScript(t, `require_docker_dns; echo still-running`, docker)
+	if run.exitCode != 0 || run.lastLine() != "still-running" {
+		t.Fatalf("with Docker: exit %d, output %q", run.exitCode, run.output)
+	}
+}
+
 func TestCheckLibRequireCmdNamesMissingPrerequisite(t *testing.T) {
 	run := runLibScript(t, `require_cmd nginxlings-missing-cmd "needed for the test"`)
 

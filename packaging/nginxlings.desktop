@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Nginxlings
+GenericName=NGINX Exercises
+GenericName[tr]=NGINX Egzersizleri
+Comment=Learn NGINX with small exercises you run and check
+Comment[tr]=Çalıştırıp kontrol ettiğin küçük egzersizlerle NGINX öğren
+Exec=nginxlings
+Icon=nginxlings
+Terminal=true
+Categories=Education;Development;
+Keywords=nginx;web server;reverse proxy;exercise;training;
+Keywords[tr]=nginx;web sunucusu;ters vekil;egzersiz;eğitim;

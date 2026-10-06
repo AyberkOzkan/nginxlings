@@ -12,6 +12,7 @@ kapsadığı adımları listeler. İngilizcesi `TESTING.md` dosyasındadır.
 | Kontrol kütüphanesi | `tests/checklib` | `exercises/lib/check-lib.sh`, bash ve sahte programlarla | Go, bash | ~1 sn | evet |
 | Arayüz (TUI) | `tests/tui` | Derlenmiş programın sahte terminalde (pseudo-terminal) çalışması, ekranın bir terminal öykünücüsüyle (emulator) okunması | Go, Linux pty | ~3 sn | evet |
 | Egzersizler | `tests/exercises` | Her egzersizin gerçek `check.sh` betiği: başlangıç dosyaları başarısız, çözüm başarılı | Docker, ana makinede (host) NGINX, çözümler | ~90 sn | hayır (atlanır) |
+| Paketler | `tests/packages` | Derlenmiş .deb, .rpm ve Arch paketleri ile `install.sh`, dokuz dağıtım imajında: bağımlılıklar, `~/nginxlings`, root ve sıradan kullanıcıyla ana makinede çalışan bir NGINX kontrolü, kurulum kontrolü | Docker, ağ, derlenmiş paketler | ~5 dk | hayır (atlanır) |
 
 Birim testleri kodun yanında kalır; çünkü Go'da dışa açılmamış kodu sınayan
 testler aynı pakette olmak zorundadır. `tests/` altındaki her şey depoya ve
@@ -48,6 +49,21 @@ kullanan servisler karışmaz.
 bir alt dizin içeren bir dizini gösterir; bu alt dizinlerde yalnızca başlangıç
 dosyalarından farklı olan dosyalar bulunur.
 
+Paket testleri, GoReleaser'ın derlediğini (temiz bir kopyada `goreleaser release
+--snapshot --clean`, bkz. `docs/RELEASING.md`) Ubuntu, Debian, Fedora, Rocky,
+openSUSE, Arch, Alpine, Void ve bir kez daha `install.sh` ile Ubuntu imajlarına
+kurar:
+
+```sh
+NGINXLINGS_PACKAGES=$PWD/dist go test ./tests/packages -v -count=1 -timeout 40m
+```
+
+`NGINXLINGS_SOLUTIONS` ve `NGINXLINGS_PODMAN=1` de verilirse, Docker kullanan her
+egzersizi Rocky Linux'ta Podman'ın docker komutuyla, ayrıcalıklı (privileged) bir
+konteynerde de çalıştırır (yaklaşık 30 dakika). Egzersiz 10'un orada başarısız
+olması beklenir: Docker'ın 127.0.0.11 adresindeki gömülü DNS sunucusunu kullanır
+ve kontrolü bu açıklamayla durur (`require_docker_dns`).
+
 ## Test adımları
 
 ### Arayüz (`tests/tui`)
@@ -59,19 +75,27 @@ dosyalarından farklı olan dosyalar bulunur.
 | Çerçeve denetimi bozulmuş ekranları reddetmeli | `TestFrameCheckRejectsDamagedScreens` |
 | `s`/`w` seçimi taşır; yeniden çizimden hızlı basılan tuşların hepsi sayılır | `TestTUINavigationCountsEveryKeyPress` |
 | `h` ipucunu açar ve kapatır | `TestTUIHintTogglesWithInstructions` |
+| `?` tüm tuşları listeler, `d` kurulum kontrolünü açar; ikisi de talimatlara döner | `TestTUIKeysAndSetupPanels` |
 | `l` başlıkların, liste adlarının ve README'nin dilini değiştirir | `TestTUILanguageSwitchTranslatesTheScreen` |
 | PgDn/PgUp talimatları kaydırır | `TestTUIScrollMovesTheInstructions` |
 | `c` başarılı ve başarısız bir kontrol çalıştırır; çıktı paneli, `Tab`, liste işaretleri, ilerleme ve kaydedilen durum buna uyar | `TestTUICheckFlowShowsResultAndProgress` |
 | 80x24'te uzun bir kontrol çıktısı sonundan açılır, uzun bir sonuç durum satırlarına sarılır | `TestTUILongCheckResultStaysReadable` |
+| Çalışma klasörüyle açılınca klasör satırı onu gösterir; `e` ve ardından `y` egzersizin başlangıç dosyalarını geri yükler | `TestTUIWorkspaceResetRestoresStartingFiles` |
+| tmux dışında başlatılan program, altında bir kabuk olan kendi tmux oturumunu açar; `t` kabuğu egzersiz klasörüne götürür, `F2` geri döner, `q` oturumu kapatır (tmux yoksa atlanır) | `TestTUITmuxOpensATerminalBelow` |
 | `r` onay ister; `n` iptal eder, `y` ilerlemeyi sıfırlar | `TestTUIResetClearsProgress` |
 | Yeniden başlatma son seçilen egzersizi geri getirir | `TestTUIRestartRestoresTheSelectedExercise` |
 
 Geçerli bir çerçeve şu demektir: ilk satırda başlık; panellerin altında önce
 durum satırları, ardından son satıra kadar tuş yardımı satırları, aralarında boş
 satır olmadan (talimatlara 6 satır kaldığı sürece durum en fazla 4, tuş yardımı en
-fazla 3 satıra sarılır); sağ kenarı son sütuna ulaşan iki kapalı panel;
+fazla 4 satıra sarılır); sağ kenarı son sütuna ulaşan iki kapalı panel;
 80 sütundan itibaren yan yana, daha darda alt alta paneller; terminal 9 satırdan
 kısa ya da 80 sütundan dar ve 14 satırdan kısaysa kenarsız en fazla üç satır.
+
+Harness, bir test tmux istemedikçe programı `--no-tmux` ile başlatır ve
+ortamından `TMUX` değişkenini çıkarır; böylece hiçbir test geliştiricinin
+tmux'una dokunmaz. tmux testi `TMUX_TMPDIR` değişkenini kısa bir geçici dizine
+yönlendirir, çünkü tmux soket yolları yaklaşık 100 baytla sınırlıdır.
 
 Kontrol akışı, kontrolleri anında yanıt veren iki egzersizlik sahte bir kök
 dizin kullanır; bu yüzden Docker'a da NGINX'e de ihtiyaç duymaz.
