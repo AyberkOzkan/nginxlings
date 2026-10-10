@@ -37,7 +37,7 @@
   "status_folder_opened": "%s dosya yöneticisinde açıldı.",
   "status_folder_open_failed": "Dosya yöneticisi açılamadı. Dosyalar şurada: %s",
   "doctor_title": "Kurulum Kontrolü",
-  "setup_label": "Kurulum",
+  "setup_label": "Kurulum eksiği",
   "doctor_ok": "Egzersizlerin ihtiyaç duyduğu her şey hazır: %s.",
   "doctor_missing_cmd": "%s kurulu değil.",
   "doctor_install_fix": "Şu komutla kur:",

@@ -6,7 +6,8 @@ kopyalanabilir.
 
 ## 1. Dosyayı indir
 
-Eğitmeninin verdiği bağlantıdan ya da projenin GitHub sayfasındaki son sürümden
+Projenin GitHub sayfasındaki
+[son sürümden](https://github.com/AyberkOzkan/nginxlings/releases/latest)
 (release) kendi dağıtımına uygun dosyayı indir:
 
 | Dağıtımın | İndireceğin dosya |
@@ -22,16 +23,27 @@ dizüstüler), adında `arm64` ya da `aarch64` geçen dosyayı indir.
 
 ## 2. Kur
 
-İndirdiğin dosyaya çift tıkla. Uygulama merkezi (software center) açılır,
-"Kur" düğmesine bas ve şifreni gir. Çift tıklama işe yaramazsa, dosyanın
-bulunduğu klasörde bir terminal aç ve dağıtımına uyan komutu yaz:
+İndirdiğin dosyaya çift tıkla. Uygulama merkezi (software center) açılırsa
+"Kur" düğmesine bas ve şifreni gir.
+
+Ubuntu'da çift tıklama paketi kurmaz, arşiv yöneticisini açar ("Çıkar" ya da
+"Extract" düğmesi görünür). O pencereyi kapat, dosyaya sağ tıkla, "Birlikte Aç"
+(Open With) menüsünden "Yazılım Kur"u (Software Install) seç, sonra "Kur"
+düğmesine bas ve şifreni gir.
+
+Bu da işe yaramazsa bir terminal aç, dosyayı indirdiğin klasöre geç ve
+dağıtımına uyan komutu yaz:
 
 ```sh
+cd ~/Downloads                                                # Türkçe kurulumda: cd ~/İndirilenler
 sudo apt install ./nginxlings_*_amd64.deb                     # Ubuntu, Debian, Mint
 sudo dnf install ./nginxlings-*.x86_64.rpm                    # Fedora, Rocky, Alma
 sudo zypper install --allow-unsigned-rpm ./nginxlings-*.rpm   # openSUSE
 sudo pacman -U ./nginxlings-*.pkg.tar.zst                     # Arch, Manjaro
 ```
+
+`apt` "Unsupported file" derse terminal dosyanın bulunduğu klasörde değildir;
+önce `cd` komutunu çalıştır.
 
 Diğer dağıtımlarda `.tar.gz` dosyasını çift tıklayıp bir klasöre çıkar, o
 klasörde bir terminal aç ve `./install.sh` yaz.
@@ -70,9 +82,10 @@ Temel tuşlar:
 Listede `✓` kontrolü geçen egzersizi, `x` henüz geçmeyeni gösterir. Hiç kontrol
 etmediğin egzersizler silik görünür.
 
-## 4. Altta "! Kurulum" yazıyorsa
+## 4. Altta "! Kurulum eksiği" yazıyorsa
 
-Bir şey eksikse durum satırında `! Kurulum` uyarısı görünür. `d` tuşuna bas:
+Bir şey eksikse durum satırında `! Kurulum eksiği: 1` gibi bir uyarı görünür.
+Bu, bekleyen bir kurulum değil, eksik kalan bir ayardır. `d` tuşuna bas:
 Nginxlings neyin eksik olduğunu ve nasıl düzeleceğini yazar. `f` tuşu
 gösterilen komutu senin için çalıştırır ve terminalde şifreni sorar.
 
@@ -86,8 +99,7 @@ Bu dağıtımlarda kurulum Docker yerine Podman'ın `docker` komutunu kurar.
 Egzersiz 10 dışındaki bütün egzersizler onunla çalışır. Egzersiz 10, Docker'ın
 `127.0.0.11` adresindeki DNS sunucusunu öğretir; Podman'da bu sunucu yoktur.
 Kurulum kontrolü (`d`) bunu bir not olarak gösterir, egzersiz 10'un kontrolü de
-aynı açıklamayla durur. O egzersiz için eğitmeninden Docker CE kurulumunda yardım
-iste.
+aynı açıklamayla durur.
 
 ## Kaldırma
 
