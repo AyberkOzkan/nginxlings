@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
   pull_request:
 
 permissions:
@@ -14,6 +15,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Work is merged into develop; main only takes the release pull
+      # request from this repository's develop branch.
+      - name: Check the pull request's base branch
+        if: >-
+          github.event_name == 'pull_request' && github.base_ref == 'main' &&
+          (github.head_ref != 'develop' || github.event.pull_request.head.repo.full_name != github.repository)
+        run: |
+          echo "::error::Pull requests into main come from develop. Change the base branch to develop."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
