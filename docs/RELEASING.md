@@ -12,6 +12,8 @@ Only GitHub Releases are published. Native macOS and Windows builds, npm package
 
 ## Before Tagging
 
+Work is merged into `develop`. A release starts with a pull request from `develop` into `main`; run the checks below on `develop` before merging it. Merge it with a merge commit, not a squash or a rebase, so that both branches keep the same commits.
+
 1. Confirm that the release contents remain compatible with `AGPL-3.0-only`. `THIRD_PARTY_NOTICES.md` names the license of every module in the binary, and `go test ./...` fails when it is out of date.
 2. Run the validation commands from `CONTRIBUTING.md`.
 3. Run `goreleaser check` and `goreleaser release --snapshot --clean` with GoReleaser v2 in a clean checkout, so local files such as `exercises/*/logs/` do not end up in the packages.
@@ -20,9 +22,10 @@ Only GitHub Releases are published. Native macOS and Windows builds, npm package
 6. Install the packages in every supported distribution: `NGINXLINGS_PACKAGES=$PWD/dist go test ./tests/packages -v -count=1 -timeout 40m` (see `tests/TESTING.md`).
 7. `go test ./...` fails when an exercise or translation file is not covered by an archive glob in `.goreleaser.yml`, or when a glob matches nothing. After adding a new asset file type, also confirm that the extracted archive contains the file.
 
-Push an annotated tag only after those checks pass:
+Tag `main` only after those checks pass and the pull request is merged:
 
 ```sh
+git switch main && git pull --ff-only
 git tag -a v1.2.3 -m "v1.2.3"
 git push origin v1.2.3
 ```

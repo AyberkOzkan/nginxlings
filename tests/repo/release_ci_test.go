@@ -305,6 +305,23 @@ func TestRepoWorkflowsPinActionsAndLimitPermissions(t *testing.T) {
 	}
 }
 
+// TestRepoCIKeepsMainForReleases checks the branch model in CI: pushes to
+// develop are tested like pushes to main, and a pull request into main fails
+// unless it is the release pull request from develop.
+func TestRepoCIKeepsMainForReleases(t *testing.T) {
+	root := testutil.RepoRoot(t)
+	path := filepath.Join(root, ".github", "workflows", "ci.yml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+
+	workflow := string(data)
+	testutil.AssertContains(t, path, workflow, "    branches:\n      - main\n      - develop\n  pull_request:\n")
+	testutil.AssertContains(t, path, workflow, "github.base_ref == 'main'")
+	testutil.AssertContains(t, path, workflow, "github.head_ref != 'develop' || github.event.pull_request.head.repo.full_name != github.repository")
+}
+
 func TestRepoCIRunsPinnedGovulncheck(t *testing.T) {
 	root := testutil.RepoRoot(t)
 	path := filepath.Join(root, ".github", "workflows", "ci.yml")
