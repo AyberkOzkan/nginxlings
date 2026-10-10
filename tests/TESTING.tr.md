@@ -122,7 +122,9 @@ Her `go test ./...` çalıştırmasında koşar. Denetledikleri arasında: manif
 dizinler uyuşur; her çeviri dosyası her egzersizi kapsar; README başlıkları her
 dilde liste adlarıyla aynıdır; README başlık seviyeleri diller arasında aynıdır;
 başlangıç dosyaları bitmiş çözümü içermez; kontroller ortak kütüphaneyi ve
-sabitlenmiş imajları kullanır; sürüm arşivi her dosyayı içerir.
+sabitlenmiş imajları kullanır; sürüm arşivi her dosyayı içerir;
+`THIRD_PARTY_NOTICES.md` sürüm derlemesine giren modüllerle uyuşur (bu test
+`go list` çalıştırır; dosyanın nasıl yeniden üretileceği `CONTRIBUTING.md`'de).
 
 ## Arayüzü canlı izlemek
 

@@ -137,7 +137,7 @@ func TestRepoReleaseArchiveIncludesEveryAsset(t *testing.T) {
 	}
 
 	// install.sh installs from the archive and needs the menu entry and icon.
-	assets := []string{"LICENSE", "README.md", "install.sh", "packaging/nginxlings.desktop", "packaging/nginxlings.svg"}
+	assets := []string{"LICENSE", "THIRD_PARTY_NOTICES.md", "README.md", "install.sh", "packaging/nginxlings.desktop", "packaging/nginxlings.svg"}
 	for _, dir := range []string{"exercises", "i18n"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {

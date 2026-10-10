@@ -186,3 +186,5 @@ An unknown language code exits with an error that lists the available languages.
 Copyright (c) 2026 Kenan Ayberk Özkan.
 
 Nginxlings is free software under [`AGPL-3.0-only`](LICENSE): you may use, study, modify and redistribute it, and a modified version, including one offered over a network, must make its complete source available under the same license.
+
+The binary also contains the Go runtime and third-party Go libraries under MIT and BSD licenses. Their texts are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), which every release includes.

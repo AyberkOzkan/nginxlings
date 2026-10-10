@@ -32,6 +32,7 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
+      - THIRD_PARTY_NOTICES.md
       - README.md
       - install.sh
       - packaging/nginxlings.desktop
@@ -85,6 +86,8 @@ nfpms:
         dst: /usr/share/icons/hicolor/scalable/apps/nginxlings.svg
       - src: LICENSE
         dst: /usr/share/licenses/nginxlings/LICENSE
+      - src: THIRD_PARTY_NOTICES.md
+        dst: /usr/share/licenses/nginxlings/THIRD_PARTY_NOTICES.md
     scripts:
       postinstall: packaging/postinstall.sh
     dependencies:

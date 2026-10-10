@@ -146,6 +146,16 @@ for script in exercises/*/check.sh exercises/lib/*.sh; do bash -n "$script"; don
 
 CI also runs ShellCheck and validates the GoReleaser configuration.
 
+## Third-Party Notices
+
+`THIRD_PARTY_NOTICES.md` reproduces the license of Go and of every module compiled into the release binary; the archives and packages ship it next to `LICENSE`. A repository test fails when the file no longer matches the modules a build links, or when a module comes with a license other than MIT or BSD. After adding, removing or updating a dependency, regenerate the file and review the diff:
+
+```sh
+NGINXLINGS_UPDATE_NOTICES=1 go test ./tests/repo -run ThirdPartyNotices
+```
+
+A new kind of license needs a decision first: whether it is compatible with `AGPL-3.0-only` and what it asks of a binary release.
+
 ## GitHub Actions
 
 Workflows pin every action to a full commit SHA followed by its version tag, for example `actions/checkout@<sha> # v4.4.0`, and CI runs with read-only repository permissions. To update an action, review its release notes, resolve the new tag to its commit with `git ls-remote https://github.com/<owner>/<action> 'refs/tags/<tag>^{}' 'refs/tags/<tag>'`, and update both the SHA and the comment. A repository test rejects unpinned actions.
