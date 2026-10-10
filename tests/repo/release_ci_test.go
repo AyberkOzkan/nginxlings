@@ -137,7 +137,7 @@ func TestRepoReleaseArchiveIncludesEveryAsset(t *testing.T) {
 	}
 
 	// install.sh installs from the archive and needs the menu entry and icon.
-	assets := []string{"LICENSE", "README.md", "install.sh", "packaging/nginxlings.desktop", "packaging/nginxlings.svg"}
+	assets := []string{"LICENSE", "THIRD_PARTY_NOTICES.md", "README.md", "install.sh", "packaging/nginxlings.desktop", "packaging/nginxlings.svg"}
 	for _, dir := range []string{"exercises", "i18n"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
@@ -255,12 +255,12 @@ func TestRepoDocsMatchSupportedToolchainAndTargets(t *testing.T) {
 	if goVersion == nil {
 		t.Fatal("go.mod has no go directive")
 	}
-	readme, err := os.ReadFile(filepath.Join(root, "README.md"))
+	contributing, err := os.ReadFile(filepath.Join(root, "CONTRIBUTING.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "Go " + string(goVersion[1]) + " or newer"; !strings.Contains(string(readme), want) {
-		t.Fatalf("README.md does not state %q from go.mod", want)
+	if want := "Go " + string(goVersion[1]) + " or newer"; !strings.Contains(string(contributing), want) {
+		t.Fatalf("CONTRIBUTING.md does not state %q from go.mod", want)
 	}
 
 	for _, doc := range []string{"CONTRIBUTING.md", filepath.Join("docs", "RELEASING.md")} {

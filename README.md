@@ -44,6 +44,26 @@ other distributions.
 
 Native macOS and Windows builds are not produced. Windows users may run a Linux release through WSL2 with Docker integration.
 
+### Without installing
+
+To try nginxlings without installing it, extract the complete `tar.gz` archive
+and keep `exercises/` and `i18n/` beside the `nginxlings` binary:
+
+```sh
+tar -xzf nginxlings_<version>_linux_<arch>.tar.gz
+./nginxlings --version
+```
+
+The archive holds only nginxlings and its exercises; `./nginxlings --doctor`
+names the tools that are still missing.
+
+### Verifying a download
+
+Each release includes `checksums.txt` for SHA-256 verification; releases made
+while the repository is public also carry GitHub artifact attestations. npm and
+Homebrew packages are not published; this keeps installation independent from
+npm registry packages and lifecycle scripts.
+
 ## Using Nginxlings
 
 Open Nginxlings from the application menu, or type `nginxlings` in a
@@ -105,166 +125,66 @@ HOST_PORT=18199 ./check.sh
 
 If a local NGINX exercise fails on port `8080` or `8081`, stop the process already using that port before rerunning the check.
 
+### Your files and progress
+
+An installed nginxlings cannot let you edit the exercises where the package
+put them, so it copies them to `~/nginxlings` and you work on that copy. Every
+start updates the copy from the installed version: new exercises and files are
+added, check scripts, READMEs and the shared library are replaced, and other
+files are replaced only while you have not changed them. `--workspace <path>`
+or `NGINXLINGS_WORKSPACE` picks another folder.
+
+Progress is stored in `~/.local/state/nginxlings/state.json`, or in
+`$XDG_STATE_HOME/nginxlings/state.json` when that variable is set: the result
+of each exercise's last check, the last selected exercise and the language.
+
 ## Command Line
 
-The examples below run from the repository with `go run ./cmd/nginxlings`; an
-installed copy takes the same flags, for example `nginxlings --doctor`.
+`nginxlings` without flags opens the app. `nginxlings --help` lists every flag
+and environment variable; the ones a learner needs are below.
 
-Show help or version information without starting the TUI:
+Show the version:
 
 ```sh
-go run ./cmd/nginxlings --help
-go run ./cmd/nginxlings --version
+nginxlings --version
 ```
 
-List exercises in the same stable order used by the TUI:
+List the exercises in the order the app shows them:
 
 ```sh
-go run ./cmd/nginxlings --list
+nginxlings --list
 ```
 
 Check that the tools the exercises need are installed and that Docker answers; each problem comes with the command that fixes it, and the exit code is 1 while something is missing:
 
 ```sh
-go run ./cmd/nginxlings --doctor
-go run ./cmd/nginxlings --doctor --lang tr
+nginxlings --doctor
+nginxlings --doctor --lang tr
 ```
 
-Run one exercise check without starting the TUI:
+Run one exercise's check on your files without opening the app; the result is printed and your progress is not changed:
 
 ```sh
-go run ./cmd/nginxlings --check 01_static_server
+nginxlings --check 01_static_server
 ```
 
-`--list` and `--check` only resolve application assets; they do not require or create a user state file.
-
-Set the initial TUI language:
+Open the app in a given language:
 
 ```sh
-go run ./cmd/nginxlings --lang tr
-go run ./cmd/nginxlings --lang en
+nginxlings --lang tr
+nginxlings --lang en
 ```
 
-The code must be listed in `i18n/langs.json`; an unknown code exits with an error that lists the available languages.
-
-Override asset and state paths:
-
-```sh
-go run ./cmd/nginxlings --root /path/to/nginxlings
-go run ./cmd/nginxlings --state /tmp/nginxlings-state.json
-```
-
-Flag values take precedence over the matching environment variables for that run.
-
-## Running From Source
-
-You need:
-
-- Go 1.26 or newer
-- A POSIX-like shell environment
-- `bash`
-- `curl`
-- `nginx` for local NGINX exercises
-- Docker for container-based exercises
-- `python3` for exercises that start local helper servers
-
-Some exercises install or run extra tools inside Docker images, such as `socat`, `jq`, or `openssl`.
-
-Run the app from the repository root:
-
-```sh
-go run ./cmd/nginxlings
-```
-
-### Where assets and progress live
-
-The app looks for `exercises/` and `i18n/` in `NGINXLINGS_ASSET_ROOT`, the current directory and its parents, the binary's directory and its parents, and finally `<prefix>/share/nginxlings` next to `<prefix>/bin/nginxlings`, where packages and `install.sh` put them. This keeps repository-root development working while installed copies find their assets from anywhere.
-
-If the TUI cannot find exercises or translations, make sure you started it from the repository root or set `NGINXLINGS_ASSET_ROOT`:
-
-```sh
-NGINXLINGS_ASSET_ROOT=/path/to/nginxlings go run ./cmd/nginxlings
-```
-
-When the assets come from `<prefix>/share/nginxlings`, the learner cannot edit them there, so the app copies the exercises to `~/nginxlings` and works on that copy. Every start updates it from the installed version: new exercises and files are added, check scripts, READMEs and the shared library are replaced, and other files are replaced only while the learner has not changed them. `--workspace <path>` or `NGINXLINGS_WORKSPACE` picks another folder and also turns the copy on for the repository or an extracted archive, which otherwise edit the exercises in place.
-
-Progress is stored in:
-
-```text
-${XDG_STATE_HOME}/nginxlings/state.json
-```
-
-If `XDG_STATE_HOME` is not set, Linux builds use:
-
-```text
-~/.local/state/nginxlings/state.json
-```
-
-You can override the state location for development or tests:
-
-```sh
-NGINXLINGS_STATE_ROOT=/tmp/nginxlings-state go run ./cmd/nginxlings
-NGINXLINGS_STATE_FILE=/tmp/nginxlings-state.json go run ./cmd/nginxlings
-go run ./cmd/nginxlings --state /tmp/nginxlings-state.json
-```
-
-The state file stores completed exercises, the last selected exercise, and the selected language. Older repository-local `.nginxlings_state.json` files are no longer written by the app.
-
-### Running checks
-
-Each exercise has its own `check.sh`. The TUI runs the selected exercise's script from that exercise directory.
-
-Checks started by Nginxlings have a 10-minute timeout. Quitting the TUI while a
-check is running cancels the script and its child processes before the app exits.
-
-You can also run a check manually:
-
-```sh
-cd exercises/01_static_server
-./check.sh
-```
-
-Container-based exercises use exercise-scoped labels, build temporary images named `nginxlings/<exercise-id>:check`, and remove only the containers, networks, and images created for that check. Checks do not prune the global Docker builder cache.
-
-### Project layout
-
-```text
-cmd/nginxlings/   Bubble Tea TUI application
-exercises/        NGINX exercise directories
-exercises/lib/    Shared helpers sourced by every check.sh
-i18n/             UI texts, exercise titles, and hints per language
-packaging/        Menu entry, icon and post-install script of the Linux packages
-install.sh        Installer for distributions without a package
-docs/             Installation, maintainer and release documentation; the README demo
-tests/            Black-box test suites (see tests/TESTING.md)
-```
-
-### Development checks
-
-Before committing changes, run:
-
-```sh
-gofmt -w .
-go test ./...
-go vet ./...
-for script in exercises/*/check.sh exercises/lib/*.sh; do bash -n "$script"; done
-```
-
-## Release Archives
-
-Tagged releases provide Linux packages (see Install) and archives for AMD64 and ARM64 through GitHub Releases. To run from an archive without installing it, extract the complete archive and keep `exercises/` and `i18n/` beside the `nginxlings` binary:
-
-```sh
-tar -xzf nginxlings_<version>_<os>_<arch>.tar.gz
-./nginxlings --version
-```
-
-Each release includes `checksums.txt` for SHA-256 verification; releases made while the repository is public also carry GitHub artifact attestations. npm and Homebrew packages are not published; this keeps installation independent from npm registry packages and lifecycle scripts.
+An unknown language code exits with an error that lists the available languages.
 
 ## Contributing
 
-See `CONTRIBUTING.md` for the development workflow, translation rules, and the checklist for adding exercises. Contributions are accepted under `AGPL-3.0-only`.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers running nginxlings from source, the project layout, the tests, translation rules and the checklist for adding exercises. Contributions are accepted under `AGPL-3.0-only`.
 
 ## License
 
-Copyright (c) 2026 Kenan Ayberk Özkan. Nginxlings is licensed under `AGPL-3.0-only`. You may use, study, modify, and redistribute it under that license. Modified versions, including versions offered over a network, must make their complete corresponding source available under the same license. This prevents incorporating Nginxlings into a closed-source product without complying with the AGPL terms. See `LICENSE` for the complete terms.
+Copyright (c) 2026 Kenan Ayberk Özkan.
+
+Nginxlings is free software under [`AGPL-3.0-only`](LICENSE): you may use, study, modify and redistribute it, and a modified version, including one offered over a network, must make its complete source available under the same license.
+
+The binary also contains the Go runtime and third-party Go libraries under MIT and BSD licenses. Their texts are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), which every release includes.

@@ -4,6 +4,97 @@ Contributions to the official Nginxlings project are welcome. Open an issue befo
 
 By submitting a contribution, you agree that it is licensed under `AGPL-3.0-only`, as described in `LICENSE`. Only submit work that you created or have the right to contribute under these terms.
 
+## Running From Source
+
+You need:
+
+- Go 1.26 or newer
+- A POSIX-like shell environment
+- `bash`
+- `curl`
+- `nginx` for local NGINX exercises
+- Docker for container-based exercises
+- `python3` for exercises that start local helper servers
+
+Some exercises install or run extra tools inside Docker images, such as `socat`, `jq`, or `openssl`.
+
+Run the app from the repository root:
+
+```sh
+go run ./cmd/nginxlings
+```
+
+It takes the same flags as an installed copy, for example
+`go run ./cmd/nginxlings --doctor`; the README's Command Line section describes
+the ones a learner uses, and `--help` lists all of them. `--list` only reads the
+application assets, and `--check` does not create or change a state file.
+
+### Where assets and progress live
+
+The app looks for `exercises/` and `i18n/` in `NGINXLINGS_ASSET_ROOT`, the current directory and its parents, the binary's directory and its parents, and finally `<prefix>/share/nginxlings` next to `<prefix>/bin/nginxlings`, where packages and `install.sh` put them. This keeps repository-root development working while installed copies find their assets from anywhere.
+
+If the TUI cannot find exercises or translations, make sure you started it from the repository root or set `NGINXLINGS_ASSET_ROOT`:
+
+```sh
+NGINXLINGS_ASSET_ROOT=/path/to/nginxlings go run ./cmd/nginxlings
+```
+
+When the assets come from `<prefix>/share/nginxlings`, the learner cannot edit them there, so the app copies the exercises to `~/nginxlings` and works on that copy. Every start updates it from the installed version: new exercises and files are added, check scripts, READMEs and the shared library are replaced, and other files are replaced only while the learner has not changed them. `--workspace <path>` or `NGINXLINGS_WORKSPACE` picks another folder and also turns the copy on for the repository or an extracted archive, which otherwise edit the exercises in place.
+
+Progress is stored in:
+
+```text
+${XDG_STATE_HOME}/nginxlings/state.json
+```
+
+If `XDG_STATE_HOME` is not set, Linux builds use:
+
+```text
+~/.local/state/nginxlings/state.json
+```
+
+You can override the asset and state locations for development or tests:
+
+```sh
+go run ./cmd/nginxlings --root /path/to/nginxlings
+NGINXLINGS_STATE_ROOT=/tmp/nginxlings-state go run ./cmd/nginxlings
+NGINXLINGS_STATE_FILE=/tmp/nginxlings-state.json go run ./cmd/nginxlings
+go run ./cmd/nginxlings --state /tmp/nginxlings-state.json
+```
+
+Flag values take precedence over the matching environment variables for that run.
+
+The state file stores the result of each exercise's last check, the last selected exercise, and the selected language. Older repository-local `.nginxlings_state.json` files are no longer written by the app.
+
+### Running checks
+
+Each exercise has its own `check.sh`. The TUI runs the selected exercise's script from that exercise directory.
+
+Checks started by Nginxlings have a 10-minute timeout. Quitting the TUI while a
+check is running cancels the script and its child processes before the app exits.
+
+You can also run a check manually:
+
+```sh
+cd exercises/01_static_server
+./check.sh
+```
+
+Container-based exercises use exercise-scoped labels, build temporary images named `nginxlings/<exercise-id>:check`, and remove only the containers, networks, and images created for that check. Checks do not prune the global Docker builder cache.
+
+## Project Layout
+
+```text
+cmd/nginxlings/   Bubble Tea TUI application
+exercises/        NGINX exercise directories
+exercises/lib/    Shared helpers sourced by every check.sh
+i18n/             UI texts, exercise titles, and hints per language
+packaging/        Menu entry, icon and post-install script of the Linux packages
+install.sh        Installer for distributions without a package
+docs/             Turkish installation guide, glossary, release notes for maintainers; the README demo
+tests/            Black-box test suites (see tests/TESTING.md)
+```
+
 ## Development Workflow
 
 1. Fork the repository and create a focused branch.
@@ -54,6 +145,16 @@ for script in exercises/*/check.sh exercises/lib/*.sh; do bash -n "$script"; don
 ```
 
 CI also runs ShellCheck and validates the GoReleaser configuration.
+
+## Third-Party Notices
+
+`THIRD_PARTY_NOTICES.md` reproduces the license of Go and of every module compiled into the release binary; the archives and packages ship it next to `LICENSE`. A repository test fails when the file no longer matches the modules a build links, or when a module comes with a license other than MIT or BSD. After adding, removing or updating a dependency, regenerate the file and review the diff:
+
+```sh
+NGINXLINGS_UPDATE_NOTICES=1 go test ./tests/repo -run ThirdPartyNotices
+```
+
+A new kind of license needs a decision first: whether it is compatible with `AGPL-3.0-only` and what it asks of a binary release.
 
 ## GitHub Actions
 

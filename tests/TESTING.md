@@ -123,7 +123,9 @@ Run on every `go test ./...`. Among other things: manifest and directories
 match; every translation file covers every exercise; README titles equal the
 list names in each language; README heading levels match across languages;
 starting files do not contain the finished solution; checks use the shared
-library and pinned images; release archives include every asset.
+library and pinned images; release archives include every asset;
+`THIRD_PARTY_NOTICES.md` matches the modules a release build links (this one
+runs `go list`; `CONTRIBUTING.md` says how to regenerate the file).
 
 ## Watching the TUI live
 

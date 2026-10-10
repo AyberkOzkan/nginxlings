@@ -1,5 +1,7 @@
 // Package repo checks repository-wide contracts: manifest, translations,
-// READMEs, check scripts, release and CI configuration. It reads files only.
+// READMEs, check scripts, release and CI configuration. It reads files only,
+// except for the third-party notices test, which asks the go command which
+// modules a build links.
 package repo
 
 import (
