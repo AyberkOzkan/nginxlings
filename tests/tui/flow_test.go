@@ -115,6 +115,7 @@ func TestTUIKeysAndSetupPanels(t *testing.T) {
 
 	s.press("d")
 	s.waitForText(uiText(t, "en", "doctor_title"))
+	s.waitForText(uiText(t, "en", "status_setup_ok"))
 	s.press("d")
 	s.waitForText(uiText(t, "en", "status_showing_instructions"))
 	s.waitForFrame(100, 30, en)

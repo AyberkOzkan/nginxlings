@@ -74,7 +74,7 @@ that explanation (`require_docker_dns`).
 | The frame check itself rejects damaged screens | `TestFrameCheckRejectsDamagedScreens` |
 | `s`/`w` move the selection; keys typed faster than a redraw are all counted | `TestTUINavigationCountsEveryKeyPress` |
 | `h` opens and closes the hint | `TestTUIHintTogglesWithInstructions` |
-| `?` lists every key and `d` opens the setup check; each returns to the instructions | `TestTUIKeysAndSetupPanels` |
+| `?` lists every key and `d` opens the setup check, which finds everything ready; each returns to the instructions | `TestTUIKeysAndSetupPanels` |
 | `l` switches the language of titles, list names and the README | `TestTUILanguageSwitchTranslatesTheScreen` |
 | PgDn/PgUp scroll the instructions | `TestTUIScrollMovesTheInstructions` |
 | `c` runs a passing and a failing check; output panel, `Tab`, list marks, progress and the saved state follow | `TestTUICheckFlowShowsResultAndProgress` |
@@ -96,6 +96,12 @@ The harness starts the program with `--no-tmux` unless a test asks for tmux, and
 drops `TMUX` from its environment, so no test touches the developer's tmux. The
 tmux test points `TMUX_TMPDIR` at a short temporary directory: tmux socket paths
 are limited to about 100 bytes.
+
+The harness also puts a directory of stand-in `docker`, `nginx`, `curl` and
+`python3` commands first on the program's `PATH`. The setup check therefore finds
+everything ready on every machine, and the status row looks the same with or
+without NGINX and Docker; without them, a `! Setup` mark would make the status
+wrap where a test does not expect it.
 
 The check flow uses a two-exercise fake asset root whose checks answer at once,
 so it needs neither Docker nor NGINX.
