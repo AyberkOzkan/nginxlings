@@ -11,7 +11,10 @@ Türkçe kurulum rehberi: [docs/INSTALL.tr.md](docs/INSTALL.tr.md).
 ## Install
 
 Download the file for your distribution from the latest GitHub Release. Most
-desktops install it on a double-click; the terminal command is given too.
+desktops install it from the file manager: double-click the file, or, where
+that opens the archive manager as on Ubuntu, right-click it and choose
+**Open With → Software Install**. The terminal command is given too; run it in
+the folder that holds the file, usually after `cd ~/Downloads`.
 
 | Distribution | File | Command |
 | --- | --- | --- |
@@ -20,6 +23,9 @@ desktops install it on a double-click; the terminal command is given too.
 | openSUSE | `nginxlings-<version>-1.x86_64.rpm` | `sudo zypper install --allow-unsigned-rpm ./nginxlings-<version>-1.x86_64.rpm` |
 | Arch, Manjaro | `nginxlings-<version>-1-x86_64.pkg.tar.zst` | `sudo pacman -U ./nginxlings-<version>-1-x86_64.pkg.tar.zst` |
 | Any other (Alpine, Void, ...) | `nginxlings_<version>_linux_amd64.tar.gz` | extract it, then `./install.sh` |
+
+If `apt` answers `Unsupported file`, the terminal is not in the folder that
+holds the file.
 
 ARM64 machines use the `arm64` / `aarch64` files. The package manager also
 installs what the exercises run: bash, curl, NGINX, Python 3, tmux and Docker,
@@ -70,7 +76,7 @@ Open Nginxlings from the application menu, or type `nginxlings` in a
 terminal. On first start it copies the exercises to `~/nginxlings`, where you
 edit them; `o` opens the selected exercise's folder. If something is still
 missing, usually Docker access for your user, the status row shows
-`! Setup` and `d` explains the fix; `f` runs it.
+`! Setup issues` and `d` explains the fix; `f` runs it.
 
 The left panel lists the exercises and the right panel shows the selected
 exercise's instructions. In the list, `✓` marks an exercise whose check passed

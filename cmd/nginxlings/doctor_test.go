@@ -185,7 +185,7 @@ func TestUpdateSetupPanelRunsTheFirstFix(t *testing.T) {
 	// The startup check reports the problem in the status and the status row.
 	m.status = m.initialStatusText()
 	m = updateWith(m, m.setupCheckCmd()())
-	if !strings.Contains(m.status, "Press d") || !strings.Contains(m.View(), "! Setup: 1") {
+	if !strings.Contains(m.status, "Press d") || !strings.Contains(m.View(), "! Setup issues: 1") {
 		t.Fatalf("status = %q; the status row should warn:\n%s", m.status, m.View())
 	}
 
