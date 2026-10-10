@@ -67,6 +67,9 @@ Temel tuşlar:
 - `?`: bütün tuşlar
 - `q`: çık (alttaki terminal de kapanır)
 
+Listede `✓` kontrolü geçen egzersizi, `x` henüz geçmeyeni gösterir. Hiç kontrol
+etmediğin egzersizler silik görünür.
+
 ## 4. Altta "! Kurulum" yazıyorsa
 
 Bir şey eksikse durum satırında `! Kurulum` uyarısı görünür. `d` tuşuna bas:

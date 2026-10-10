@@ -170,6 +170,16 @@ func TestUpdateCheckResultFailureState(t *testing.T) {
 	if got.exercises[0].Completed {
 		t.Fatalf("exercise completed = true, want false")
 	}
+	if !got.exercises[0].Attempted {
+		t.Fatalf("exercise attempted = false after a failed check, want true")
+	}
+	loaded, err := LoadState(statePath)
+	if err != nil {
+		t.Fatalf("LoadState() error = %v", err)
+	}
+	if done, checked := loaded.Completed["01_static_server"]; done || !checked {
+		t.Fatalf("saved state = (%v, %v), want a false entry for the failed check", done, checked)
+	}
 	if got.checkOutputs["01_static_server"] != "[FAIL] bad" {
 		t.Fatalf("check output = %q, want [FAIL] bad", got.checkOutputs["01_static_server"])
 	}
@@ -569,6 +579,30 @@ func TestUpdateCtrlCQuitsDuringResetConfirmation(t *testing.T) {
 	}
 }
 
+// TestInitialModelReadsAttemptsFromState: the state keeps a false entry for
+// an exercise whose last check failed, so it is known as tried after a restart.
+func TestInitialModelReadsAttemptsFromState(t *testing.T) {
+	root := newCLIAppRoot(t)
+	for _, id := range []string{"01_done", "02_failed", "03_untried"} {
+		createExercise(t, root, id)
+	}
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	state := &AppState{Completed: map[string]bool{"01_done": true, "02_failed": false}, LangCode: "en"}
+	if err := state.Save(statePath); err != nil {
+		t.Fatal(err)
+	}
+
+	m := initialModelWithOptions(AppPaths{WorkDir: root, AppRoot: root, AssetRoot: root, StateRoot: filepath.Dir(statePath), StateFile: statePath}, "en")
+	if len(m.exercises) != 3 {
+		t.Fatalf("exercises = %d, want 3", len(m.exercises))
+	}
+	for i, want := range []Exercise{{Completed: true, Attempted: true}, {Attempted: true}, {}} {
+		if got := m.exercises[i]; got.Completed != want.Completed || got.Attempted != want.Attempted {
+			t.Errorf("%s: completed, attempted = %v, %v; want %v, %v", got.ID, got.Completed, got.Attempted, want.Completed, want.Attempted)
+		}
+	}
+}
+
 func TestUpdateResetProgressClearsState(t *testing.T) {
 	root := newCLIAppRoot(t)
 	createExercise(t, root, "01_static_server")
@@ -586,6 +620,7 @@ func TestUpdateResetProgressClearsState(t *testing.T) {
 	m.paths.StateFile = statePath
 	m.state = state
 	m.exercises[0].Completed = true
+	m.exercises[0].Attempted = true
 	m.cursor = 0
 	m.confirmReset = true
 
@@ -595,8 +630,8 @@ func TestUpdateResetProgressClearsState(t *testing.T) {
 	if got.confirmReset {
 		t.Fatalf("confirmReset = true, want false")
 	}
-	if got.exercises[0].Completed {
-		t.Fatalf("exercise completed = true, want false")
+	if got.exercises[0].Completed || got.exercises[0].Attempted {
+		t.Fatalf("completed, attempted = %v, %v after the reset, want false, false", got.exercises[0].Completed, got.exercises[0].Attempted)
 	}
 	if got.cursor != 0 {
 		t.Fatalf("cursor = %d, want 0", got.cursor)

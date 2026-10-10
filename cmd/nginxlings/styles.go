@@ -8,6 +8,7 @@ type Styles struct {
 	ListTitle             lipgloss.Style
 	SelectedItem          lipgloss.Style
 	Item                  lipgloss.Style
+	UntriedItem           lipgloss.Style
 	CompletedItem         lipgloss.Style
 	SelectedCompletedItem lipgloss.Style
 	Box                   lipgloss.Style
@@ -33,6 +34,9 @@ func DefaultStyles() Styles {
 		Bold(true)
 
 	s.Item = lipgloss.NewStyle()
+
+	s.UntriedItem = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("243")) // gray: no check has run yet
 
 	s.CompletedItem = lipgloss.NewStyle().
 		Foreground(lipgloss.Color("82")) // yeşil

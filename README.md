@@ -53,7 +53,9 @@ missing, usually Docker access for your user, the status row shows
 `! Setup` and `d` explains the fix; `f` runs it.
 
 The left panel lists the exercises and the right panel shows the selected
-exercise's instructions:
+exercise's instructions. In the list, `✓` marks an exercise whose check passed
+and `x` one that has not passed yet; exercises you have not checked at all are
+dimmed.
 
 - `w` / `s`: select an exercise
 - `up` / `down`: scroll instructions
