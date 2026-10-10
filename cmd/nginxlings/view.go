@@ -547,18 +547,19 @@ func (m model) View() string {
 			}
 
 			name := displayName
-			if ex.Completed {
+			switch {
+			case i == m.cursor && ex.Completed:
+				name = m.styles.SelectedCompletedItem.Render(displayName)
+			case i == m.cursor:
+				name = m.styles.SelectedItem.Render(displayName)
+			case ex.Completed:
 				name = m.styles.CompletedItem.Render(displayName)
-			} else {
+			case ex.Attempted:
 				name = m.styles.Item.Render(displayName)
-			}
-
-			if i == m.cursor {
-				if ex.Completed {
-					name = m.styles.SelectedCompletedItem.Render(displayName)
-				} else {
-					name = m.styles.SelectedItem.Render(displayName)
-				}
+			default:
+				// Not tried yet: the mark and the name stay in the background.
+				icon = m.styles.UntriedItem.Render(icon)
+				name = m.styles.UntriedItem.Render(displayName)
 			}
 
 			line := fmt.Sprintf(" %s %s %s", arrow, icon, name)

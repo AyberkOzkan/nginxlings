@@ -133,6 +133,7 @@ func (m *model) quit() tea.Cmd {
 func (m *model) resetProgress() tea.Cmd {
 	for i := range m.exercises {
 		m.exercises[i].Completed = false
+		m.exercises[i].Attempted = false
 	}
 	m.cursor = 0
 	m.checkOutputs = nil
@@ -150,7 +151,8 @@ func (m *model) resetProgress() tea.Cmd {
 }
 
 // resetExerciseFiles restores the selected exercise's starting files. The
-// exercise is no longer completed, since its check fails again.
+// exercise is no longer completed, since its check fails again, and counts
+// as not tried.
 func (m *model) resetExerciseFiles() {
 	ex := m.exercises[m.cursor]
 	if err := ResetExercise(filepath.Join(m.paths.AssetRoot, "exercises"), m.paths.Workspace, ex.ID); err != nil {
@@ -158,10 +160,14 @@ func (m *model) resetExerciseFiles() {
 		return
 	}
 	m.exercises[m.cursor].Completed = false
+	m.exercises[m.cursor].Attempted = false
 	delete(m.checkOutputs, ex.ID)
 	m.loadReadmeForCurrent()
 	m.status = m.ui("status_reset_files_done", "Starting files restored.")
-	if m.state != nil && m.state.Completed[ex.ID] {
+	if m.state == nil {
+		return
+	}
+	if _, checked := m.state.Completed[ex.ID]; checked {
 		delete(m.state.Completed, ex.ID)
 		if err := m.state.Save(m.paths.StateFile); err != nil {
 			m.status = m.uif("status_state_save_failed", "Progress could not be saved: %v", err)
@@ -644,6 +650,7 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			success := (msg.err == nil)
 			m.exercises[msg.index].Completed = success
+			m.exercises[msg.index].Attempted = true
 
 			if m.state != nil {
 				if m.state.Completed == nil {

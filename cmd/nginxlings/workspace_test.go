@@ -312,6 +312,26 @@ func TestUpdateResetFilesRestoresTheExerciseAfterConfirmation(t *testing.T) {
 	}
 }
 
+// TestUpdateResetFilesForgetsAFailedCheck: with its starting files back, an
+// exercise whose check had failed counts as not tried again.
+func TestUpdateResetFilesForgetsAFailedCheck(t *testing.T) {
+	m, _ := workspaceModel(t)
+	m.exercises[0].Attempted = true
+	m.state.Completed["01_static"] = false
+
+	m = pressKeys(m, "ey")
+	if _, checked := m.state.Completed["01_static"]; checked || m.exercises[0].Attempted {
+		t.Fatalf("attempted = %v, state entry = %v after the reset; want neither", m.exercises[0].Attempted, checked)
+	}
+	loaded, err := LoadState(m.paths.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, checked := loaded.Completed["01_static"]; checked {
+		t.Fatal("the saved state still holds the failed check")
+	}
+}
+
 func TestUpdateResetFilesNeedsAWorkspace(t *testing.T) {
 	m, _ := workspaceModel(t)
 	m.paths.Workspace = ""

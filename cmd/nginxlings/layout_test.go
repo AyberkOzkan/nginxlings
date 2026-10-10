@@ -369,6 +369,28 @@ func TestViewListMarksHiddenExercises(t *testing.T) {
 	}
 }
 
+// TestViewDimsOnlyExercisesWithoutACheck: a tried exercise and the selected
+// one keep their look; only an exercise no check has run on is dimmed.
+func TestViewDimsOnlyExercisesWithoutACheck(t *testing.T) {
+	m := layoutTestModel(100, 24)
+	// Tests render without colour, so the untried style marks its text here.
+	m.styles.UntriedItem = lipgloss.NewStyle().Transform(func(s string) string { return "<" + s + ">" })
+	m.exercises = []Exercise{
+		{ID: "01_done", DefaultName: "01 - Done", Completed: true, Attempted: true},
+		{ID: "02_failed", DefaultName: "02 - Failed", Attempted: true},
+		{ID: "03_untried", DefaultName: "03 - Untried"},
+		{ID: "04_selected", DefaultName: "04 - Selected"},
+	}
+	m.cursor = 3
+
+	rendered := m.View()
+	for _, want := range []string{"✓ 01 - Done", "x 02 - Failed", "<x> <03 - Untried>", "➤ x 04 - Selected"} {
+		if !strings.Contains(rendered, want) {
+			t.Errorf("list lacks %q:\n%s", want, rendered)
+		}
+	}
+}
+
 func TestViewOneRowListCountsBothDirectionsInTheGap(t *testing.T) {
 	m := layoutTestModel(40, 16)
 	m.cursor = 3

@@ -19,6 +19,9 @@ type Exercise struct {
 	DefaultName string
 	Path        string
 	Completed   bool
+	// Attempted is true once a check has run on the exercise, whatever its
+	// result. The list dims the exercises that have not been tried yet.
+	Attempted bool
 }
 
 type checkResultMsg struct {
@@ -233,12 +236,11 @@ func initialModelWithOptions(paths AppPaths, initialLang string) model {
 		m.status = m.uif("status_exercises_load_failed", "Exercises could not be loaded: %v", exercisesErr)
 	}
 
-	// State'ten tamamlananları işaretle
+	// The state holds an entry for every exercise that was checked: true
+	// when its last check passed, false when it failed.
 	if m.state != nil && m.state.Completed != nil {
 		for i := range exercises {
-			if m.state.Completed[exercises[i].ID] {
-				exercises[i].Completed = true
-			}
+			exercises[i].Completed, exercises[i].Attempted = m.state.Completed[exercises[i].ID]
 		}
 	}
 

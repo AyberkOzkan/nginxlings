@@ -1,10 +1,12 @@
 # Nginxlings
 
-Nginxlings is a terminal training app for learning NGINX through small, runnable exercises. It uses a Bubble Tea TUI to show exercise instructions, run each exercise's `check.sh`, and track local progress.
+Nginxlings teaches NGINX through small exercises that you run in your terminal. Each exercise starts with a configuration that does not work yet: you read the instructions, fix the files, and press `c` to have your work checked.
 
-The project currently includes 18 exercises under `exercises/`.
+![Nginxlings in a terminal: the first exercise's check fails, the hint appears, the files are fixed in the terminal below, and the check passes](docs/demo.gif)
 
-A Turkish installation guide for learners is in `docs/INSTALL.tr.md`.
+There are 18 exercises, from a first static server to reverse proxying, load balancing, TLS and shared memory zones. The app, the instructions and the hints are in English and Turkish.
+
+Türkçe kurulum rehberi: [docs/INSTALL.tr.md](docs/INSTALL.tr.md).
 
 ## Install
 
@@ -20,15 +22,9 @@ desktops install it on a double-click; the terminal command is given too.
 | Any other (Alpine, Void, ...) | `nginxlings_<version>_linux_amd64.tar.gz` | extract it, then `./install.sh` |
 
 ARM64 machines use the `arm64` / `aarch64` files. The package manager also
-installs what the exercises run: bash, curl, NGINX, Python 3 and Docker, and
-the package starts the Docker service. `install.sh` does the same with the
+installs what the exercises run: bash, curl, NGINX, Python 3, tmux and Docker,
+and the package starts the Docker service. `install.sh` does the same with the
 distribution's package manager and installs nginxlings in `/usr/local`.
-
-Then open Nginxlings from the application menu, or type `nginxlings` in a
-terminal. On first start it copies the exercises to `~/nginxlings`, where you
-edit them; `o` opens the selected exercise's folder. If something is still
-missing, usually Docker access for your user, the status row shows
-`! Setup` and `d` explains the fix; `f` runs it.
 
 On Rocky, AlmaLinux and RHEL the package installs Podman's `docker` command
 instead of Docker. Every exercise runs with it except 10, which teaches
@@ -40,21 +36,7 @@ To remove nginxlings, remove the package (`sudo apt remove nginxlings`,
 `sudo dnf remove nginxlings`, `sudo pacman -R nginxlings`) or run
 `./install.sh --uninstall`. Your work in `~/nginxlings` is kept.
 
-## Requirements
-
-To build or run from source:
-
-- Go 1.26 or newer (only to build or run from source)
-- A POSIX-like shell environment
-- `bash`
-- `curl`
-- `nginx` for local NGINX exercises
-- Docker for container-based exercises
-- `python3` for exercises that start local helper servers
-
-Some exercises install or run extra tools inside Docker images, such as `socat`, `jq`, or `openssl`.
-
-## Supported Platforms
+### Supported platforms
 
 The supported runtime and release target is Linux on AMD64 and ARM64: packages
 for the Debian, Fedora/RHEL/openSUSE and Arch families, and `install.sh` for
@@ -62,15 +44,18 @@ other distributions.
 
 Native macOS and Windows builds are not produced. Windows users may run a Linux release through WSL2 with Docker integration.
 
-## Quick Start
+## Using Nginxlings
 
-Run the app from the repository root:
+Open Nginxlings from the application menu, or type `nginxlings` in a
+terminal. On first start it copies the exercises to `~/nginxlings`, where you
+edit them; `o` opens the selected exercise's folder. If something is still
+missing, usually Docker access for your user, the status row shows
+`! Setup` and `d` explains the fix; `f` runs it.
 
-```sh
-go run ./cmd/nginxlings
-```
-
-Inside the TUI:
+The left panel lists the exercises and the right panel shows the selected
+exercise's instructions. In the list, `✓` marks an exercise whose check passed
+and `x` one that has not passed yet; exercises you have not checked at all are
+dimmed.
 
 - `w` / `s`: select an exercise
 - `up` / `down`: scroll instructions
@@ -108,7 +93,22 @@ splits a terminal below it. `--no-tmux` or `NGINXLINGS_NO_TMUX=1` runs without
 the pane; `t` then opens a full-screen shell in the exercise folder, and `exit`
 returns to nginxlings.
 
-## CLI Usage
+### Troubleshooting
+
+If a check fails because a command is missing, install the required command shown in the failure message. Common missing commands are `nginx`, `docker`, `curl`, `bash`, and `python3`.
+
+If a Docker exercise fails to start, check that Docker is running and that the exercise's default host port is not already in use. Several checks allow port overrides through environment variables documented in the script, for example:
+
+```sh
+HOST_PORT=18199 ./check.sh
+```
+
+If a local NGINX exercise fails on port `8080` or `8081`, stop the process already using that port before rerunning the check.
+
+## Command Line
+
+The examples below run from the repository with `go run ./cmd/nginxlings`; an
+installed copy takes the same flags, for example `nginxlings --doctor`.
 
 Show help or version information without starting the TUI:
 
@@ -156,15 +156,35 @@ go run ./cmd/nginxlings --state /tmp/nginxlings-state.json
 
 Flag values take precedence over the matching environment variables for that run.
 
-## Important Runtime Notes
+## Running From Source
 
-During development, run Nginxlings from the repository root:
+You need:
+
+- Go 1.26 or newer
+- A POSIX-like shell environment
+- `bash`
+- `curl`
+- `nginx` for local NGINX exercises
+- Docker for container-based exercises
+- `python3` for exercises that start local helper servers
+
+Some exercises install or run extra tools inside Docker images, such as `socat`, `jq`, or `openssl`.
+
+Run the app from the repository root:
 
 ```sh
 go run ./cmd/nginxlings
 ```
 
+### Where assets and progress live
+
 The app looks for `exercises/` and `i18n/` in `NGINXLINGS_ASSET_ROOT`, the current directory and its parents, the binary's directory and its parents, and finally `<prefix>/share/nginxlings` next to `<prefix>/bin/nginxlings`, where packages and `install.sh` put them. This keeps repository-root development working while installed copies find their assets from anywhere.
+
+If the TUI cannot find exercises or translations, make sure you started it from the repository root or set `NGINXLINGS_ASSET_ROOT`:
+
+```sh
+NGINXLINGS_ASSET_ROOT=/path/to/nginxlings go run ./cmd/nginxlings
+```
 
 When the assets come from `<prefix>/share/nginxlings`, the learner cannot edit them there, so the app copies the exercises to `~/nginxlings` and works on that copy. Every start updates it from the installed version: new exercises and files are added, check scripts, READMEs and the shared library are replaced, and other files are replaced only while the learner has not changed them. `--workspace <path>` or `NGINXLINGS_WORKSPACE` picks another folder and also turns the copy on for the repository or an extracted archive, which otherwise edit the exercises in place.
 
@@ -190,7 +210,7 @@ go run ./cmd/nginxlings --state /tmp/nginxlings-state.json
 
 The state file stores completed exercises, the last selected exercise, and the selected language. Older repository-local `.nginxlings_state.json` files are no longer written by the app.
 
-## Running Checks
+### Running checks
 
 Each exercise has its own `check.sh`. The TUI runs the selected exercise's script from that exercise directory.
 
@@ -206,46 +226,7 @@ cd exercises/01_static_server
 
 Container-based exercises use exercise-scoped labels, build temporary images named `nginxlings/<exercise-id>:check`, and remove only the containers, networks, and images created for that check. Checks do not prune the global Docker builder cache.
 
-## Release Archives
-
-Tagged releases provide Linux packages (see Install) and archives for AMD64 and ARM64 through GitHub Releases. To run from an archive without installing it, extract the complete archive and keep `exercises/` and `i18n/` beside the `nginxlings` binary:
-
-```sh
-tar -xzf nginxlings_<version>_<os>_<arch>.tar.gz
-./nginxlings --version
-```
-
-Each release includes `checksums.txt` for SHA-256 verification and GitHub artifact attestations. npm and Homebrew packages are not published; this keeps installation independent from npm registry packages and lifecycle scripts.
-
-## Troubleshooting
-
-If the TUI cannot find exercises or translations, make sure you started it from the repository root or set `NGINXLINGS_ASSET_ROOT`:
-
-```sh
-pwd
-go run ./cmd/nginxlings
-NGINXLINGS_ASSET_ROOT=/path/to/nginxlings go run ./cmd/nginxlings
-```
-
-If a check fails because a command is missing, install the required command shown in the failure message. Common missing commands are `nginx`, `docker`, `curl`, `bash`, and `python3`.
-
-If a Docker exercise fails to start, check that Docker is running and that the exercise's default host port is not already in use. Several checks allow port overrides through environment variables documented in the script, for example:
-
-```sh
-HOST_PORT=18199 ./check.sh
-```
-
-If a local NGINX exercise fails on port `8080` or `8081`, stop the process already using that port before rerunning the check.
-
-## Contributing
-
-See `CONTRIBUTING.md` for the development workflow, translation rules, and the checklist for adding exercises. Contributions are accepted under `AGPL-3.0-only`.
-
-## License
-
-Copyright (c) 2026 Kenan Ayberk Özkan. Nginxlings is licensed under `AGPL-3.0-only`. You may use, study, modify, and redistribute it under that license. Modified versions, including versions offered over a network, must make their complete corresponding source available under the same license. This prevents incorporating Nginxlings into a closed-source product without complying with the AGPL terms. See `LICENSE` for the complete terms.
-
-## Project Layout
+### Project layout
 
 ```text
 cmd/nginxlings/   Bubble Tea TUI application
@@ -254,11 +235,11 @@ exercises/lib/    Shared helpers sourced by every check.sh
 i18n/             UI texts, exercise titles, and hints per language
 packaging/        Menu entry, icon and post-install script of the Linux packages
 install.sh        Installer for distributions without a package
-docs/             Installation, maintainer and release documentation
+docs/             Installation, maintainer and release documentation; the README demo
 tests/            Black-box test suites (see tests/TESTING.md)
 ```
 
-## Development Checks
+### Development checks
 
 Before committing changes, run:
 
@@ -268,3 +249,22 @@ go test ./...
 go vet ./...
 for script in exercises/*/check.sh exercises/lib/*.sh; do bash -n "$script"; done
 ```
+
+## Release Archives
+
+Tagged releases provide Linux packages (see Install) and archives for AMD64 and ARM64 through GitHub Releases. To run from an archive without installing it, extract the complete archive and keep `exercises/` and `i18n/` beside the `nginxlings` binary:
+
+```sh
+tar -xzf nginxlings_<version>_<os>_<arch>.tar.gz
+./nginxlings --version
+```
+
+Each release includes `checksums.txt` for SHA-256 verification; releases made while the repository is public also carry GitHub artifact attestations. npm and Homebrew packages are not published; this keeps installation independent from npm registry packages and lifecycle scripts.
+
+## Contributing
+
+See `CONTRIBUTING.md` for the development workflow, translation rules, and the checklist for adding exercises. Contributions are accepted under `AGPL-3.0-only`.
+
+## License
+
+Copyright (c) 2026 Kenan Ayberk Özkan. Nginxlings is licensed under `AGPL-3.0-only`. You may use, study, modify, and redistribute it under that license. Modified versions, including versions offered over a network, must make their complete corresponding source available under the same license. This prevents incorporating Nginxlings into a closed-source product without complying with the AGPL terms. See `LICENSE` for the complete terms.
