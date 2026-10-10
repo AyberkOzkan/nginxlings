@@ -97,11 +97,13 @@ tests/            Black-box test suites (see tests/TESTING.md)
 
 ## Development Workflow
 
-1. Fork the repository and create a focused branch.
+The repository has two long-lived branches. `develop` collects finished work. `main` holds what has been released and only receives the release pull request from `develop`.
+
+1. Fork the repository and create a focused branch from `develop`.
 2. Keep changes limited to one behavior or backlog item.
 3. Add or update tests for behavior changes.
 4. Run the validation commands below.
-5. Open a pull request that describes the behavior, tests, and remaining risks.
+5. Open a pull request into `develop` that describes the behavior, tests, and remaining risks. CI fails a pull request into `main` from any other branch.
 
 Do not commit generated runtime files such as logs, PID files, `.check_body`, `response.html`, or release output under `dist/`.
 
