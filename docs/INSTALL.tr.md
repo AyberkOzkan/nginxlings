@@ -22,16 +22,27 @@ dizüstüler), adında `arm64` ya da `aarch64` geçen dosyayı indir.
 
 ## 2. Kur
 
-İndirdiğin dosyaya çift tıkla. Uygulama merkezi (software center) açılır,
-"Kur" düğmesine bas ve şifreni gir. Çift tıklama işe yaramazsa, dosyanın
-bulunduğu klasörde bir terminal aç ve dağıtımına uyan komutu yaz:
+İndirdiğin dosyaya çift tıkla. Uygulama merkezi (software center) açılırsa
+"Kur" düğmesine bas ve şifreni gir.
+
+Ubuntu'da çift tıklama paketi kurmaz, arşiv yöneticisini açar ("Çıkar" ya da
+"Extract" düğmesi görünür). O pencereyi kapat, dosyaya sağ tıkla, "Birlikte Aç"
+(Open With) menüsünden "Yazılım Kur"u (Software Install) seç, sonra "Kur"
+düğmesine bas ve şifreni gir.
+
+Bu da işe yaramazsa bir terminal aç, dosyayı indirdiğin klasöre geç ve
+dağıtımına uyan komutu yaz:
 
 ```sh
+cd ~/Downloads                                                # Türkçe kurulumda: cd ~/İndirilenler
 sudo apt install ./nginxlings_*_amd64.deb                     # Ubuntu, Debian, Mint
 sudo dnf install ./nginxlings-*.x86_64.rpm                    # Fedora, Rocky, Alma
 sudo zypper install --allow-unsigned-rpm ./nginxlings-*.rpm   # openSUSE
 sudo pacman -U ./nginxlings-*.pkg.tar.zst                     # Arch, Manjaro
 ```
+
+`apt` "Unsupported file" derse terminal dosyanın bulunduğu klasörde değildir;
+önce `cd` komutunu çalıştır.
 
 Diğer dağıtımlarda `.tar.gz` dosyasını çift tıklayıp bir klasöre çıkar, o
 klasörde bir terminal aç ve `./install.sh` yaz.
