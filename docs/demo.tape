@@ -3,9 +3,8 @@
 #
 # Run `vhs docs/demo.tape` from the home directory of a regular user, on a
 # machine with the nginxlings package installed, nano, and no ~/nginxlings
-# yet; it writes demo.gif there. /solution holds a solved copy of exercise 01:
-# the solution is applied off camera, so the recording does not give it away.
-# VHS cannot press F2, so the hidden part also moves back to nginxlings.
+# yet; it writes demo.gif there. The recording solves exercise 01 on camera.
+# VHS cannot press F2, so a hidden command moves back to nginxlings.
 
 Output demo.gif
 
@@ -27,43 +26,79 @@ Sleep 2.5s
 Type "s"
 Sleep 900ms
 Type "s"
-Sleep 900ms
-Type "s"
-Sleep 1.4s
-Type "w"
-Sleep 500ms
+Sleep 1.2s
 Type "w"
 Sleep 500ms
 Type "w"
 Sleep 1.5s
 
-# The starting files do not pass.
+# The starting files do not pass. A checked exercise is no longer dimmed.
 Type "c"
 Wait+Screen /FAIL/
-Sleep 4s
+Sleep 3.5s
+Type "s"
+Sleep 1.5s
+Type "w"
+Sleep 800ms
 
 Type "h"
-Sleep 4s
+Sleep 3.5s
 Type "h"
-Sleep 1s
+Sleep 800ms
 
 # t moves to the terminal below, in the exercise's folder.
 Type "t"
 Sleep 1.5s
+
 Type "nano nginx.conf"
-Sleep 500ms
+Sleep 400ms
 Enter
-Sleep 3.5s
+Sleep 1.2s
+Ctrl+W
+Type "missing"
+Enter
+Sleep 900ms
+Delete 7
+Type "."
+Sleep 900ms
+Ctrl+W
+Enter
+Sleep 700ms
+Delete 7
+Type "index"
+Sleep 1.2s
+Ctrl+O
+Enter
+Sleep 500ms
+Ctrl+X
+Sleep 700ms
+
+Type "nano index.html"
+Sleep 400ms
+Enter
+Sleep 1.2s
+Ctrl+W
+Type "Static server ex"
+Enter
+Sleep 900ms
+Delete 22
+Type "Merhaba Nginxlings"
+Sleep 1.2s
+Ctrl+O
+Enter
+Sleep 500ms
+Ctrl+X
+Sleep 700ms
 
 Hide
-Ctrl+X
-Sleep 500ms
-Type "cp /solution/* . && tmux select-pane -t :.0 && clear"
+Type "tmux select-pane -t :.0 && clear"
 Enter
 Sleep 1s
 Show
 
-Sleep 1s
+Sleep 800ms
 Type "c"
 Wait+Screen /PASS/
-Sleep 5s
+Sleep 3.5s
+Type "s"
+Sleep 4s

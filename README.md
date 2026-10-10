@@ -2,7 +2,7 @@
 
 Nginxlings teaches NGINX through small exercises that you run in your terminal. Each exercise starts with a configuration that does not work yet: you read the instructions, fix the files, and press `c` to have your work checked.
 
-![Nginxlings in a terminal: a check fails, the hint appears, and after the files are fixed the check passes](docs/demo.gif)
+![Nginxlings in a terminal: the first exercise's check fails, the hint appears, the files are fixed in the terminal below, and the check passes](docs/demo.gif)
 
 There are 18 exercises, from a first static server to reverse proxying, load balancing, TLS and shared memory zones. The app, the instructions and the hints are in English and Turkish.
 
