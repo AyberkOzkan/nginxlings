@@ -37,7 +37,7 @@
   "status_folder_opened": "Opened %s in the file manager.",
   "status_folder_open_failed": "No file manager could be opened. The files are in %s",
   "doctor_title": "Setup check",
-  "setup_label": "Setup",
+  "setup_label": "Setup issues",
   "doctor_ok": "Everything the exercises need is ready: %s.",
   "doctor_missing_cmd": "%s is not installed.",
   "doctor_install_fix": "Install it with:",

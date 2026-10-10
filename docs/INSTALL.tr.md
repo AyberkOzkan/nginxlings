@@ -81,9 +81,10 @@ Temel tuşlar:
 Listede `✓` kontrolü geçen egzersizi, `x` henüz geçmeyeni gösterir. Hiç kontrol
 etmediğin egzersizler silik görünür.
 
-## 4. Altta "! Kurulum" yazıyorsa
+## 4. Altta "! Kurulum eksiği" yazıyorsa
 
-Bir şey eksikse durum satırında `! Kurulum` uyarısı görünür. `d` tuşuna bas:
+Bir şey eksikse durum satırında `! Kurulum eksiği: 1` gibi bir uyarı görünür.
+Bu, bekleyen bir kurulum değil, eksik kalan bir ayardır. `d` tuşuna bas:
 Nginxlings neyin eksik olduğunu ve nasıl düzeleceğini yazar. `f` tuşu
 gösterilen komutu senin için çalıştırır ve terminalde şifreni sorar.
 

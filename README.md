@@ -76,7 +76,7 @@ Open Nginxlings from the application menu, or type `nginxlings` in a
 terminal. On first start it copies the exercises to `~/nginxlings`, where you
 edit them; `o` opens the selected exercise's folder. If something is still
 missing, usually Docker access for your user, the status row shows
-`! Setup` and `d` explains the fix; `f` runs it.
+`! Setup issues` and `d` explains the fix; `f` runs it.
 
 The left panel lists the exercises and the right panel shows the selected
 exercise's instructions. In the list, `✓` marks an exercise whose check passed

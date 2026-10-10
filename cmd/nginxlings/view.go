@@ -424,7 +424,7 @@ func (m model) statusRows(maxRows int) []string {
 	langSegment := m.styles.Help.Render(fmt.Sprintf("%s: %s", m.ui("lang_label", "Lang"), m.currentLangLabel()))
 	// A failed setup check stays in sight until it is fixed.
 	if m.setup != nil && len(m.setup.problems) > 0 {
-		langSegment += m.styles.Warning.Render(fmt.Sprintf("! %s: %d", m.ui("setup_label", "Setup"), len(m.setup.problems)))
+		langSegment += m.styles.Warning.Render(fmt.Sprintf("! %s: %d", m.ui("setup_label", "Setup issues"), len(m.setup.problems)))
 	}
 	statusText := m.statusText()
 
