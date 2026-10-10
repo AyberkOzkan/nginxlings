@@ -6,7 +6,8 @@ kopyalanabilir.
 
 ## 1. Dosyayı indir
 
-Eğitmeninin verdiği bağlantıdan ya da projenin GitHub sayfasındaki son sürümden
+Projenin GitHub sayfasındaki
+[son sürümden](https://github.com/AyberkOzkan/nginxlings/releases/latest)
 (release) kendi dağıtımına uygun dosyayı indir:
 
 | Dağıtımın | İndireceğin dosya |
@@ -98,8 +99,7 @@ Bu dağıtımlarda kurulum Docker yerine Podman'ın `docker` komutunu kurar.
 Egzersiz 10 dışındaki bütün egzersizler onunla çalışır. Egzersiz 10, Docker'ın
 `127.0.0.11` adresindeki DNS sunucusunu öğretir; Podman'da bu sunucu yoktur.
 Kurulum kontrolü (`d`) bunu bir not olarak gösterir, egzersiz 10'un kontrolü de
-aynı açıklamayla durur. O egzersiz için eğitmeninden Docker CE kurulumunda yardım
-iste.
+aynı açıklamayla durur.
 
 ## Kaldırma
 
