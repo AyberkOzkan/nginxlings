@@ -13,7 +13,7 @@ Only GitHub Releases are published. Native macOS and Windows builds, npm package
 ## Before Tagging
 
 1. Confirm that the release contents remain compatible with `AGPL-3.0-only`.
-2. Run the development checks from `README.md`.
+2. Run the validation commands from `CONTRIBUTING.md`.
 3. Run `goreleaser check` and `goreleaser release --snapshot --clean` with GoReleaser v2 in a clean checkout, so local files such as `exercises/*/logs/` do not end up in the packages.
 4. Confirm that `./dist` contains two archives (`linux_amd64` and `linux_arm64`), two each of `.deb`, `.rpm` and `.pkg.tar.zst`, and `checksums.txt`.
 5. Extract one archive into an empty directory and confirm that `./nginxlings --list` prints all exercises from there.

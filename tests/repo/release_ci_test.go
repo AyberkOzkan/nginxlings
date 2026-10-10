@@ -255,12 +255,12 @@ func TestRepoDocsMatchSupportedToolchainAndTargets(t *testing.T) {
 	if goVersion == nil {
 		t.Fatal("go.mod has no go directive")
 	}
-	readme, err := os.ReadFile(filepath.Join(root, "README.md"))
+	contributing, err := os.ReadFile(filepath.Join(root, "CONTRIBUTING.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "Go " + string(goVersion[1]) + " or newer"; !strings.Contains(string(readme), want) {
-		t.Fatalf("README.md does not state %q from go.mod", want)
+	if want := "Go " + string(goVersion[1]) + " or newer"; !strings.Contains(string(contributing), want) {
+		t.Fatalf("CONTRIBUTING.md does not state %q from go.mod", want)
 	}
 
 	for _, doc := range []string{"CONTRIBUTING.md", filepath.Join("docs", "RELEASING.md")} {
